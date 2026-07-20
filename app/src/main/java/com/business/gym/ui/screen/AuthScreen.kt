@@ -1,6 +1,7 @@
 package com.business.gym.ui.screen
 
 import android.app.Activity
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,6 +35,7 @@ fun AuthScreen(
 ) {
     val email by viewModel.email
     val password by viewModel.password
+    val confirmPassword by viewModel.confirmPassword
     val phoneNumber by viewModel.phoneNumber
     val otpCode by viewModel.otpCode
     val verificationId by viewModel.verificationId
@@ -41,10 +43,48 @@ fun AuthScreen(
     val isLogin by viewModel.isLogin
     val error by viewModel.error
     val isLoading by viewModel.isLoading
+    val showSetPasswordDialog by viewModel.showSetPasswordDialog
+    val loginWithPasswordMode by viewModel.loginWithPasswordMode
     
     val isPreview = LocalInspectionMode.current
     val context = LocalContext.current
     val activity = context as? Activity
+
+    var newPasswordInput by remember { mutableStateOf("") }
+
+    if (showSetPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissSetPasswordDialog() },
+            title = { Text(stringResource(R.string.auth_set_password_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.auth_set_password_desc))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = newPasswordInput,
+                        onValueChange = { newPasswordInput = it },
+                        label = { Text(stringResource(R.string.auth_password_hint)) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (newPasswordInput.length >= 6) {
+                        viewModel.setPasswordForPhoneUser(newPasswordInput) {
+                            Toast.makeText(context, "Пароль установлен", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(context, "Минимум 6 символов", Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text(stringResource(R.string.btn_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissSetPasswordDialog() }) { Text(stringResource(R.string.btn_cancel)) }
+            }
+        )
+    }
     
     val oneTapClient = remember { if (isPreview) null else Identity.getSignInClient(context) }
     val googleLauncher = rememberLauncherForActivityResult(
@@ -136,8 +176,20 @@ fun AuthScreen(
                 singleLine = true,
                 enabled = !isLoading
             )
+            if (!isLogin) {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { viewModel.onConfirmPasswordChange(it) },
+                    label = { Text(stringResource(R.string.auth_confirm_password_hint)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !isLoading
+                )
+            }
         } else if (authMode == "phone") {
-            if (verificationId == null) {
+            if (loginWithPasswordMode) {
                 OutlinedTextField(
                     value = phoneNumber,
                     onValueChange = { viewModel.onPhoneNumberChange(it) },
@@ -146,17 +198,44 @@ fun AuthScreen(
                     singleLine = true,
                     enabled = !isLoading
                 )
-            } else {
-                Text(stringResource(R.string.auth_sms_code) + " -> $phoneNumber", style = MaterialTheme.typography.bodyMedium)
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
-                    value = otpCode,
-                    onValueChange = { viewModel.onOtpCodeChange(it) },
-                    label = { Text(stringResource(R.string.auth_sms_code)) },
+                    value = password,
+                    onValueChange = { viewModel.onPasswordChange(it) },
+                    label = { Text(stringResource(R.string.auth_password_hint)) },
+                    visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     enabled = !isLoading
                 )
+                TextButton(onClick = { viewModel.toggleLoginWithPassword() }) {
+                    Text(stringResource(R.string.auth_login_with_sms))
+                }
+            } else {
+                if (verificationId == null) {
+                    OutlinedTextField(
+                        value = phoneNumber,
+                        onValueChange = { viewModel.onPhoneNumberChange(it) },
+                        label = { Text(stringResource(R.string.auth_enter_phone) + " (+7...)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        enabled = !isLoading
+                    )
+                    TextButton(onClick = { viewModel.toggleLoginWithPassword() }) {
+                        Text(stringResource(R.string.auth_login_with_password))
+                    }
+                } else {
+                    Text(stringResource(R.string.auth_sms_code) + " -> $phoneNumber", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = otpCode,
+                        onValueChange = { viewModel.onOtpCodeChange(it) },
+                        label = { Text(stringResource(R.string.auth_sms_code)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        enabled = !isLoading
+                    )
+                }
             }
         }
 
@@ -180,7 +259,9 @@ fun AuthScreen(
                         if (isLogin) viewModel.signInWithEmail(onAuthSuccess)
                         else viewModel.signUpWithEmail(onAuthSuccess)
                     } else if (authMode == "phone") {
-                        if (verificationId == null) {
+                        if (loginWithPasswordMode) {
+                            viewModel.signInWithPhoneAndPassword(onAuthSuccess)
+                        } else if (verificationId == null) {
                             activity?.let { viewModel.startPhoneVerification(it) }
                         } else {
                             viewModel.verifyOtp(context, onAuthSuccess)

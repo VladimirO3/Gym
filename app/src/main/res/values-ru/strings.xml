@@ -83,4 +83,10 @@
     <string name="add_track_url_title">Добавить трек по ссылке</string>
     <string name="track_name_label">Название трека</string>
     <string name="add_by_link_desc">Добавить по ссылке</string>
+    <string name="auth_set_password_title">Установить постоянный пароль</string>
+    <string name="auth_set_password_desc">Вы можете установить пароль, чтобы в следующий раз входить без SMS.</string>
+    <string name="auth_login_with_password">Вход по паролю</string>
+    <string name="auth_login_with_sms">Вход по SMS</string>
+    <string name="auth_confirm_password_hint">Подтвердите пароль</string>
+    <string name="btn_save">Сохранить</string>
 </resources>

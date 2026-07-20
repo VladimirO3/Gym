@@ -16,20 +16,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.business.gym.data.model.NewsItem
 
 @Composable
-fun NewsMediaItem(item: NewsItem, isAdmin: Boolean, exoPlayer: ExoPlayer? = null, onDelete: () -> Unit) {
+fun NewsMediaItem(item: NewsItem, isAdmin: Boolean, onDelete: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box {
             if (item.type == "video") {
-                VideoPlayer(videoUrl = item.url, exoPlayer = exoPlayer, modifier = Modifier.fillMaxWidth().height(250.dp))
+                VideoPlayer(
+                    videoUrl = item.url, 
+                    modifier = Modifier.fillMaxWidth().height(250.dp),
+                    autoPlay = true,
+                    muted = true,
+                    looping = true
+                )
             } else {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)

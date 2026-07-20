@@ -83,4 +83,10 @@
     <string name="add_track_url_title">Add Track by URL</string>
     <string name="track_name_label">Track Name</string>
     <string name="add_by_link_desc">Add by Link</string>
+    <string name="auth_set_password_title">Set Permanent Password</string>
+    <string name="auth_set_password_desc">You can set a password to log in without SMS next time.</string>
+    <string name="auth_login_with_password">Login with Password</string>
+    <string name="auth_login_with_sms">Login with SMS</string>
+    <string name="auth_confirm_password_hint">Confirm Password</string>
+    <string name="btn_save">Save</string>
 </resources>

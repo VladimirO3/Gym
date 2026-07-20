@@ -31,8 +31,8 @@ import com.business.gym.ui.viewmodel.PlaylistViewModel
 fun PlaylistScreen(
     exoPlayer: ExoPlayer,
     isAdmin: Boolean,
-    viewModel: PlaylistViewModel = viewModel(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: PlaylistViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val tracks by viewModel.tracks

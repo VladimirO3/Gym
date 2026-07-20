@@ -63,7 +63,7 @@ class ChatViewModel : ViewModel() {
                             override fun onDataChange(userSnapshot: DataSnapshot) {
                                 for (uChild in userSnapshot.children) {
                                     val u = uChild.getValue(UserProfile::class.java)
-                                    if (u?.email?.trim() == "+79530481451") {
+                                    if (u?.email?.trim() == AuthViewModel.ADMIN_EMAIL) {
                                         _users.value = listOf(u)
                                         database.child("contacts").child(currentUid).child(u.uid).setValue(u)
                                         break

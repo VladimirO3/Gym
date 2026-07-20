@@ -134,16 +134,6 @@ fun GymApp(exoPlayer: ExoPlayer? = null, auth: FirebaseAuth? = null) {
             Triple(stringResource(R.string.tab_about), Icons.Default.Add, Screen.About.route)
         )
 
-        val tabs = remember(currentUserEmail) {
-            allTabs.filter { (_, _, route) ->
-                if (currentUserEmail == null) {
-                    route != Screen.Playlist.route && route != Screen.Chat.route
-                } else {
-                    true
-                }
-            }
-        }
-
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
@@ -153,10 +143,10 @@ fun GymApp(exoPlayer: ExoPlayer? = null, auth: FirebaseAuth? = null) {
             bottomBar = {
                 Column {
                     ScrollableTabRow(
-                        selectedTabIndex = tabs.indexOfFirst { it.third == currentRoute }.takeIf { it != -1 } ?: 0,
+                        selectedTabIndex = allTabs.indexOfFirst { it.third == currentRoute }.takeIf { it != -1 } ?: 0,
                         divider = {},
                         indicator = {
-                            val selectedIndex = tabs.indexOfFirst { it.third == currentRoute }
+                            val selectedIndex = allTabs.indexOfFirst { it.third == currentRoute }
                             if (selectedIndex != -1) {
                                 TabRowDefaults.SecondaryIndicator(
                                     Modifier.tabIndicatorOffset(selectedIndex),
@@ -165,7 +155,7 @@ fun GymApp(exoPlayer: ExoPlayer? = null, auth: FirebaseAuth? = null) {
                             }
                         }
                     ) {
-                        tabs.forEach { (title, icon, route) ->
+                        allTabs.forEach { (title, icon, route) ->
                             Tab(
                                 selected = currentRoute == route,
                                 onClick = { 
@@ -215,31 +205,29 @@ fun GymApp(exoPlayer: ExoPlayer? = null, auth: FirebaseAuth? = null) {
             }
         ) { innerPadding ->
             Box(modifier = Modifier.fillMaxSize()) {
-                if (!showAuthOverlay) {
-                    GymNavGraph(
-                        navController = navController,
-                        exoPlayer = exoPlayer!!,
-                        isAdmin = isAdmin,
-                        currentUid = auth?.currentUser?.uid ?: "",
-                        currentUserEmail = currentUserEmail,
-                        onAuthSuccess = { email -> 
-                            currentUserEmail = email
-                            showAuthOverlay = false
-                            navController.navigate(currentRoute ?: Screen.News.route)
-                        },
-                        onLogout = {
-                            auth?.signOut()
-                            context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
-                                .edit().remove("user_session_email").remove("user_session_timestamp").apply()
-                            currentUserEmail = null
-                            navController.navigate(Screen.News.route)
-                        },
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                GymNavGraph(
+                    navController = navController,
+                    exoPlayer = exoPlayer!!,
+                    isAdmin = isAdmin,
+                    currentUid = auth?.currentUser?.uid ?: "",
+                    currentUserEmail = currentUserEmail,
+                    onAuthSuccess = { email -> 
+                        currentUserEmail = email
+                        showAuthOverlay = false
+                        navController.navigate(currentRoute ?: Screen.News.route)
+                    },
+                    onLogout = {
+                        auth?.signOut()
+                        context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                            .edit().remove("user_session_email").remove("user_session_timestamp").apply()
+                        currentUserEmail = null
+                        navController.navigate(Screen.News.route)
+                    },
+                    modifier = Modifier.padding(innerPadding)
+                )
 
                 if (showAuthOverlay) {
-                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))) {
                         AuthScreen(
                             onAuthSuccess = { email ->
                                 currentUserEmail = email

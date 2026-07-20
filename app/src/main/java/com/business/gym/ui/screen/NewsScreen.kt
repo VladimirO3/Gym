@@ -4,7 +4,6 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,9 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -30,7 +27,6 @@ import com.business.gym.ui.viewmodel.NewsViewModel
 @Composable
 fun NewsScreen(
     isAdmin: Boolean,
-    exoPlayer: ExoPlayer? = null,
     viewModel: NewsViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
@@ -38,7 +34,6 @@ fun NewsScreen(
     val isUploading by viewModel.isUploading
     val context = LocalContext.current
     
-    var pendingType by remember { mutableStateOf<String?>(null) }
     var showUrlDialog by remember { mutableStateOf(false) }
     var urlInput by remember { mutableStateOf("") }
     var urlType by remember { mutableStateOf("image") }
@@ -86,28 +81,6 @@ fun NewsScreen(
         )
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        if (permissions.entries.all { it.value }) {
-            pendingType?.let { launcher.launch(it) }
-        } else {
-            Toast.makeText(context, "Permission denied", Toast.LENGTH_SHORT).show()
-        }
-        pendingType = null
-    }
-
-    fun checkAndLaunch(type: String) {
-        val permissions = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            if (type.contains("image")) arrayOf(android.Manifest.permission.READ_MEDIA_IMAGES)
-            else arrayOf(android.Manifest.permission.READ_MEDIA_VIDEO)
-        } else {
-            arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
-        }
-        pendingType = type
-        permissionLauncher.launch(permissions)
-    }
-
     Column(
         modifier = modifier.padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -135,12 +108,12 @@ fun NewsScreen(
                         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.add_photo_firebase)) },
-                                onClick = { expanded = false; checkAndLaunch("image/*") },
+                                onClick = { expanded = false; launcher.launch("image/*") },
                                 leadingIcon = { Icon(Icons.Default.AddAPhoto, null) }
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.add_video_firebase)) },
-                                onClick = { expanded = false; checkAndLaunch("video/*") },
+                                onClick = { expanded = false; launcher.launch("video/*") },
                                 leadingIcon = { Icon(Icons.Default.VideoCall, null) }
                             )
                             HorizontalDivider()
@@ -160,10 +133,16 @@ fun NewsScreen(
         LazyColumn(modifier = Modifier.weight(1f)) {
             item {
                 val videoUri = "android.resource://${context.packageName}/raw/promo_video"
-                VideoPlayer(videoUrl = videoUri, exoPlayer = exoPlayer, modifier = Modifier.fillMaxWidth().height(400.dp).padding(vertical = 8.dp))
+                VideoPlayer(
+                    videoUrl = videoUri, 
+                    modifier = Modifier.fillMaxWidth().height(400.dp).padding(vertical = 8.dp),
+                    autoPlay = true,
+                    muted = true,
+                    looping = true
+                )
             }
             items(newsItems) { item ->
-                NewsMediaItem(item, isAdmin, exoPlayer = exoPlayer, onDelete = { viewModel.deleteNewsItem(item) })
+                NewsMediaItem(item, isAdmin, onDelete = { viewModel.deleteNewsItem(item) })
             }
         }
     }

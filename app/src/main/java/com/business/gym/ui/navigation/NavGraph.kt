@@ -34,14 +34,10 @@ fun GymNavGraph(
         modifier = modifier
     ) {
         composable(Screen.News.route) {
-            NewsScreen(isAdmin = isAdmin, exoPlayer = exoPlayer)
+            NewsScreen(isAdmin = isAdmin)
         }
         composable(Screen.Playlist.route) {
-            if (currentUserEmail == null) {
-                AuthScreen(onAuthSuccess = onAuthSuccess)
-            } else {
-                PlaylistScreen(exoPlayer = exoPlayer, isAdmin = isAdmin)
-            }
+            PlaylistScreen(exoPlayer = exoPlayer, isAdmin = isAdmin)
         }
         composable(Screen.Chat.route) {
             if (currentUserEmail == null) {

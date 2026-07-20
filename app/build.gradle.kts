@@ -7,11 +7,7 @@ plugins {
 
 android {
 	namespace = "com.business.gym"
-	compileSdk {
-		version = release(37) {
-			minorApiLevel = 1
-		}
-	}
+	compileSdk = 37
 
 	defaultConfig {
 		applicationId = "com.business.gym"
