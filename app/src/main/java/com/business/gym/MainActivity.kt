@@ -48,14 +48,35 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        firebaseAnalytics = Firebase.analytics
-        auth = FirebaseAuth.getInstance()
-        val player = ExoPlayer.Builder(this).build()
-        exoPlayer = player
-        mediaSession = MediaSession.Builder(this, player).build()
+        // Background initialization for Firebase to avoid Main Thread blocking (ANR)
+        Thread {
+            firebaseAnalytics = Firebase.analytics
+            auth = FirebaseAuth.getInstance()
+        }.start()
 
         setContent {
-            GymApp(exoPlayer, auth)
+            // Lazy initialization of ExoPlayer to ensure it's created when needed
+            var player by remember { mutableStateOf<ExoPlayer?>(null) }
+            
+            LaunchedEffect(Unit) {
+                val newPlayer = ExoPlayer.Builder(this@MainActivity).build()
+                exoPlayer = newPlayer
+                mediaSession = MediaSession.Builder(this@MainActivity, newPlayer).build()
+                player = newPlayer
+            }
+
+            if (player != null) {
+                GymApp(player, auth)
+            } else {
+                // Show a simple background while loading player
+                GymTheme {
+                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                             CircularProgressIndicator()
+                         }
+                    }
+                }
+            }
         }
     }
 

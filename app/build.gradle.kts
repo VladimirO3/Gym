@@ -21,9 +21,12 @@ android {
 
 	buildTypes {
 		release {
-			optimization {
-				enable = false
-			}
+			isMinifyEnabled = true
+			isShrinkResources = true
+			proguardFiles(
+				getDefaultProguardFile("proguard-android-optimize.txt"),
+				"proguard-rules.pro"
+			)
 		}
 	}
 	compileOptions {
@@ -55,6 +58,7 @@ dependencies {
 	implementation(libs.androidx.compose.material.icons.extended)
 	implementation(libs.androidx.navigation.compose)
 	implementation(libs.androidx.lifecycle.viewmodel.compose)
+	implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 
 	// Firebase
 	implementation(platform(libs.firebase.bom))
