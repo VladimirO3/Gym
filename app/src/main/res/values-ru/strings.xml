@@ -1,0 +1,86 @@
+<resources>
+    <string name="app_name">Gym</string>
+    <string name="tab_news">Новости</string>
+    <string name="tab_playlist">Плейлист</string>
+    <string name="tab_chat">Чат</string>
+    <string name="tab_settings">Настройки</string>
+    <string name="tab_about">О нас</string>
+    <string name="tab_contact">Контакты</string>
+    <string name="tab_help">Помощь</string>
+
+    <string name="settings_title">Настройки</string>
+    <string name="settings_dark_theme">Темная тема</string>
+    <string name="settings_language">Язык</string>
+    <string name="language_english">Английский</string>
+    <string name="language_russian">Русский</string>
+    <string name="language_system">Системный</string>
+
+    <string name="about_title">ABS GYM</string>
+    <string name="about_description">Доступный спорт и фитнес рядом - Сортировка Екатеринбург\nТренажерный и фитнес зал ABS GYM\nпроспект Седова, 27 - 2 этаж (Оздоровительный центр Дельфин)</string>
+    <string name="about_services">- групповые программы\n- персональный тренинг\n- кардио тренажеры\n- силовые тренажеры\n- спортивное питание\n- массаж (оздоровительный, энергетический)</string>
+    <string name="about_footer">Наши опытные инструкторы с радостью помогут Вам в совершенствовании своего тела ❤</string>
+
+    <string name="playlist_title">Трек для моей тренировки.</string>
+    <string name="playlist_empty">Музыка еще не добавлена. Нажмите +, чтобы добавить песни.</string>
+    <string name="playlist_add_desc">Добавить музыку</string>
+    <string name="playlist_unknown_track">Неизвестный трек</string>
+
+    <string name="chat_title">Чат зала</string>
+    <string name="chat_hint">Введите сообщение...</string>
+    <string name="chat_send">Отправить</string>
+    <string name="chat_no_messages">Сообщений пока нет. Начните общение!</string>
+    <string name="chat_anonymous">Гость</string>
+
+    <string name="contact_title">Контакты для связи👇:</string>
+    <string name="contact_phone">📞 8 965 510 91 32</string>
+
+    <string name="auth_login">Вход</string>
+    <string name="auth_register">Регистрация</string>
+    <string name="auth_login_reg">Вход / Рег</string>
+    <string name="auth_logout">Выйти</string>
+    <string name="auth_exit">Закрыть приложение</string>
+    <string name="auth_phone_title">Вход по номеру</string>
+    <string name="auth_sms_code">Код из SMS</string>
+    <string name="auth_send_code">Отправить код</string>
+    <string name="auth_google_sign_in">Войти через Google</string>
+    <string name="auth_new_here">Нет аккаунта? Регистрация</string>
+    <string name="auth_already_have">Уже есть аккаунт? Войти</string>
+    <string name="auth_fields_empty">Поля не могут быть пустыми</string>
+    <string name="auth_enter_phone">Введите номер телефона</string>
+    <string name="auth_enter_code">Введите код</string>
+    <string name="auth_invalid_admin_code">Неверный код админа</string>
+    <string name="auth_email_label">Email</string>
+    <string name="auth_phone_label">Телефон</string>
+    <string name="auth_email_hint">Адрес Email</string>
+    <string name="auth_password_hint">Пароль</string>
+    <string name="auth_admin_settings">Настройки О нас</string>
+    <string name="auth_contact_settings">Настройки контактов</string>
+    <string name="auth_title_label">Заголовок</string>
+    <string name="auth_desc_label">Описание</string>
+    <string name="auth_services_label">Услуги</string>
+    <string name="auth_footer_label">Футер</string>
+    <string name="auth_contact_desc_label">Описание контактов</string>
+    <string name="auth_phone_label_simple">Номер телефона</string>
+    <string name="chat_all_users">Все пользователи</string>
+    <string name="chat_my_contacts">Мои контакты</string>
+    <string name="chat_no_one">Пока не с кем общаться</string>
+
+    <string name="settings_theme_mode">Тема оформления</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Темная</string>
+    <string name="theme_system">Системная</string>
+
+    <string name="greeting_content">Контент для %1$s</string>
+
+    <string name="add_by_url_title">Добавить по ссылке (Облако)</string>
+    <string name="url_label">Прямая ссылка</string>
+    <string name="url_type_image">Фото</string>
+    <string name="url_type_video">Видео</string>
+    <string name="btn_add">Добавить</string>
+    <string name="btn_cancel">Отмена</string>
+    <string name="add_photo_firebase">Загрузить фото</string>
+    <string name="add_video_firebase">Загрузить видео</string>
+    <string name="add_track_url_title">Добавить трек по ссылке</string>
+    <string name="track_name_label">Название трека</string>
+    <string name="add_by_link_desc">Добавить по ссылке</string>
+</resources>

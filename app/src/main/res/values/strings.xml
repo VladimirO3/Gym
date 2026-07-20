@@ -1,0 +1,86 @@
+<resources>
+    <string name="app_name">Gym</string>
+    <string name="tab_news">News</string>
+    <string name="tab_playlist">Playlist</string>
+    <string name="tab_chat">Chat</string>
+    <string name="tab_settings">Settings</string>
+    <string name="tab_about">About</string>
+    <string name="tab_contact">Contact</string>
+    <string name="tab_help">Help</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_dark_theme">Dark Theme</string>
+    <string name="settings_language">Language</string>
+    <string name="language_english">English</string>
+    <string name="language_russian">Russian</string>
+    <string name="language_system">System Default</string>
+
+    <string name="about_title">ABS GYM</string>
+    <string name="about_description">Affordable sport and fitness nearby - Sortirovka Yekaterinburg\nGym and fitness room ABS GYM\nSedova Ave, 27 - 2nd floor (Dolphin Wellness Center)</string>
+    <string name="about_services">- group programs\n- personal training\n- cardio machines\n- weight machines\n- sports nutrition\n- massage (wellness, energy)</string>
+    <string name="about_footer">Our experienced instructors will be happy to help you improve your body ❤</string>
+
+    <string name="playlist_title">A track for my set.</string>
+    <string name="playlist_empty">No music added yet. Tap + to add songs.</string>
+    <string name="playlist_add_desc">Add Music</string>
+    <string name="playlist_unknown_track">Unknown Track</string>
+
+    <string name="chat_title">Gym Chat</string>
+    <string name="chat_hint">Type a message...</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_no_messages">No messages yet. Start the conversation!</string>
+    <string name="chat_anonymous">Guest</string>
+
+    <string name="contact_title">Contact info👇:</string>
+    <string name="contact_phone">📞 8 965 510 91 32</string>
+
+    <string name="auth_login">Login</string>
+    <string name="auth_register">Register</string>
+    <string name="auth_login_reg">Login / Reg</string>
+    <string name="auth_logout">Logout</string>
+    <string name="auth_exit">Exit App</string>
+    <string name="auth_phone_title">Phone Auth</string>
+    <string name="auth_sms_code">SMS Code</string>
+    <string name="auth_send_code">Send Code</string>
+    <string name="auth_google_sign_in">Sign in with Google</string>
+    <string name="auth_new_here">New here? Register</string>
+    <string name="auth_already_have">Already have an account? Sign In</string>
+    <string name="auth_fields_empty">Fields cannot be empty</string>
+    <string name="auth_enter_phone">Enter phone number</string>
+    <string name="auth_enter_code">Enter code</string>
+    <string name="auth_invalid_admin_code">Invalid admin code</string>
+    <string name="auth_email_label">Email</string>
+    <string name="auth_phone_label">Phone</string>
+    <string name="auth_email_hint">Email Address</string>
+    <string name="auth_password_hint">Password</string>
+    <string name="auth_admin_settings">About Us Settings</string>
+    <string name="auth_contact_settings">Contact Settings</string>
+    <string name="auth_title_label">Title</string>
+    <string name="auth_desc_label">Description</string>
+    <string name="auth_services_label">Services</string>
+    <string name="auth_footer_label">Footer</string>
+    <string name="auth_contact_desc_label">Contact Description</string>
+    <string name="auth_phone_label_simple">Phone Number</string>
+    <string name="chat_all_users">All Users</string>
+    <string name="chat_my_contacts">My Contacts</string>
+    <string name="chat_no_one">No one to chat with yet</string>
+
+    <string name="settings_theme_mode">Theme</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_system">System</string>
+
+    <string name="greeting_content">Content for %1$s</string>
+
+    <string name="add_by_url_title">Add by URL (Cloud)</string>
+    <string name="url_label">Direct Link</string>
+    <string name="url_type_image">Image</string>
+    <string name="url_type_video">Video</string>
+    <string name="btn_add">Add</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="add_photo_firebase">Add Photo (Firebase)</string>
+    <string name="add_video_firebase">Add Video (Firebase)</string>
+    <string name="add_track_url_title">Add Track by URL</string>
+    <string name="track_name_label">Track Name</string>
+    <string name="add_by_link_desc">Add by Link</string>
+</resources>
