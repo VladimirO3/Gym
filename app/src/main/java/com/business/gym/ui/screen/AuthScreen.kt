@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,7 +58,6 @@ fun AuthScreen(
                     viewModel.signInWithGoogle(idToken, onAuthSuccess)
                 }
             } catch (e: ApiException) {
-                // Error handled in ViewModel or locally if needed
             }
         }
     }
@@ -67,35 +67,55 @@ fun AuthScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = when(authMode) {
-                "phone" -> stringResource(R.string.auth_phone_title)
-                else -> if (isLogin) stringResource(R.string.auth_login) else stringResource(R.string.auth_register)
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Tabs for Login / Register
+        TabRow(
+            selectedTabIndex = if (isLogin) 0 else 1,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary,
+            indicator = { tabPositions ->
+                TabRowDefaults.SecondaryIndicator(
+                    modifier = Modifier.tabIndicatorOffset(tabPositions[if (isLogin) 0 else 1]),
+                    color = MaterialTheme.colorScheme.primary
+                )
             },
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
+            divider = {}
+        ) {
+            Tab(
+                selected = isLogin,
+                onClick = { if (!isLogin) viewModel.toggleIsLogin() },
+                text = { Text(stringResource(R.string.auth_login), style = MaterialTheme.typography.titleMedium) }
+            )
+            Tab(
+                selected = !isLogin,
+                onClick = { if (isLogin) viewModel.toggleIsLogin() },
+                text = { Text(stringResource(R.string.auth_register), style = MaterialTheme.typography.titleMedium) }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
         
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Mode Selector
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+        // Mode Selector (Email / Phone)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             FilterChip(
                 selected = authMode == "email",
                 onClick = { viewModel.setAuthMode("email") },
-                label = { Text(stringResource(R.string.auth_email_label)) }
+                label = { Text(stringResource(R.string.auth_email_label)) },
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
             FilterChip(
                 selected = authMode == "phone",
                 onClick = { viewModel.setAuthMode("phone") },
-                label = { Text(stringResource(R.string.auth_phone_label)) }
+                label = { Text(stringResource(R.string.auth_phone_label)) },
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         if (authMode == "email") {
             OutlinedTextField(
@@ -149,7 +169,7 @@ fun AuthScreen(
             )
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
         
         if (isLoading) {
             CircularProgressIndicator(modifier = Modifier.size(32.dp))
@@ -167,7 +187,7 @@ fun AuthScreen(
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
@@ -177,15 +197,9 @@ fun AuthScreen(
                 )
             }
             
-            if (authMode == "email") {
-                TextButton(onClick = { viewModel.toggleIsLogin() }) {
-                    Text(if (isLogin) stringResource(R.string.auth_new_here) else stringResource(R.string.auth_already_have))
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             HorizontalDivider()
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             
             OutlinedButton(
                 onClick = {
@@ -205,11 +219,11 @@ fun AuthScreen(
                             }
                     } catch (e: Exception) {}
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(12.dp),
                 enabled = !isLoading
             ) {
-                Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.auth_google_sign_in))
             }

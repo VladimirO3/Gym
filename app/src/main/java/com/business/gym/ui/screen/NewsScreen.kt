@@ -159,28 +159,6 @@ fun NewsScreen(
 
         LazyColumn(modifier = Modifier.weight(1f)) {
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    Column {
-                        Image(
-                            painter = painterResource(id = R.drawable.price),
-                            contentDescription = "Price List 1",
-                            modifier = Modifier.fillMaxWidth(),
-                            contentScale = ContentScale.FillWidth
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Image(
-                            painter = painterResource(id = R.drawable.price2),
-                            contentDescription = "Price List 2",
-                            modifier = Modifier.fillMaxWidth(),
-                            contentScale = ContentScale.FillWidth
-                        )
-                    }
-                }
-            }
-            item {
                 val videoUri = "android.resource://${context.packageName}/raw/promo_video"
                 VideoPlayer(videoUrl = videoUri, exoPlayer = exoPlayer, modifier = Modifier.fillMaxWidth().height(400.dp).padding(vertical = 8.dp))
             }

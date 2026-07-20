@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Gym</string>
+    <string name="app_name">GYM</string>
     <string name="tab_news">News</string>
     <string name="tab_playlist">Playlist</string>
     <string name="tab_chat">Chat</string>

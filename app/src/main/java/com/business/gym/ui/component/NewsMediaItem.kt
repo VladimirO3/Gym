@@ -14,9 +14,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.business.gym.data.model.NewsItem
 
 @Composable
@@ -30,7 +32,10 @@ fun NewsMediaItem(item: NewsItem, isAdmin: Boolean, exoPlayer: ExoPlayer? = null
                 VideoPlayer(videoUrl = item.url, exoPlayer = exoPlayer, modifier = Modifier.fillMaxWidth().height(250.dp))
             } else {
                 AsyncImage(
-                    model = item.url,
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(item.url)
+                        .crossfade(true)
+                        .build(),
                     contentDescription = "News Image",
                     modifier = Modifier.fillMaxWidth(),
                     contentScale = ContentScale.FillWidth
