@@ -17,10 +17,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.business.gym.R
 import com.business.gym.data.model.UserProfile
+import com.business.gym.data.model.ChatMessage
 import com.business.gym.ui.component.MessageBubble
+import com.business.gym.ui.viewmodel.AuthViewModel
 import com.business.gym.ui.viewmodel.ChatViewModel
 
 @Composable
@@ -40,7 +43,6 @@ fun ChatScreen(
         UserListScreen(
             users = viewModel.users.value,
             onUserSelected = { viewModel.selectUser(it) },
-            isAdmin = isAdmin,
             modifier = modifier
         )
     } else {
@@ -59,12 +61,11 @@ fun ChatScreen(
 fun UserListScreen(
     users: List<UserProfile>,
     onUserSelected: (UserProfile) -> Unit,
-    isAdmin: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.padding(16.dp)) {
         Text(
-            text = if (isAdmin) stringResource(R.string.chat_all_users) else stringResource(R.string.chat_my_contacts),
+            text = stringResource(R.string.chat_all_users),
             style = MaterialTheme.typography.headlineMedium
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -79,15 +80,39 @@ fun UserListScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(users) { user ->
+                    val isUserAdmin = user.email == AuthViewModel.ADMIN_EMAIL
                     Card(
                         modifier = Modifier.fillMaxWidth().clickable { onUserSelected(user) },
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isUserAdmin) 
+                                MaterialTheme.colorScheme.primaryContainer 
+                            else 
+                                MaterialTheme.colorScheme.surfaceVariant
+                        )
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Person, null)
+                            Icon(
+                                if (isUserAdmin) Icons.Default.Person else Icons.Default.Person, 
+                                null,
+                                tint = if (isUserAdmin) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
-                                Text(text = user.name, style = MaterialTheme.typography.bodyLarge)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = if (isUserAdmin) "Админ" else user.name, 
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (isUserAdmin) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    if (isUserAdmin) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        SuggestionChip(
+                                            onClick = {},
+                                            label = { Text("Администратор", fontSize = 10.sp) },
+                                            modifier = Modifier.height(20.dp)
+                                        )
+                                    }
+                                }
                                 Text(text = user.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
@@ -102,7 +127,7 @@ fun UserListScreen(
 fun ConversationScreen(
     currentUid: String,
     peer: UserProfile,
-    messages: List<com.business.gym.data.model.Message>,
+    messages: List<ChatMessage>,
     onBack: () -> Unit,
     onSendMessage: (String) -> Unit,
     modifier: Modifier = Modifier

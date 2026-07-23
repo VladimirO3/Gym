@@ -1,9 +1,7 @@
 package com.business.gym
 
-import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -15,42 +13,47 @@ class GymUiTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 
+    private fun getResourceString(id: Int): String {
+        return composeTestRule.activity.getString(id)
+    }
+
     @Test
     fun testNavigationTabsExist() {
-        // Check if News tab is displayed
-        composeTestRule.onNodeWithText("News").assertIsDisplayed()
+        // Use hasText() specifically to avoid matching icons with the same contentDescription
+        // and assertExists() in case they are off-screen in the ScrollableTabRow
+        composeTestRule.onNode(hasText(getResourceString(R.string.tab_news))).assertExists()
+        composeTestRule.onNode(hasText(getResourceString(R.string.tab_playlist))).assertExists()
+        composeTestRule.onNode(hasText(getResourceString(R.string.tab_chat))).assertExists()
+        composeTestRule.onNode(hasText(getResourceString(R.string.tab_settings))).assertExists()
+        composeTestRule.onNode(hasText(getResourceString(R.string.tab_about))).assertExists()
+    }
+
+    @Test
+    fun testAuthButtonExists() {
+        composeTestRule.onNode(hasText(getResourceString(R.string.auth_login_reg))).assertExists()
+    }
+
+    @Test
+    fun testAuthOverlayShowsOnAuthClick() {
+        // performClick() will try to click the node, usually scrolling it into view if needed
+        composeTestRule.onNode(hasText(getResourceString(R.string.auth_login_reg))).performClick()
         
-        // Check if Playlist tab is displayed
-        composeTestRule.onNodeWithText("Playlist").assertIsDisplayed()
+        // Check if AuthScreen is shown by looking for the "Email" label
+        composeTestRule.onNode(hasText(getResourceString(R.string.auth_email_label))).assertIsDisplayed()
     }
 
     @Test
-    fun testLoginButtonExists() {
-        // Check if the Login button is displayed in the top right
-        composeTestRule.onNodeWithText("Login").assertIsDisplayed()
+    fun testExitButtonExists() {
+        composeTestRule.onNode(hasText(getResourceString(R.string.auth_exit))).assertExists()
     }
 
     @Test
-    fun testRegisterButtonExists() {
-        // Check if the Register button is displayed in the top right
-        composeTestRule.onNodeWithText("Register").assertIsDisplayed()
-    }
-
-    @Test
-    fun testAuthOverlayShowsOnLoginClick() {
-        // Click the login button
-        composeTestRule.onNodeWithText("Login").performClick()
+    fun testNavigationToSettings() {
+        // Navigate to settings
+        composeTestRule.onNode(hasText(getResourceString(R.string.tab_settings))).performClick()
         
-        // Check if "User Login" text appears in the AuthScreen
-        composeTestRule.onNodeWithText("User Login").assertIsDisplayed()
-    }
-
-    @Test
-    fun testAuthOverlayShowsOnRegisterClick() {
-        // Click the register button
-        composeTestRule.onNodeWithText("Register").performClick()
-        
-        // Check if "Create Account" text appears in the AuthScreen
-        composeTestRule.onNodeWithText("Create Account").assertIsDisplayed()
+        // Verify we are on Settings screen by checking for specific labels
+        composeTestRule.onNode(hasText(getResourceString(R.string.settings_theme_mode))).assertIsDisplayed()
+        composeTestRule.onNode(hasText(getResourceString(R.string.settings_language))).assertIsDisplayed()
     }
 }

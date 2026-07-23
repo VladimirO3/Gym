@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,19 +34,69 @@ fun AuthScreen(
     viewModel: AuthViewModel = viewModel(),
     onAuthSuccess: (String) -> Unit
 ) {
-    val email by viewModel.email
-    val password by viewModel.password
-    val confirmPassword by viewModel.confirmPassword
-    val phoneNumber by viewModel.phoneNumber
-    val otpCode by viewModel.otpCode
-    val verificationId by viewModel.verificationId
-    val authMode by viewModel.authMode
-    val isLogin by viewModel.isLogin
-    val error by viewModel.error
-    val isLoading by viewModel.isLoading
-    val showSetPasswordDialog by viewModel.showSetPasswordDialog
-    val loginWithPasswordMode by viewModel.loginWithPasswordMode
-    
+    AuthScreenContent(
+        email = viewModel.email.value,
+        password = viewModel.password.value,
+        confirmPassword = viewModel.confirmPassword.value,
+        phoneNumber = viewModel.phoneNumber.value,
+        otpCode = viewModel.otpCode.value,
+        verificationId = viewModel.verificationId.value,
+        authMode = viewModel.authMode.value,
+        isLogin = viewModel.isLogin.value,
+        error = viewModel.error.value,
+        isLoading = viewModel.isLoading.value,
+        showSetPasswordDialog = viewModel.showSetPasswordDialog.value,
+        loginWithPasswordMode = viewModel.loginWithPasswordMode.value,
+        onEmailChange = viewModel::onEmailChange,
+        onPasswordChange = viewModel::onPasswordChange,
+        onConfirmPasswordChange = viewModel::onConfirmPasswordChange,
+        onPhoneNumberChange = viewModel::onPhoneNumberChange,
+        onOtpCodeChange = viewModel::onOtpCodeChange,
+        onAuthModeChange = viewModel::setAuthMode,
+        onToggleIsLogin = viewModel::toggleIsLogin,
+        onToggleLoginWithPassword = viewModel::toggleLoginWithPassword,
+        onDismissSetPasswordDialog = viewModel::dismissSetPasswordDialog,
+        onSetPasswordForPhoneUser = { pwd, success -> viewModel.setPasswordForPhoneUser(pwd, success) },
+        onSignInWithEmail = { viewModel.signInWithEmail(onAuthSuccess) },
+        onSignUpWithEmail = { viewModel.signUpWithEmail(onAuthSuccess) },
+        onSignInWithPhoneAndPassword = { viewModel.signInWithPhoneAndPassword(onAuthSuccess) },
+        onStartPhoneVerification = { activity -> viewModel.startPhoneVerification(activity) },
+        onVerifyOtp = { context, success -> viewModel.verifyOtp(context, { success() }) },
+        onSignInWithGoogle = { idToken -> viewModel.signInWithGoogle(idToken, onAuthSuccess) }
+    )
+}
+
+@Composable
+fun AuthScreenContent(
+    email: String,
+    password: String,
+    confirmPassword: String,
+    phoneNumber: String,
+    otpCode: String,
+    verificationId: String?,
+    authMode: String,
+    isLogin: Boolean,
+    error: String?,
+    isLoading: Boolean,
+    showSetPasswordDialog: Boolean,
+    loginWithPasswordMode: Boolean,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onConfirmPasswordChange: (String) -> Unit,
+    onPhoneNumberChange: (String) -> Unit,
+    onOtpCodeChange: (String) -> Unit,
+    onAuthModeChange: (String) -> Unit,
+    onToggleIsLogin: () -> Unit,
+    onToggleLoginWithPassword: () -> Unit,
+    onDismissSetPasswordDialog: () -> Unit,
+    onSetPasswordForPhoneUser: (String, () -> Unit) -> Unit,
+    onSignInWithEmail: () -> Unit,
+    onSignUpWithEmail: () -> Unit,
+    onSignInWithPhoneAndPassword: () -> Unit,
+    onStartPhoneVerification: (Activity) -> Unit,
+    onVerifyOtp: (android.content.Context, () -> Unit) -> Unit,
+    onSignInWithGoogle: (String) -> Unit
+) {
     val isPreview = LocalInspectionMode.current
     val context = LocalContext.current
     val activity = context as? Activity
@@ -54,7 +105,7 @@ fun AuthScreen(
 
     if (showSetPasswordDialog) {
         AlertDialog(
-            onDismissRequest = { viewModel.dismissSetPasswordDialog() },
+            onDismissRequest = { onDismissSetPasswordDialog() },
             title = { Text(stringResource(R.string.auth_set_password_title)) },
             text = {
                 Column {
@@ -72,7 +123,7 @@ fun AuthScreen(
             confirmButton = {
                 Button(onClick = {
                     if (newPasswordInput.length >= 6) {
-                        viewModel.setPasswordForPhoneUser(newPasswordInput) {
+                        onSetPasswordForPhoneUser(newPasswordInput) {
                             Toast.makeText(context, "Пароль установлен", Toast.LENGTH_SHORT).show()
                         }
                     } else {
@@ -81,7 +132,7 @@ fun AuthScreen(
                 }) { Text(stringResource(R.string.btn_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.dismissSetPasswordDialog() }) { Text(stringResource(R.string.btn_cancel)) }
+                TextButton(onClick = { onDismissSetPasswordDialog() }) { Text(stringResource(R.string.btn_cancel)) }
             }
         )
     }
@@ -95,7 +146,7 @@ fun AuthScreen(
                 val credential = oneTapClient?.getSignInCredentialFromIntent(result.data)
                 val idToken = credential?.googleIdToken
                 if (idToken != null) {
-                    viewModel.signInWithGoogle(idToken, onAuthSuccess)
+                    onSignInWithGoogle(idToken)
                 }
             } catch (e: ApiException) {
             }
@@ -105,6 +156,7 @@ fun AuthScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -127,12 +179,12 @@ fun AuthScreen(
         ) {
             Tab(
                 selected = isLogin,
-                onClick = { if (!isLogin) viewModel.toggleIsLogin() },
+                onClick = { if (!isLogin) onToggleIsLogin() },
                 text = { Text(stringResource(R.string.auth_login), style = MaterialTheme.typography.titleMedium) }
             )
             Tab(
                 selected = !isLogin,
-                onClick = { if (isLogin) viewModel.toggleIsLogin() },
+                onClick = { if (isLogin) onToggleIsLogin() },
                 text = { Text(stringResource(R.string.auth_register), style = MaterialTheme.typography.titleMedium) }
             )
         }
@@ -143,13 +195,13 @@ fun AuthScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             FilterChip(
                 selected = authMode == "email",
-                onClick = { viewModel.setAuthMode("email") },
+                onClick = { onAuthModeChange("email") },
                 label = { Text(stringResource(R.string.auth_email_label)) },
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
             FilterChip(
                 selected = authMode == "phone",
-                onClick = { viewModel.setAuthMode("phone") },
+                onClick = { onAuthModeChange("phone") },
                 label = { Text(stringResource(R.string.auth_phone_label)) },
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
@@ -160,7 +212,7 @@ fun AuthScreen(
         if (authMode == "email") {
             OutlinedTextField(
                 value = email,
-                onValueChange = { viewModel.onEmailChange(it) },
+                onValueChange = { onEmailChange(it) },
                 label = { Text(stringResource(R.string.auth_email_hint)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -169,7 +221,7 @@ fun AuthScreen(
             Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(
                 value = password,
-                onValueChange = { viewModel.onPasswordChange(it) },
+                onValueChange = { onPasswordChange(it) },
                 label = { Text(stringResource(R.string.auth_password_hint)) },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
@@ -180,7 +232,7 @@ fun AuthScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
                     value = confirmPassword,
-                    onValueChange = { viewModel.onConfirmPasswordChange(it) },
+                    onValueChange = { onConfirmPasswordChange(it) },
                     label = { Text(stringResource(R.string.auth_confirm_password_hint)) },
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
@@ -192,7 +244,7 @@ fun AuthScreen(
             if (loginWithPasswordMode) {
                 OutlinedTextField(
                     value = phoneNumber,
-                    onValueChange = { viewModel.onPhoneNumberChange(it) },
+                    onValueChange = { onPhoneNumberChange(it) },
                     label = { Text(stringResource(R.string.auth_enter_phone) + " (+7...)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -201,27 +253,27 @@ fun AuthScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { viewModel.onPasswordChange(it) },
+                    onValueChange = { onPasswordChange(it) },
                     label = { Text(stringResource(R.string.auth_password_hint)) },
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     enabled = !isLoading
                 )
-                TextButton(onClick = { viewModel.toggleLoginWithPassword() }) {
+                TextButton(onClick = { onToggleLoginWithPassword() }) {
                     Text(stringResource(R.string.auth_login_with_sms))
                 }
             } else {
                 if (verificationId == null) {
                     OutlinedTextField(
                         value = phoneNumber,
-                        onValueChange = { viewModel.onPhoneNumberChange(it) },
+                        onValueChange = { onPhoneNumberChange(it) },
                         label = { Text(stringResource(R.string.auth_enter_phone) + " (+7...)") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         enabled = !isLoading
                     )
-                    TextButton(onClick = { viewModel.toggleLoginWithPassword() }) {
+                    TextButton(onClick = { onToggleLoginWithPassword() }) {
                         Text(stringResource(R.string.auth_login_with_password))
                     }
                 } else {
@@ -229,7 +281,7 @@ fun AuthScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = otpCode,
-                        onValueChange = { viewModel.onOtpCodeChange(it) },
+                        onValueChange = { onOtpCodeChange(it) },
                         label = { Text(stringResource(R.string.auth_sms_code)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -241,7 +293,7 @@ fun AuthScreen(
 
         if (error != null) {
             Text(
-                text = error!!, 
+                text = error, 
                 color = MaterialTheme.colorScheme.error, 
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 12.dp)
@@ -256,15 +308,15 @@ fun AuthScreen(
             Button(
                 onClick = {
                     if (authMode == "email") {
-                        if (isLogin) viewModel.signInWithEmail(onAuthSuccess)
-                        else viewModel.signUpWithEmail(onAuthSuccess)
+                        if (isLogin) onSignInWithEmail()
+                        else onSignUpWithEmail()
                     } else if (authMode == "phone") {
                         if (loginWithPasswordMode) {
-                            viewModel.signInWithPhoneAndPassword(onAuthSuccess)
+                            onSignInWithPhoneAndPassword()
                         } else if (verificationId == null) {
-                            activity?.let { viewModel.startPhoneVerification(it) }
+                            activity?.let { onStartPhoneVerification(it) }
                         } else {
-                            viewModel.verifyOtp(context, onAuthSuccess)
+                            onVerifyOtp(context) {}
                         }
                     }
                 },
@@ -309,5 +361,42 @@ fun AuthScreen(
                 Text(stringResource(R.string.auth_google_sign_in))
             }
         }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun AuthScreenPreview() {
+    com.business.gym.ui.theme.GymTheme {
+        AuthScreenContent(
+            email = "test@example.com",
+            password = "password123",
+            confirmPassword = "",
+            phoneNumber = "+79001112233",
+            otpCode = "",
+            verificationId = null,
+            authMode = "email",
+            isLogin = true,
+            error = null,
+            isLoading = false,
+            showSetPasswordDialog = false,
+            loginWithPasswordMode = false,
+            onEmailChange = {},
+            onPasswordChange = {},
+            onConfirmPasswordChange = {},
+            onPhoneNumberChange = {},
+            onOtpCodeChange = {},
+            onAuthModeChange = {},
+            onToggleIsLogin = {},
+            onToggleLoginWithPassword = {},
+            onDismissSetPasswordDialog = {},
+            onSetPasswordForPhoneUser = { _, _ -> },
+            onSignInWithEmail = {},
+            onSignUpWithEmail = {},
+            onSignInWithPhoneAndPassword = {},
+            onStartPhoneVerification = {},
+            onVerifyOtp = { _, _ -> },
+            onSignInWithGoogle = {}
+        )
     }
 }

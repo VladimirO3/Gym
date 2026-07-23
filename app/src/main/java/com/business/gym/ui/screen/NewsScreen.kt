@@ -135,7 +135,7 @@ fun NewsScreen(
                 val videoUri = "android.resource://${context.packageName}/raw/promo_video"
                 VideoPlayer(
                     videoUrl = videoUri, 
-                    modifier = Modifier.fillMaxWidth().height(400.dp).padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().height(250.dp).padding(vertical = 8.dp),
                     autoPlay = true,
                     muted = true,
                     looping = true

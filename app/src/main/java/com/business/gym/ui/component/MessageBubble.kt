@@ -12,10 +12,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.business.gym.data.model.Message
+import com.business.gym.data.model.ChatMessage
 
 @Composable
-fun MessageBubble(message: Message, isMe: Boolean) {
+fun MessageBubble(message: ChatMessage, isMe: Boolean) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isMe) Alignment.End else Alignment.Start

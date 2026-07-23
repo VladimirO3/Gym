@@ -42,8 +42,8 @@ fun NewsMediaItem(item: NewsItem, isAdmin: Boolean, onDelete: () -> Unit) {
                         .crossfade(true)
                         .build(),
                     contentDescription = "News Image",
-                    modifier = Modifier.fillMaxWidth(),
-                    contentScale = ContentScale.FillWidth
+                    modifier = Modifier.fillMaxWidth().height(250.dp),
+                    contentScale = ContentScale.Crop
                 )
             }
             

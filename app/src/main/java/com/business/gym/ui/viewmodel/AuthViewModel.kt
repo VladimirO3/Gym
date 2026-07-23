@@ -8,12 +8,14 @@ import androidx.lifecycle.ViewModel
 import com.business.gym.data.model.UserProfile
 import com.google.firebase.auth.*
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.firestore.FirebaseFirestore
 import java.util.concurrent.TimeUnit
 import androidx.core.content.edit
 
 class AuthViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
     private val database = FirebaseDatabase.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
 
     private val _email = mutableStateOf("")
     val email: State<String> = _email
@@ -58,22 +60,68 @@ class AuthViewModel : ViewModel() {
     val loginWithPasswordMode: State<Boolean> = _loginWithPasswordMode
 
     init {
-        auth.currentUser?.let { fetchUserProfile(it.uid) }
-    }
-
-    private fun fetchUserProfile(uid: String) {
-        database.getReference("users").child(uid).get().addOnSuccessListener { snapshot ->
-            val profile = snapshot.getValue(UserProfile::class.java)
-            _currentUserProfile.value = profile
-            if (profile != null && profile.email.endsWith("@phone.gym") && !profile.hasPassword) {
-                // Potential to show set password dialog if needed
+        auth.addAuthStateListener { firebaseAuth ->
+            val user = firebaseAuth.currentUser
+            if (user != null) {
+                _currentUserEmail.value = user.email ?: user.phoneNumber
+                fetchUserProfile(user.uid)
+            } else {
+                _currentUserEmail.value = null
+                _currentUserProfile.value = null
             }
         }
     }
 
-    // Admin Email
+    private fun fetchUserProfile(uid: String) {
+        // Fetch from Firestore (preferred)
+        firestore.collection("users").document(uid).get().addOnSuccessListener { snapshot ->
+            val profile = snapshot.toObject(UserProfile::class.java)
+            if (profile != null) {
+                _currentUserProfile.value = profile
+            } else {
+                // Fallback to Realtime Database if not in Firestore yet
+                database.getReference("users").child(uid).get().addOnSuccessListener { rtdbSnapshot ->
+                    val rtdbProfile = rtdbSnapshot.getValue(UserProfile::class.java)
+                    _currentUserProfile.value = rtdbProfile
+                }
+            }
+        }
+    }
+
+    // Admin Email & Phone
     companion object {
         const val ADMIN_EMAIL = "verso0100@gmail.com"
+        const val ADMIN_PHONE = "+79530481451"
+    }
+
+    fun isAdmin(): Boolean {
+        val email = _currentUserEmail.value ?: return false
+        return email.trim().lowercase() == ADMIN_EMAIL.lowercase() || 
+               email.trim() == ADMIN_PHONE
+    }
+
+    fun loadSession(context: Context) {
+        if (_currentUserEmail.value == null) {
+            val sharedPref = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+            val savedEmail = sharedPref.getString("user_session_email", null)
+            val savedTimestamp = sharedPref.getLong("user_session_timestamp", 0L)
+            if (savedEmail != null && (System.currentTimeMillis() - savedTimestamp) < 3 * 24 * 60 * 60 * 1000L) {
+                _currentUserEmail.value = savedEmail
+            }
+        }
+    }
+
+    fun saveSession(context: Context, email: String) {
+        context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putString("user_session_email", email)
+            .putLong("user_session_timestamp", System.currentTimeMillis())
+            .apply()
+    }
+
+    fun clearSession(context: Context) {
+        context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+            .edit().remove("user_session_email").remove("user_session_timestamp").apply()
     }
 
     fun onEmailChange(newValue: String) { _email.value = newValue; _error.value = null }
@@ -110,6 +158,11 @@ class AuthViewModel : ViewModel() {
                     val user = auth.currentUser
                     val email = user?.email ?: _email.value
                     _currentUserEmail.value = email
+                    
+                    // Ensure user is in Firestore
+                    val profile = UserProfile(user?.uid ?: "", email, email.substringBefore("@"))
+                    firestore.collection("users").document(profile.uid).set(profile, com.google.firebase.firestore.SetOptions.merge())
+
                     _password.value = "" // Clear password from memory
                     onSuccess(email)
                 } else {
@@ -139,6 +192,7 @@ class AuthViewModel : ViewModel() {
                     val user = auth.currentUser
                     val profile = UserProfile(user?.uid ?: "", _email.value, _email.value.substringBefore("@"))
                     database.getReference("users").child(profile.uid).setValue(profile)
+                    firestore.collection("users").document(profile.uid).set(profile)
                     val email = user?.email ?: _email.value
                     _currentUserEmail.value = email
                     _password.value = "" // Clear password from memory
@@ -216,12 +270,13 @@ class AuthViewModel : ViewModel() {
                 val uid = user?.uid ?: ""
                 
                 // Fetch or create profile
-                database.getReference("users").child(uid).get().addOnSuccessListener { snapshot ->
-                    val existingProfile = snapshot.getValue(UserProfile::class.java)
+                firestore.collection("users").document(uid).get().addOnSuccessListener { snapshot ->
+                    val existingProfile = snapshot.toObject(UserProfile::class.java)
                     if (existingProfile == null) {
                         val dummyEmail = "${phone.replace("+", "")}@phone.gym"
                         val profile = UserProfile(uid, dummyEmail, "User", hasPassword = false)
                         database.getReference("users").child(uid).setValue(profile)
+                        firestore.collection("users").document(uid).set(profile)
                         _currentUserProfile.value = profile
                     } else {
                         _currentUserProfile.value = existingProfile
@@ -247,6 +302,7 @@ class AuthViewModel : ViewModel() {
         user.linkWithCredential(credential).addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 database.getReference("users").child(user.uid).child("hasPassword").setValue(true)
+                firestore.collection("users").document(user.uid).update("hasPassword", true)
                 _currentUserProfile.value = _currentUserProfile.value?.copy(hasPassword = true)
                 _showSetPasswordDialog.value = false
                 _isLoading.value = false
@@ -293,6 +349,7 @@ class AuthViewModel : ViewModel() {
                     name = user?.displayName ?: email.substringBefore("@")
                 )
                 database.getReference("users").child(profile.uid).setValue(profile)
+                firestore.collection("users").document(profile.uid).set(profile)
                 _currentUserEmail.value = email
                 onSuccess(email)
             } else {
