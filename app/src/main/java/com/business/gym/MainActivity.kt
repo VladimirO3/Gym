@@ -42,14 +42,13 @@ import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.Firebase
 
 /**
- * The main entry point activity for the Gym application.
+ * Главная точка входа в приложение Gym.
  *
- * This class is responsible for:
- * - Initializing core application services including Firebase Analytics and Firestore.
- * - Managing the lifecycle of the media player ([ExoPlayer]) and its corresponding [MediaSession].
- * - Setting up the Jetpack Compose UI layer and theme providers.
- * - Orchestrating global ViewModels for authentication ([AuthViewModel]) and user settings ([SettingsViewModel]).
- * - Handling system-level configurations like edge-to-edge display and dark mode preferences.
+ * Этот класс отвечает за:
+ * - Инициализацию сервисов Firebase (Analytics, Firestore).
+ * - Управление жизненным циклом медиаплеера (ExoPlayer).
+ * - Настройку Jetpack Compose UI и темы.
+ * - Инициализацию глобальных ViewModel (Auth, Settings).
  */
 class MainActivity : AppCompatActivity() {
     private var exoPlayer: ExoPlayer? = null
@@ -58,17 +57,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Включение отображения контента под системными барами (статус-бар, навигация)
         enableEdgeToEdge()
         
         firebaseAnalytics = Firebase.analytics
         configureFirestore()
 
         setContent {
+            // Инициализация ViewModel через Compose
             val authViewModel: AuthViewModel = viewModel()
             val settingsViewModel: SettingsViewModel = viewModel()
             val context = LocalContext.current
             
-            // Manage Player Lifecycle in Compose
+            // Управление жизненным циклом плеера внутри Compose
             val player = remember {
                 ExoPlayer.Builder(context).build().also {
                     exoPlayer = it
@@ -76,6 +77,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            // Освобождение ресурсов плеера при закрытии приложения
             DisposableEffect(Unit) {
                 onDispose {
                     mediaSession?.release()
@@ -83,17 +85,20 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // Session and Settings Initialization
+            // Получение текущего e-mail пользователя из ViewModel
             val currentUserEmail by authViewModel.currentUserEmail
             
+            // Автоматическая загрузка сохраненной сессии при старте
             LaunchedEffect(Unit) {
                 authViewModel.loadSession(context)
             }
             
+            // Загрузка настроек (тема и т.д.) при изменении пользователя
             LaunchedEffect(currentUserEmail) {
                 settingsViewModel.loadSettings(context, currentUserEmail)
             }
 
+            // Определение темы (светлая/темная) на основе настроек
             val themeMode by settingsViewModel.themeMode
             val useDarkTheme = when (themeMode) {
                 "light" -> false
@@ -101,21 +106,28 @@ class MainActivity : AppCompatActivity() {
                 else -> isSystemInDarkTheme()
             }
 
+            // Применение кастомной темы GymTheme ко всему приложению
             GymTheme(darkTheme = useDarkTheme) {
                 GymApp(player, authViewModel, settingsViewModel)
             }
         }
     }
 
+    /**
+     * Настройка параметров Firestore (отключение локального кэширования для этого проекта).
+     */
     private fun configureFirestore() {
         val firestore = FirebaseFirestore.getInstance()
         val settings = FirebaseFirestoreSettings.Builder()
-            .setPersistenceEnabled(false)
+            .setPersistenceEnabled(true) // Включено для работы в оффлайне
             .build()
         firestore.firestoreSettings = settings
     }
 }
 
+/**
+ * Основной контейнер приложения, связывающий UI и ViewModel.
+ */
 @Composable
 fun GymApp(
     exoPlayer: ExoPlayer,
@@ -124,8 +136,8 @@ fun GymApp(
 ) {
     val context = LocalContext.current
     val currentUserEmail by authViewModel.currentUserEmail
+    val currentUid by authViewModel.currentUid
     val isAdmin = remember(currentUserEmail) { authViewModel.isAdmin() }
-    val currentUid = authViewModel.currentUserProfile.value?.uid ?: ""
 
     GymAppContent(
         currentUserEmail = currentUserEmail,
@@ -136,6 +148,7 @@ fun GymApp(
         onSaveSession = { email ->
             authViewModel.saveSession(context, email)
         },
+        // Лямбда для отрисовки основного контента (навигации)
         mainContent = { navController, innerPadding, currentRoute, setShowAuthOverlay ->
             GymNavGraph(
                 navController = navController,
@@ -156,12 +169,17 @@ fun GymApp(
                 modifier = Modifier.padding(innerPadding)
             )
         },
+        // Лямбда для отрисовки экрана авторизации
         authContent = { onAuthSuccess ->
             AuthScreen(onAuthSuccess = onAuthSuccess)
         }
     )
 }
 
+/**
+ * Чистый UI-каркас приложения (Scaffold, BottomBar, Tabs).
+ * Вынесен отдельно для возможности отображения в Preview.
+ */
 @Composable
 fun GymAppContent(
     currentUserEmail: String?,
@@ -175,8 +193,10 @@ fun GymAppContent(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     
+    // Состояние отображения оверлея авторизации
     var showAuthOverlay by rememberSaveable { mutableStateOf(false) }
     
+    // Список вкладок нижней навигации
     val allTabs = listOf(
         Triple(stringResource(R.string.tab_news), Icons.Default.Info, Screen.News.route),
         Triple(stringResource(R.string.tab_playlist), Icons.Default.PlayArrow, Screen.Playlist.route),
@@ -189,9 +209,11 @@ fun GymAppContent(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
+            // Пустой спейсер для корректного отображения под статус-баром
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars).fillMaxWidth())
         },
         bottomBar = {
+            // Нижняя панель навигации (Tabs)
             Column {
                 ScrollableTabRow(
                     selectedTabIndex = allTabs.indexOfFirst { it.third == currentRoute }.takeIf { it != -1 } ?: 0,
@@ -206,6 +228,7 @@ fun GymAppContent(
                         }
                     }
                 ) {
+                    // Отрисовка основных вкладок
                     allTabs.forEach { (title, icon, route) ->
                         Tab(
                             selected = currentRoute == route,
@@ -222,6 +245,7 @@ fun GymAppContent(
                         )
                     }
                     
+                    // Кнопка Вход/Выход в конце списка вкладок
                     if (currentUserEmail == null) {
                         Tab(
                             selected = showAuthOverlay,
@@ -241,6 +265,7 @@ fun GymAppContent(
                         )
                     }
                     
+                    // Кнопка выхода из приложения
                     Tab(
                         selected = false,
                         onClick = { (context as? android.app.Activity)?.finish() },
@@ -248,13 +273,16 @@ fun GymAppContent(
                         icon = { Icon(Icons.Default.ExitToApp, null, modifier = Modifier.size(20.dp)) }
                     )
                 }
+                // Отступ снизу для красоты
                 Spacer(Modifier.height(40.dp))
             }
         }
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
+            // Отображение основного экрана через NavGraph
             mainContent(navController, innerPadding, currentRoute) { showAuthOverlay = it }
 
+            // Оверлей авторизации (поверх всех экранов)
             if (showAuthOverlay) {
                 Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
                     authContent { email ->
@@ -262,6 +290,7 @@ fun GymAppContent(
                         showAuthOverlay = false
                         navController.navigate(currentRoute ?: Screen.News.route)
                     }
+                    // Кнопка закрытия окна авторизации
                     IconButton(
                         onClick = { showAuthOverlay = false },
                         modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
@@ -274,6 +303,9 @@ fun GymAppContent(
     }
 }
 
+/**
+ * Превью для визуальной проверки интерфейса в Android Studio.
+ */
 @Preview(showBackground = true)
 @Composable
 fun GymAppPreview() {

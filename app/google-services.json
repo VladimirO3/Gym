@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "81766528852",
+    "firebase_url": "https://gymapp-e5c08-default-rtdb.firebaseio.com",
     "project_id": "gymapp-e5c08",
     "storage_bucket": "gymapp-e5c08.firebasestorage.app"
   },
@@ -13,6 +14,14 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "81766528852-3nlsfd70jg21j6pf0c1albep23q7mm21.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.business.gym",
+            "certificate_hash": "63a1fc7e8a9082feac1a59ec6f39a206830b0a21"
+          }
+        },
         {
           "client_id": "81766528852-2t7oadum28r7eua25u7er2aukb94eflc.apps.googleusercontent.com",
           "client_type": 3

@@ -39,10 +39,14 @@ fun ChatScreen(
         viewModel.fetchUsers(currentUid, isAdmin)
     }
 
-    if (selectedUser == null) {
+    if (currentUid.isBlank()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else if (selectedUser == null) {
         UserListScreen(
             users = viewModel.users.value,
-            onUserSelected = { viewModel.selectUser(it) },
+            onUserSelected = { viewModel.selectUser(it, currentUid) },
             modifier = modifier
         )
     } else {
@@ -50,8 +54,8 @@ fun ChatScreen(
             currentUid = currentUid,
             peer = selectedUser!!,
             messages = viewModel.messages.value,
-            onBack = { viewModel.selectUser(null) },
-            onSendMessage = { viewModel.sendMessage(selectedUser!!, it) },
+            onBack = { viewModel.selectUser(null, currentUid) },
+            onSendMessage = { viewModel.sendMessage(selectedUser!!, it, currentUid) },
             modifier = modifier
         )
     }
@@ -80,7 +84,7 @@ fun UserListScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(users) { user ->
-                    val isUserAdmin = user.email == AuthViewModel.ADMIN_EMAIL
+                    val isUserAdmin = AuthViewModel.isStaticAdmin(user.email)
                     Card(
                         modifier = Modifier.fillMaxWidth().clickable { onUserSelected(user) },
                         colors = CardDefaults.cardColors(
@@ -100,20 +104,14 @@ fun UserListScreen(
                             Column {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = if (isUserAdmin) "Админ" else user.name, 
+                                        text = if (isUserAdmin) "Администратор" else user.name, 
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = if (isUserAdmin) FontWeight.Bold else FontWeight.Normal
                                     )
-                                    if (isUserAdmin) {
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        SuggestionChip(
-                                            onClick = {},
-                                            label = { Text("Администратор", fontSize = 10.sp) },
-                                            modifier = Modifier.height(20.dp)
-                                        )
-                                    }
                                 }
-                                Text(text = user.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (!isUserAdmin) {
+                                    Text(text = user.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }
@@ -147,7 +145,10 @@ fun ConversationScreen(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = peer.name, style = MaterialTheme.typography.headlineSmall)
+            Text(
+                text = if (AuthViewModel.isStaticAdmin(peer.email)) "Администратор" else peer.name,
+                style = MaterialTheme.typography.headlineSmall
+            )
         }
         
         Spacer(modifier = Modifier.height(16.dp))
