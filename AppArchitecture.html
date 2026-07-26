@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Взаимодействие объектов GYM App</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #e0e0e0;
+            background-color: #121212;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            border-left: 5px solid #ff0000;
+        }
+        h1, h2, h3 {
+            color: #ff0000;
+            text-transform: uppercase;
+        }
+        .mermaid {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .module-desc {
+            background-color: #262626;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 3px solid #ff0000;
+        }
+        code {
+            background-color: #333;
+            padding: 2px 4px;
+            border-radius: 4px;
+            color: #ff8a80;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Схема взаимодействия объектов и методов</h1>
+        <p>На этой странице подробно описано, как классы вашего приложения общаются друг с другом и какие методы они вызывают.</p>
+
+        <h3>1. Общая иерархия вызовов</h3>
+        <div class="mermaid">
+            graph TD
+                MA[MainActivity] -- Создает --> AV[AuthViewModel]
+                MA -- Создает --> SV[SettingsViewModel]
+                MA -- Настраивает --> NG[GymNavGraph]
+
+                NG -- Отображает --> AS[AuthScreen]
+                NG -- Отображает --> CS[ChatScreen]
+                NG -- Отображает --> NS[NewsScreen]
+                NG -- Отображает --> PS[PlaylistScreen]
+
+                CS -- Запрашивает данные --> CV[ChatViewModel]
+                AS -- Вызывает методы --> AV
+                NS -- Запрашивает новости --> NV[NewsViewModel]
+                PS -- Управляет треками --> PV[PlaylistViewModel]
+
+                CV -- Шифрует/Дешифрует --> EU[EncryptionUtils]
+                CV -- Шлет уведомления --> NH[NotificationHelper]
+                AV -- Сохраняет сессию --> NH
+
+                subgraph Firebase Services
+                    FA[Auth]
+                    FD[Firestore]
+                    RT[Realtime DB]
+                    CL[Crashlytics]
+                end
+
+                AV -.-> FA
+                AV -.-> FD
+                CV -.-> FD
+                NV -.-> RT
+                PV -.-> FD
+        </div>
+
+        <h3>2. Ключевые взаимодействия (Методы)</h3>
+
+        <div class="module-desc">
+            <strong>Процесс авторизации:</strong>
+            <ul>
+                <li><code>AuthViewModel.signInWithEmail()</code> -> Вызывает Firebase Auth API.</li>
+                <li>При успехе вызывается <code>fetchUserProfile()</code> для загрузки имени.</li>
+                <li>Затем <code>saveSession(context, email)</code> сохраняет данные в <code>SharedPreferences</code>.</li>
+            </ul>
+        </div>
+
+        <div class="module-desc">
+            <strong>Работа чата:</strong>
+            <ul>
+                <li><code>ChatViewModel.sendMessage(peer, text, currentUid)</code>:
+                    <ol>
+                        <li>Вызывает <code>EncryptionUtils.encrypt(text)</code>.</li>
+                        <li>Сохраняет зашифрованную строку в <code>Firestore</code> (коллекция <code>rooms/chatId/messages</code>).</li>
+                        <li>Обновляет метаданные комнаты через <code>merge()</code> в Firestore.</li>
+                    </ol>
+                </li>
+                <li>Слушатель <code>snapshotListener</code> в <code>fetchMessages()</code> получает новые данные.</li>
+                <li>Вызывает <code>EncryptionUtils.decrypt(text)</code> для отображения на экране.</li>
+                <li>Если сообщение новое, <code>NotificationHelper.showNotification()</code> выводит оповещение в шторку.</li>
+            </ul>
+        </div>
+
+        <div class="module-desc">
+            <strong>Настройки и приватность:</strong>
+            <ul>
+                <li><code>SettingsViewModel.loadSettings()</code> загружает тему и флаг <code>privacyAgreed</code>.</li>
+                <li><code>MainActivity</code> реагирует на <code>themeMode</code> и меняет <code>darkTheme</code> в <code>GymTheme</code>.</li>
+                <li>Кнопка в <code>PrivacyScreen</code> вызывает <code>onPrivacyAgree</code>, который через <code>SettingsViewModel.setPrivacyAgreed()</code> сохраняет выбор в <code>SharedPreferences</code>.</li>
+            </ul>
+        </div>
+
+        <h3>3. Диаграмма последовательности чата</h3>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                participant U as User (UI)
+                participant VM as ChatViewModel
+                participant FS as Firestore
+                participant N as NotificationHelper
+
+                U->>VM: selectUser(targetUser)
+                VM->>FS: addSnapshotListener(chatId)
+                FS-->>VM: Stream of Messages
+                VM->>U: Update Messages List
+
+                U->>VM: sendMessage("Hello")
+                VM->>VM: encrypt("Hello") -> "XYZ..."
+                VM->>FS: add document to /messages
+                FS-->>VM: Success
+
+                Note over FS, N: На другом устройстве
+                FS->>VM: Trigger Listener (New Message)
+                VM->>VM: decrypt("XYZ...") -> "Hello"
+                VM->>N: showNotification("Admin", "Hello")
+                VM->>U: Update UI
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            securityLevel: 'loose'
+        });
+    </script>
+</body>
+</html>

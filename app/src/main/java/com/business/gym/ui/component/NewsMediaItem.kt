@@ -20,11 +20,16 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.business.gym.data.model.NewsItem
 
+import androidx.compose.material3.MaterialTheme
+
 @Composable
 fun NewsMediaItem(item: NewsItem, isAdmin: Boolean, onDelete: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        )
     ) {
         Box {
             if (item.type == "video") {

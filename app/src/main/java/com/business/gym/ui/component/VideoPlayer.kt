@@ -21,6 +21,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 
+import androidx.media3.common.util.UnstableApi
+
+@OptIn(UnstableApi::class)
 @Composable
 fun VideoPlayer(
     videoUrl: String, 
@@ -65,6 +68,8 @@ fun VideoPlayer(
                 androidx.media3.ui.PlayerView(context).apply {
                     player = activePlayer
                     useController = isFullMode || !autoPlay
+                    // Устанавливаем режим заполнения, чтобы контроллер был в самом низу
+                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                 }
             },
             update = {

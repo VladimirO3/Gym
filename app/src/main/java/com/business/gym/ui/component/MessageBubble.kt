@@ -32,8 +32,13 @@ fun MessageBubble(message: ChatMessage, isMe: Boolean) {
         horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
     ) {
         if (!isMe) {
+            val displayName = if (message.senderName.contains("Vladimir Osetrov", ignoreCase = true)) {
+                "Администратор"
+            } else {
+                message.senderName
+            }
             Text(
-                text = message.senderName,
+                text = displayName,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.secondary

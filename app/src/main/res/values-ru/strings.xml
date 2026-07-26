@@ -5,6 +5,7 @@
     <string name="tab_chat">Чат</string>
     <string name="tab_settings">Настройки</string>
     <string name="tab_about">О нас</string>
+    <string name="tab_privacy">Правовая информация</string>
     <string name="tab_contact">Контакты</string>
     <string name="tab_help">Помощь</string>
 
@@ -64,6 +65,7 @@
     <string name="chat_all_users">Все пользователи</string>
     <string name="chat_my_contacts">Мои контакты</string>
     <string name="chat_no_one">Пока не с кем общаться</string>
+    <string name="chat_select_user_hint">Выберите пользователя для начала общения</string>
 
     <string name="settings_theme_mode">Тема оформления</string>
     <string name="theme_light">Светлая</string>
@@ -89,4 +91,7 @@
     <string name="auth_login_with_sms">Вход по SMS</string>
     <string name="auth_confirm_password_hint">Подтвердите пароль</string>
     <string name="btn_save">Сохранить</string>
+    <string name="privacy_title">Политика конфиденциальности и правовая информация</string>
+    <string name="privacy_content">Приложение "GYM" (ABS GYM) уважает вашу конфиденциальность. Мы собираем минимальные данные (email/телефон) для аутентификации и работы чата. Ваши данные надежно хранятся в Firebase. Используя это приложение, вы соглашаетесь с нашими условиями обслуживания.\n\n1. Использование данных: Для внутреннего общения в зале.\n2. Безопасность: Используется шифрование AES для чатов.\n3. Сторонние сервисы: Мы используем сервисы Google/Firebase.</string>
+    <string name="btn_agree">Я согласен</string>
 </resources>

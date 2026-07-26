@@ -2,11 +2,14 @@ package com.business.gym.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.media3.exoplayer.ExoPlayer
 import com.business.gym.ui.screen.*
+import com.business.gym.ui.viewmodel.SettingsViewModel
 
 sealed class Screen(val route: String) {
     object News : Screen("news")
@@ -14,6 +17,7 @@ sealed class Screen(val route: String) {
     object Chat : Screen("chat")
     object Settings : Screen("settings")
     object About : Screen("about")
+    object Privacy : Screen("privacy")
     object Auth : Screen("auth")
 }
 
@@ -26,6 +30,8 @@ fun GymNavGraph(
     currentUserEmail: String?,
     onAuthSuccess: (String) -> Unit,
     onLogout: () -> Unit,
+    onPrivacyAgree: () -> Unit,
+    settingsViewModel: SettingsViewModel,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -51,6 +57,12 @@ fun GymNavGraph(
         }
         composable(Screen.About.route) {
             AboutScreen(isAdmin = isAdmin)
+        }
+        composable(Screen.Privacy.route) {
+            PrivacyScreen(
+                onAgree = onPrivacyAgree,
+                isAlreadyAgreed = settingsViewModel.privacyAgreed.value
+            )
         }
         composable(Screen.Auth.route) {
             AuthScreen(onAuthSuccess = onAuthSuccess)

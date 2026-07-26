@@ -24,6 +24,12 @@ import com.business.gym.ui.component.NewsMediaItem
 import com.business.gym.ui.component.VideoPlayer
 import com.business.gym.ui.viewmodel.NewsViewModel
 
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.ui.platform.LocalConfiguration
+
 @Composable
 fun NewsScreen(
     isAdmin: Boolean,
@@ -33,6 +39,9 @@ fun NewsScreen(
     val newsItems by viewModel.newsItems
     val isUploading by viewModel.isUploading
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isWideScreen = configuration.screenWidthDp > 600
+    val columns = if (isWideScreen) 2 else 1
     
     var showUrlDialog by remember { mutableStateOf(false) }
     var urlInput by remember { mutableStateOf("") }
@@ -47,22 +56,37 @@ fun NewsScreen(
     if (showUrlDialog) {
         AlertDialog(
             onDismissRequest = { showUrlDialog = false },
-            title = { Text(stringResource(R.string.add_by_url_title)) },
+            containerColor = Color.Black,
+            title = { Text(stringResource(R.string.add_by_url_title), color = Color.Red) },
             text = {
-                Column {
+                Column(modifier = if (isWideScreen) Modifier.width(480.dp) else Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = urlInput,
                         onValueChange = { urlInput = it },
-                        label = { Text(stringResource(R.string.url_label)) },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text(stringResource(R.string.url_label), color = Color.White) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color.Red,
+                            unfocusedBorderColor = Color.Gray
+                        )
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = urlType == "image", onClick = { urlType = "image" })
-                        Text(stringResource(R.string.url_type_image))
+                        RadioButton(
+                            selected = urlType == "image", 
+                            onClick = { urlType = "image" },
+                            colors = RadioButtonDefaults.colors(selectedColor = Color.Red, unselectedColor = Color.Gray)
+                        )
+                        Text(stringResource(R.string.url_type_image), color = Color.White)
                         Spacer(modifier = Modifier.width(8.dp))
-                        RadioButton(selected = urlType == "video", onClick = { urlType = "video" })
-                        Text(stringResource(R.string.url_type_video))
+                        RadioButton(
+                            selected = urlType == "video", 
+                            onClick = { urlType = "video" },
+                            colors = RadioButtonDefaults.colors(selectedColor = Color.Red, unselectedColor = Color.Gray)
+                        )
+                        Text(stringResource(R.string.url_type_video), color = Color.White)
                     }
                 }
             },
@@ -73,10 +97,14 @@ fun NewsScreen(
                         showUrlDialog = false
                         urlInput = ""
                     }
-                }) { Text(stringResource(R.string.btn_add)) }
+                }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) { 
+                    Text(stringResource(R.string.btn_add), color = Color.White) 
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showUrlDialog = false }) { Text(stringResource(R.string.btn_cancel)) }
+                TextButton(onClick = { showUrlDialog = false }) { 
+                    Text(stringResource(R.string.btn_cancel), color = Color.Gray) 
+                }
             }
         )
     }
@@ -130,8 +158,14 @@ fun NewsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            item {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columns),
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item(span = { GridItemSpan(columns) }) {
                 val videoUri = "android.resource://${context.packageName}/raw/promo_video"
                 VideoPlayer(
                     videoUrl = videoUri, 

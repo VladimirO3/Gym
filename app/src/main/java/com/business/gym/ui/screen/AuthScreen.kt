@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.business.gym.R
 import com.business.gym.ui.viewmodel.AuthViewModel
@@ -153,10 +154,14 @@ fun AuthScreenContent(
         }
     }
 
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isWideScreen = configuration.screenWidthDp > 600
+    val formModifier = if (isWideScreen) Modifier.width(480.dp) else Modifier.fillMaxWidth()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(Color.Transparent)
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -166,8 +171,8 @@ fun AuthScreenContent(
         // Tabs for Login / Register
         TabRow(
             selectedTabIndex = if (isLogin) 0 else 1,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            containerColor = MaterialTheme.colorScheme.surface,
+            modifier = formModifier.padding(horizontal = 16.dp),
+            containerColor = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.primary,
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
@@ -192,18 +197,28 @@ fun AuthScreenContent(
         Spacer(modifier = Modifier.height(32.dp))
         
         // Mode Selector (Email / Phone)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        Row(modifier = formModifier, horizontalArrangement = Arrangement.Center) {
             FilterChip(
                 selected = authMode == "email",
                 onClick = { onAuthModeChange("email") },
                 label = { Text(stringResource(R.string.auth_email_label)) },
-                modifier = Modifier.padding(horizontal = 4.dp)
+                modifier = Modifier.padding(horizontal = 4.dp),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = Color.Red,
+                    selectedLabelColor = Color.White,
+                    labelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                )
             )
             FilterChip(
                 selected = authMode == "phone",
                 onClick = { onAuthModeChange("phone") },
                 label = { Text(stringResource(R.string.auth_phone_label)) },
-                modifier = Modifier.padding(horizontal = 4.dp)
+                modifier = Modifier.padding(horizontal = 4.dp),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = Color.Red,
+                    selectedLabelColor = Color.White,
+                    labelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                )
             )
         }
         
@@ -214,9 +229,17 @@ fun AuthScreenContent(
                 value = email,
                 onValueChange = { onEmailChange(it) },
                 label = { Text(stringResource(R.string.auth_email_hint)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = formModifier,
                 singleLine = true,
-                enabled = !isLoading
+                enabled = !isLoading,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    focusedLabelColor = Color.Red,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                    focusedBorderColor = Color.Red,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
+                )
             )
             Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(
@@ -224,9 +247,17 @@ fun AuthScreenContent(
                 onValueChange = { onPasswordChange(it) },
                 label = { Text(stringResource(R.string.auth_password_hint)) },
                 visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = formModifier,
                 singleLine = true,
-                enabled = !isLoading
+                enabled = !isLoading,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    focusedLabelColor = Color.Red,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                    focusedBorderColor = Color.Red,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
+                )
             )
             if (!isLogin) {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -235,9 +266,17 @@ fun AuthScreenContent(
                     onValueChange = { onConfirmPasswordChange(it) },
                     label = { Text(stringResource(R.string.auth_confirm_password_hint)) },
                     visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = formModifier,
                     singleLine = true,
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        focusedLabelColor = Color.Red,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                        focusedBorderColor = Color.Red,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
+                    )
                 )
             }
         } else if (authMode == "phone") {
@@ -246,9 +285,17 @@ fun AuthScreenContent(
                     value = phoneNumber,
                     onValueChange = { onPhoneNumberChange(it) },
                     label = { Text(stringResource(R.string.auth_enter_phone) + " (+7...)") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = formModifier,
                     singleLine = true,
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        focusedLabelColor = Color.Red,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                        focusedBorderColor = Color.Red,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
+                    )
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
@@ -256,12 +303,20 @@ fun AuthScreenContent(
                     onValueChange = { onPasswordChange(it) },
                     label = { Text(stringResource(R.string.auth_password_hint)) },
                     visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = formModifier,
                     singleLine = true,
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        focusedLabelColor = Color.Red,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                        focusedBorderColor = Color.Red,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
+                    )
                 )
                 TextButton(onClick = { onToggleLoginWithPassword() }) {
-                    Text(stringResource(R.string.auth_login_with_sms))
+                    Text(stringResource(R.string.auth_login_with_sms), color = MaterialTheme.colorScheme.onBackground)
                 }
             } else {
                 if (verificationId == null) {
@@ -269,23 +324,43 @@ fun AuthScreenContent(
                         value = phoneNumber,
                         onValueChange = { onPhoneNumberChange(it) },
                         label = { Text(stringResource(R.string.auth_enter_phone) + " (+7...)") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = formModifier,
                         singleLine = true,
-                        enabled = !isLoading
+                        enabled = !isLoading,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            focusedLabelColor = Color.Red,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                            focusedBorderColor = Color.Red,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
+                        )
                     )
                     TextButton(onClick = { onToggleLoginWithPassword() }) {
-                        Text(stringResource(R.string.auth_login_with_password))
+                        Text(stringResource(R.string.auth_login_with_password), color = MaterialTheme.colorScheme.onBackground)
                     }
                 } else {
-                    Text(stringResource(R.string.auth_sms_code) + " -> $phoneNumber", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        stringResource(R.string.auth_sms_code) + " -> $phoneNumber", 
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = otpCode,
                         onValueChange = { onOtpCodeChange(it) },
                         label = { Text(stringResource(R.string.auth_sms_code)) },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = formModifier,
                         singleLine = true,
-                        enabled = !isLoading
+                        enabled = !isLoading,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            focusedLabelColor = Color.Red,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                            focusedBorderColor = Color.Red,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
+                        )
                     )
                 }
             }
@@ -320,18 +395,19 @@ fun AuthScreenContent(
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
+                modifier = formModifier.height(50.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
                     if (authMode == "phone" && verificationId == null) stringResource(R.string.auth_send_code)
                     else if (isLogin) stringResource(R.string.auth_login)
-                    else stringResource(R.string.auth_register)
+                    else stringResource(R.string.auth_register),
+                    color = Color.White
                 )
             }
             
             Spacer(modifier = Modifier.height(24.dp))
-            HorizontalDivider()
+            HorizontalDivider(modifier = formModifier)
             Spacer(modifier = Modifier.height(24.dp))
             
             OutlinedButton(
@@ -352,13 +428,13 @@ fun AuthScreenContent(
                             }
                     } catch (e: Exception) {}
                 },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
+                modifier = formModifier.height(50.dp),
                 shape = RoundedCornerShape(12.dp),
                 enabled = !isLoading
             ) {
                 Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.auth_google_sign_in))
+                Text(stringResource(R.string.auth_google_sign_in), color = MaterialTheme.colorScheme.onBackground)
             }
         }
     }

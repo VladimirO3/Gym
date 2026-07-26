@@ -16,6 +16,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.business.gym.data.model.Track
 
+/**
+ * Элемент списка треков. 
+ * Адаптируется под темную и светлую темы.
+ */
 @Composable
 fun TrackItem(
     track: Track, 
@@ -30,6 +34,7 @@ fun TrackItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onPlayPause),
+        // Подсветка выбранного трека через цвет контейнера
         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent
     ) {
         Row(
@@ -40,7 +45,8 @@ fun TrackItem(
                 Icon(
                     imageVector = if (isSelected && isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+                    // Адаптивный цвет иконки: красный для выбора, иначе системный
+                    tint = if (isSelected) Color.Red else MaterialTheme.colorScheme.onBackground
                 )
             }
             
@@ -49,12 +55,14 @@ fun TrackItem(
                     Icon(
                         imageVector = Icons.Default.Stop,
                         contentDescription = "Stop",
-                        tint = MaterialTheme.colorScheme.error
+                        tint = Color.Red
                     )
                 }
             }
 
             Spacer(modifier = Modifier.width(8.dp))
+            
+            // Название трека: цвет меняется автоматически (черный в светлой теме, белый в темной)
             Text(
                 text = track.name,
                 style = MaterialTheme.typography.bodyMedium,
@@ -63,9 +71,14 @@ fun TrackItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            
             if (isAdmin) {
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete Track", tint = MaterialTheme.colorScheme.error)
+                    Icon(
+                        imageVector = Icons.Default.Delete, 
+                        contentDescription = "Delete Track", 
+                        tint = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         }

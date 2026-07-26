@@ -16,15 +16,24 @@ import com.google.firebase.database.ValueEventListener
 import com.business.gym.util.EncryptionUtils
 import java.util.*
 
+import com.business.gym.GymApplication
+import com.business.gym.util.NotificationHelper
+
 /**
  * ViewModel для управления чатом между пользователями и администратором.
+ * Отвечает за шифрование сообщений, получение списка контактов и уведомления в реальном времени.
  */
 class ChatViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val database = FirebaseDatabase.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    
+    // Флаг для игнорирования уведомлений о старых сообщениях при первом открытии чата
+    private var isFirstMessagesLoad = true
 
-    // Список доступных пользователей (контактов)
+    // --- Состояния UI ---
+    
+    // Список доступных пользователей для чата
     private val _users = mutableStateOf(listOf<UserProfile>())
     val users: State<List<UserProfile>> = _users
 
@@ -32,86 +41,82 @@ class ChatViewModel : ViewModel() {
     private val _messages = mutableStateOf(listOf<ChatMessage>())
     val messages: State<List<ChatMessage>> = _messages
 
-    // Выбранный собеседник
+    // Выбранный в данный момент собеседник
     private val _selectedUser = mutableStateOf<UserProfile?>(null)
     val selectedUser: State<UserProfile?> = _selectedUser
 
     /**
-     * Выбор пользователя для начала/продолжения диалога.
+     * Метод для выбора собеседника и начала загрузки сообщений.
      */
     fun selectUser(user: UserProfile?, currentUid: String) {
         _selectedUser.value = user
         if (user != null) {
-            // Загружаем сообщения именно для этого диалога
+            isFirstMessagesLoad = true // Сбрасываем флаг для нового чата
             fetchMessages(user.uid, currentUid)
         } else {
-            // Если деактивировали чат, очищаем список сообщений
+            // Если чат закрыт, очищаем список сообщений
             _messages.value = emptyList()
         }
     }
 
+    // Регистраторы слушателей для корректной очистки
     private var usersListener: com.google.firebase.firestore.ListenerRegistration? = null
     private var rtdbListener: ValueEventListener? = null
     private var messagesListener: com.google.firebase.firestore.ListenerRegistration? = null
 
     /**
-     * Загрузка списка пользователей из Firestore и Realtime Database.
+     * Загрузка списка пользователей.
+     * Админ видит всех клиентов, клиент видит только админа.
      */
     fun fetchUsers(currentUid: String, isAdmin: Boolean) {
         android.util.Log.d("ChatViewModel", "fetchUsers: currentUid='$currentUid', isAdmin=$isAdmin")
         
-        // Очистка старых слушателей перед установкой новых
+        // Очистка старых слушателей
         usersListener?.remove()
         rtdbListener?.let { database.getReference("users").removeEventListener(it) }
         
         /**
-         * Внутренняя функция для объединения данных из двух БД.
+         * Обработка объединенных данных из Firestore и Realtime Database.
          */
         fun processCombinedUsers(firestoreUsers: List<UserProfile>, rtdbUsers: List<UserProfile>) {
-            // Объединяем списки и удаляем дубликаты по UID
+            // Удаляем дубликаты по UID
             val allUsersMap = (firestoreUsers + rtdbUsers).filter { it.uid.isNotBlank() }.associateBy { it.uid }
             
             val regularUsers = mutableListOf<UserProfile>()
             val admins = mutableListOf<UserProfile>()
 
             for (user in allUsersMap.values) {
-                // Не показываем текущего пользователя в его же списке
-                if (user.uid == currentUid) continue
+                if (user.uid == currentUid) continue // Не показываем себя в списке
 
-                val isThisUserAdmin = AuthViewModel.isStaticAdmin(user.email)
-                if (isThisUserAdmin) {
+                if (AuthViewModel.isStaticAdmin(user.email)) {
                     admins.add(user)
                 } else {
                     regularUsers.add(user)
                 }
             }
 
-            // Сортировка по имени
+            // Сортировка по алфавиту
             regularUsers.sortBy { it.name.lowercase() }
             admins.sortBy { it.name.lowercase() }
 
-            // Если зашел админ — он видит всех клиентов. Если клиент — он видит только админов.
+            // Фильтрация списка в зависимости от роли
             val finalList = if (isAdmin) regularUsers else admins
-            android.util.Log.d("ChatViewModel", "Users updated: count=${finalList.size}")
             _users.value = finalList
         }
 
         var currentFirestoreUsers = listOf<UserProfile>()
         var currentRtdbUsers = listOf<UserProfile>()
 
-        // Слушатель изменений в Firestore
+        // Слушаем изменения в коллекции пользователей Firestore
         usersListener = firestore.collection("users").addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                android.util.Log.e("ChatViewModel", "Firestore Users Error: ${error.message}")
-                return@addSnapshotListener
-            }
+            if (error != null) return@addSnapshotListener
             if (snapshot != null) {
                 currentFirestoreUsers = snapshot.documents.mapNotNull { it.toObject(UserProfile::class.java) }
                 processCombinedUsers(currentFirestoreUsers, currentRtdbUsers)
             }
         }
 
-        // Слушатель изменений в Realtime Database
+        // Слушаем изменения в Realtime Database (для обратной совместимости)
         rtdbListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val userList = mutableListOf<UserProfile>()
@@ -121,15 +126,13 @@ class ChatViewModel : ViewModel() {
                 currentRtdbUsers = userList
                 processCombinedUsers(currentFirestoreUsers, currentRtdbUsers)
             }
-            override fun onCancelled(error: DatabaseError) {
-                android.util.Log.e("ChatViewModel", "RTDB Users Error: ${error.message}")
-            }
+            override fun onCancelled(error: DatabaseError) {}
         }
         database.getReference("users").addValueEventListener(rtdbListener!!)
     }
 
     /**
-     * Очистка всех активных слушателей при уничтожении ViewModel.
+     * Очистка слушателей при уничтожении ViewModel.
      */
     override fun onCleared() {
         super.onCleared()
@@ -142,105 +145,103 @@ class ChatViewModel : ViewModel() {
      * Загрузка истории сообщений конкретного чата.
      */
     private fun fetchMessages(peerUid: String, currentUid: String) {
-        if (currentUid.isBlank() || peerUid.isBlank()) {
-            android.util.Log.w("ChatViewModel", "fetchMessages: blank IDs")
-            return
-        }
+        if (currentUid.isBlank() || peerUid.isBlank()) return
         
-        // Отключаем старый чат перед открытием нового
         messagesListener?.remove()
         _messages.value = emptyList()
 
-        // Генерация уникального ID чата (всегда одинаковый для двух людей)
+        // Генерация уникального ID чата: всегда "меньшийUID_большийUID"
         val chatId = if (currentUid < peerUid) "${currentUid}_${peerUid}" else "${peerUid}_${currentUid}"
-        android.util.Log.d("ChatViewModel", "Listening to chatId: $chatId")
         
-        // Слушаем подколлекцию messages внутри конкретной комнаты
+        // Слушаем коллекцию сообщений в реальном времени
         messagesListener = firestore.collection("rooms").document(chatId).collection("messages")
             .orderBy("timestamp", Query.Direction.ASCENDING)
             .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    android.util.Log.e("ChatViewModel", "Messages Listener Error: ${error.message}")
-                    return@addSnapshotListener
-                }
+                if (error != null) return@addSnapshotListener
                 
                 if (snapshot == null || snapshot.isEmpty) {
-                    android.util.Log.d("ChatViewModel", "No messages found for chatId: $chatId")
                     _messages.value = emptyList()
                     return@addSnapshotListener
                 }
 
-                // Преобразование документов в объекты и их расшифровка
+                // Декодирование и расшифровка сообщений
                 val messageList = snapshot.documents.mapNotNull { doc ->
-                    android.util.Log.d("ChatViewModel", "Processing doc: ${doc.id}, data: ${doc.data}")
                     val msg = doc.toObject(ChatMessage::class.java)?.copy(id = doc.id)
-                    if (msg == null) {
-                        android.util.Log.e("ChatViewModel", "Failed to parse document ${doc.id} to ChatMessage")
-                    }
                     msg?.let { 
                         val decrypted = EncryptionUtils.decrypt(it.text)
-                        android.util.Log.d("ChatViewModel", "Decrypted message: $decrypted")
                         it.copy(text = decrypted)
                     }
                 }
+                
+                // --- ЛОГИКА УВЕДОМЛЕНИЙ В ШТОРКУ ---
+                if (!isFirstMessagesLoad && messageList.size > _messages.value.size) {
+                    val newMessage = messageList.last()
+                    // Уведомляем только если сообщение входящее (не от нас)
+                    if (newMessage.senderId != currentUid) {
+                        NotificationHelper.showNotification(
+                            GymApplication.instance,
+                            newMessage.senderName,
+                            newMessage.text
+                        )
+                    }
+                }
+                
+                isFirstMessagesLoad = false
                 _messages.value = messageList
-                android.util.Log.d("ChatViewModel", "Fetched ${messageList.size} messages for chatId: $chatId")
             }
     }
 
     /**
-     * Отправка зашифрованного сообщения.
+     * Отправка зашифрованного сообщения собеседнику.
      */
     fun sendMessage(peer: UserProfile, text: String, currentUid: String) {
-        if (currentUid.isBlank() || text.isBlank() || peer.uid.isBlank()) {
-            android.util.Log.e("ChatViewModel", "sendMessage: Invalid data. currentUid=$currentUid, peerUid=${peer.uid}")
-            return
-        }
+        if (currentUid.isBlank() || text.isBlank() || peer.uid.isBlank()) return
         
         val chatId = if (currentUid < peer.uid) "${currentUid}_${peer.uid}" else "${peer.uid}_${currentUid}"
         
-        // Шифрование текста перед сохранением в облако для защиты приватности
+        // Шифрование AES для защиты данных в облаке
         val encryptedText = EncryptionUtils.encrypt(text)
         
-        val messageData = ChatMessage(
-            text = encryptedText,
-            senderId = currentUid,
-            senderName = (auth.currentUser?.displayName ?: auth.currentUser?.email ?: "User"),
-            timestamp = null // Firestore заполнит его сам через FieldValue.serverTimestamp()
-        )
-
-        android.util.Log.d("ChatViewModel", "Sending message to chatId: $chatId from $currentUid")
-
-        // Сохранение самого сообщения
+        // Подготовка имени отправителя
+        val rawName = auth.currentUser?.displayName ?: auth.currentUser?.email ?: "User"
+        val senderName = if (AuthViewModel.isStaticAdmin(auth.currentUser?.email ?: auth.currentUser?.phoneNumber)) {
+            "Администратор"
+        } else {
+            rawName
+        }
+        
+        // Данные сообщения
         val docData = hashMapOf(
             "text" to encryptedText,
             "senderId" to currentUid,
-            "senderName" to messageData.senderName,
+            "senderName" to senderName,
             "timestamp" to FieldValue.serverTimestamp()
         )
 
+        // 1. Сохраняем само сообщение в историю
         firestore.collection("rooms").document(chatId).collection("messages").add(docData)
             .addOnSuccessListener { ref ->
-                android.util.Log.d("ChatViewModel", "Message saved to Firestore with ID: ${ref.id}")
+                // 2. Обновляем превью в списке чатов (lastMessage)
+                val roomUpdate = hashMapOf(
+                    "lastMessage" to text, 
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                    "participants" to listOf(currentUid, peer.uid)
+                )
+                firestore.collection("rooms").document(chatId).set(roomUpdate, com.google.firebase.firestore.SetOptions.merge())
             }
             .addOnFailureListener { e -> 
-                android.util.Log.e("ChatViewModel", "Firestore Save Error: ${e.message}") 
+                // Уведомляем только админа о проблемах с БД
+                if (AuthViewModel.isStaticAdmin(auth.currentUser?.email ?: auth.currentUser?.phoneNumber)) {
+                    NotificationHelper.showNotification(GymApplication.instance, "DB Error", e.message ?: "Unknown")
+                }
             }
         
-        // Обновление информации о последнем сообщении в комнате (для списка чатов)
-        val roomUpdate = hashMapOf(
-            "lastMessage" to text, // Здесь можно хранить нешифрованный превью или шифрованный
-            "updatedAt" to FieldValue.serverTimestamp(),
-            "participants" to listOf(currentUid, peer.uid)
-        )
-        firestore.collection("rooms").document(chatId).set(roomUpdate, com.google.firebase.firestore.SetOptions.merge())
-
-        // Фоновая синхронизация профилей для гарантии видимости в списках
-        val myEmail = auth.currentUser?.email ?: ""
-        val myName = auth.currentUser?.displayName ?: myEmail.substringBefore("@")
-        val myProfile = UserProfile(uid = currentUid, email = myEmail, name = myName)
-        
-        firestore.collection("users").document(currentUid).set(myProfile, com.google.firebase.firestore.SetOptions.merge())
-        firestore.collection("users").document(peer.uid).set(peer, com.google.firebase.firestore.SetOptions.merge())
+        // Фоновая проверка/обновление своего профиля
+        if (auth.currentUser != null) {
+            val myEmail = auth.currentUser?.email ?: ""
+            val myName = auth.currentUser?.displayName ?: myEmail.substringBefore("@")
+            val myProfile = UserProfile(uid = currentUid, email = myEmail, name = myName)
+            firestore.collection("users").document(currentUid).set(myProfile, com.google.firebase.firestore.SetOptions.merge())
+        }
     }
 }

@@ -13,7 +13,13 @@ val Pink40 = Color(0xFF7D5260)
 // Dark Theme Colors
 val DarkBackground = Color(0xFF000000)
 val DarkSurface = Color(0xFF121212)
-val DarkPrimary = Color(0xFFFFFFFF)
-val DarkSecondary = Color(0xFFFFFFFF)
+val DarkPrimary = Color(0xFFFF0000) // Яркий красный
+val DarkSecondary = Color(0xFFB71C1C) // Темно-красный
 val DarkOnBackground = Color(0xFFFFFFFF)
 val DarkOnSurface = Color(0xFFFFFFFF)
+
+// Gym Specific Colors
+val GymRed = Color(0xFFFF0000)
+val GymBlack = Color(0xFF000000)
+val GymDarkRed = Color(0xFF8B0000)
+val GymGrey = Color(0xFF1C1C1C)

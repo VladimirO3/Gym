@@ -26,6 +26,12 @@ import com.business.gym.ui.component.MessageBubble
 import com.business.gym.ui.viewmodel.AuthViewModel
 import com.business.gym.ui.viewmodel.ChatViewModel
 
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
+import androidx.compose.foundation.BorderStroke
+
+import androidx.compose.ui.graphics.Color
+
 @Composable
 fun ChatScreen(
     currentUid: String,
@@ -34,6 +40,8 @@ fun ChatScreen(
     modifier: Modifier = Modifier
 ) {
     val selectedUser by viewModel.selectedUser
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     
     LaunchedEffect(currentUid, isAdmin) {
         viewModel.fetchUsers(currentUid, isAdmin)
@@ -41,23 +49,60 @@ fun ChatScreen(
 
     if (currentUid.isBlank()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(color = Color.Red)
         }
-    } else if (selectedUser == null) {
-        UserListScreen(
-            users = viewModel.users.value,
-            onUserSelected = { viewModel.selectUser(it, currentUid) },
-            modifier = modifier
-        )
     } else {
-        ConversationScreen(
-            currentUid = currentUid,
-            peer = selectedUser!!,
-            messages = viewModel.messages.value,
-            onBack = { viewModel.selectUser(null, currentUid) },
-            onSendMessage = { viewModel.sendMessage(selectedUser!!, it, currentUid) },
-            modifier = modifier
-        )
+        if (isLandscape) {
+            // Адаптивный макет для горизонтальной ориентации (две колонки)
+            Row(modifier = modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(0.4f)) {
+                    UserListScreen(
+                        users = viewModel.users.value,
+                        onUserSelected = { viewModel.selectUser(it, currentUid) },
+                        selectedUser = selectedUser
+                    )
+                }
+                VerticalDivider(color = Color.DarkGray)
+                Box(modifier = Modifier.weight(0.6f)) {
+                    if (selectedUser != null) {
+                        ConversationScreen(
+                            currentUid = currentUid,
+                            peer = selectedUser!!,
+                            messages = viewModel.messages.value,
+                            onBack = { viewModel.selectUser(null, currentUid) },
+                            onSendMessage = { viewModel.sendMessage(selectedUser!!, it, currentUid) },
+                            showBackButton = false
+                        )
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = stringResource(R.string.chat_select_user_hint),
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            // Стандартный макет для вертикальной ориентации
+            if (selectedUser == null) {
+                UserListScreen(
+                    users = viewModel.users.value,
+                    onUserSelected = { viewModel.selectUser(it, currentUid) },
+                    modifier = modifier
+                )
+            } else {
+                ConversationScreen(
+                    currentUid = currentUid,
+                    peer = selectedUser!!,
+                    messages = viewModel.messages.value,
+                    onBack = { viewModel.selectUser(null, currentUid) },
+                    onSendMessage = { viewModel.sendMessage(selectedUser!!, it, currentUid) },
+                    modifier = modifier,
+                    showBackButton = true
+                )
+            }
+        }
     }
 }
 
@@ -65,18 +110,21 @@ fun ChatScreen(
 fun UserListScreen(
     users: List<UserProfile>,
     onUserSelected: (UserProfile) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selectedUser: UserProfile? = null
 ) {
     Column(modifier = modifier.padding(16.dp)) {
         Text(
             text = stringResource(R.string.chat_all_users),
-            style = MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineMedium,
+            color = Color.Red,
+            fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(16.dp))
 
         if (users.isEmpty()) {
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Text(text = stringResource(R.string.chat_no_one), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(text = stringResource(R.string.chat_no_one), color = Color.Gray)
             }
         } else {
             LazyColumn(
@@ -85,32 +133,42 @@ fun UserListScreen(
             ) {
                 items(users) { user ->
                     val isUserAdmin = AuthViewModel.isStaticAdmin(user.email)
+                    val isSelected = selectedUser?.uid == user.uid
                     Card(
-                        modifier = Modifier.fillMaxWidth().clickable { onUserSelected(user) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onUserSelected(user) },
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isUserAdmin) 
-                                MaterialTheme.colorScheme.primaryContainer 
-                            else 
-                                MaterialTheme.colorScheme.surfaceVariant
-                        )
+                            containerColor = when {
+                                isSelected -> Color.Red.copy(alpha = 0.2f)
+                                isUserAdmin -> Color.DarkGray.copy(alpha = 0.5f)
+                                else -> Color.Black.copy(alpha = 0.3f)
+                            }
+                        ),
+                        border = if (isSelected) BorderStroke(1.dp, Color.Red) else BorderStroke(0.5.dp, Color.DarkGray)
                     ) {
-                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                if (isUserAdmin) Icons.Default.Person else Icons.Default.Person, 
+                                Icons.Default.Person, 
                                 null,
-                                tint = if (isUserAdmin) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = if (isUserAdmin || isSelected) Color.Red else Color.Gray
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
                             Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = if (isUserAdmin) "Администратор" else user.name, 
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = if (isUserAdmin) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                }
+                                Text(
+                                    text = if (isUserAdmin) "Администратор" else user.name, 
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = Color.White,
+                                    fontWeight = if (isUserAdmin || isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1
+                                )
                                 if (!isUserAdmin) {
-                                    Text(text = user.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = user.email, 
+                                        style = MaterialTheme.typography.bodySmall, 
+                                        color = Color.Gray,
+                                        maxLines = 1
+                                    )
                                 }
                             }
                         }
@@ -128,7 +186,8 @@ fun ConversationScreen(
     messages: List<ChatMessage>,
     onBack: () -> Unit,
     onSendMessage: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showBackButton: Boolean = true
 ) {
     var text by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -139,24 +198,33 @@ fun ConversationScreen(
         }
     }
 
-    Column(modifier = modifier.padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+    Column(modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 8.dp)
+        ) {
+            if (showBackButton) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
             }
-            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = if (AuthViewModel.isStaticAdmin(peer.email)) "Администратор" else peer.name,
-                style = MaterialTheme.typography.headlineSmall
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.Red,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
             )
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = Color.DarkGray)
 
         LazyColumn(
             state = listState,
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(vertical = 12.dp)
         ) {
             items(messages) { message ->
                 MessageBubble(message, message.senderId == currentUid)
@@ -165,33 +233,47 @@ fun ConversationScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            TextField(
-                value = text,
-                onValueChange = { text = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text(stringResource(R.string.chat_hint)) },
-                maxLines = 3,
-                colors = TextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            IconButton(
-                onClick = {
-                    if (text.isNotBlank()) {
-                        onSendMessage(text)
-                        text = ""
-                    }
-                },
-                enabled = text.isNotBlank()
+        Surface(
+            color = Color.Black.copy(alpha = 0.5f),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth(),
+            border = BorderStroke(1.dp, Color.DarkGray)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Send",
-                    tint = if (text.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                TextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text(stringResource(R.string.chat_hint), color = Color.Gray) },
+                    maxLines = 4,
+                    colors = TextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                    )
                 )
+                IconButton(
+                    onClick = {
+                        if (text.isNotBlank()) {
+                            onSendMessage(text)
+                            text = ""
+                        }
+                    },
+                    enabled = text.isNotBlank(),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        contentColor = Color.Red,
+                        disabledContentColor = Color.Gray
+                    )
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+                }
             }
         }
     }

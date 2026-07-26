@@ -12,15 +12,19 @@ import com.google.firebase.firestore.FirebaseFirestore
 import java.util.concurrent.TimeUnit
 import androidx.core.content.edit
 
+import com.business.gym.GymApplication
+import com.business.gym.util.NotificationHelper
+
 /**
  * ViewModel для управления процессами авторизации (Email, Телефон, Google).
+ * Содержит логику входа, регистрации и синхронизации профиля пользователя с облаком.
  */
 class AuthViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
     private val database = FirebaseDatabase.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
 
-    // Поля ввода для экранов авторизации
+    // --- Поля ввода данных (реактивные состояния) ---
     private val _email = mutableStateOf("")
     val email: State<String> = _email
 
@@ -40,11 +44,11 @@ class AuthViewModel : ViewModel() {
     private val _verificationId = mutableStateOf<String?>(null)
     val verificationId: State<String?> = _verificationId
 
-    // Режим авторизации: "email" или "phone"
+    // Режим авторизации: "email" (почта) или "phone" (номер)
     private val _authMode = mutableStateOf("email")
     val authMode: State<String> = _authMode
 
-    // Флаг: вход (true) или регистрация (false)
+    // Флаг: текущее действие — вход (true) или регистрация (false)
     private val _isLogin = mutableStateOf(true)
     val isLogin: State<Boolean> = _isLogin
 
@@ -54,7 +58,7 @@ class AuthViewModel : ViewModel() {
     private val _isLoading = mutableStateOf(false)
     val isLoading: State<Boolean> = _isLoading
 
-    // Данные текущего авторизованного пользователя
+    // --- Данные текущего пользователя ---
     private val _currentUserProfile = mutableStateOf<UserProfile?>(null)
     val currentUserProfile: State<UserProfile?> = _currentUserProfile
 
@@ -64,7 +68,7 @@ class AuthViewModel : ViewModel() {
     private val _currentUid = mutableStateOf(auth.currentUser?.uid ?: "")
     val currentUid: State<String> = _currentUid
 
-    // Флаги управления диалогами
+    // Флаги управления диалоговыми окнами
     private val _showSetPasswordDialog = mutableStateOf(false)
     val showSetPasswordDialog: State<Boolean> = _showSetPasswordDialog
 
@@ -72,7 +76,7 @@ class AuthViewModel : ViewModel() {
     val loginWithPasswordMode: State<Boolean> = _loginWithPasswordMode
 
     init {
-        // Слушатель состояния авторизации: срабатывает при входе/выходе
+        // Слушатель состояния авторизации: срабатывает автоматически при логине/логауте
         auth.addAuthStateListener { firebaseAuth ->
             val user = firebaseAuth.currentUser
             if (user != null) {
@@ -88,7 +92,7 @@ class AuthViewModel : ViewModel() {
     }
 
     /**
-     * Загрузка профиля пользователя из Firestore или Realtime Database.
+     * Загрузка профиля пользователя из БД для получения доп. информации (например, имени).
      */
     private fun fetchUserProfile(uid: String) {
         firestore.collection("users").document(uid).get().addOnSuccessListener { snapshot ->
@@ -96,7 +100,7 @@ class AuthViewModel : ViewModel() {
             if (profile != null) {
                 _currentUserProfile.value = profile
             } else {
-                // Если в Firestore нет, ищем в RTDB (обратная совместимость)
+                // Резервный поиск в Realtime Database
                 database.getReference("users").child(uid).get().addOnSuccessListener { rtdbSnapshot ->
                     val rtdbProfile = rtdbSnapshot.getValue(UserProfile::class.java)
                     _currentUserProfile.value = rtdbProfile
@@ -106,11 +110,12 @@ class AuthViewModel : ViewModel() {
     }
 
     companion object {
+        // Константы администратора
         const val ADMIN_EMAIL = "verso0100@gmail.com"
         const val ADMIN_PHONE = "+79530481451"
 
         /**
-         * Проверка, является ли пользователь администратором по e-mail или телефону.
+         * Проверка, является ли Email или номер телефона администраторским.
          */
         fun isStaticAdmin(emailOrPhone: String?): Boolean {
             if (emailOrPhone == null) return false
@@ -122,19 +127,22 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Проверка прав администратора для текущего залогиненного пользователя.
+     */
     fun isAdmin(): Boolean {
         return isStaticAdmin(_currentUserEmail.value)
     }
 
     /**
-     * Восстановление сессии из SharedPreferences.
+     * Загрузка сохраненной Email-сессии из памяти телефона (SharedPreferences).
      */
     fun loadSession(context: Context) {
         if (_currentUserEmail.value == null) {
             val sharedPref = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
             val savedEmail = sharedPref.getString("user_session_email", null)
             val savedTimestamp = sharedPref.getLong("user_session_timestamp", 0L)
-            // Сессия живет 3 дня
+            // Сессия считается валидной 3 дня
             if (savedEmail != null && (System.currentTimeMillis() - savedTimestamp) < 3 * 24 * 60 * 60 * 1000L) {
                 _currentUserEmail.value = savedEmail
             }
@@ -154,7 +162,7 @@ class AuthViewModel : ViewModel() {
             .edit().remove("user_session_email").remove("user_session_timestamp").apply()
     }
 
-    // Обработчики ввода
+    // --- Обработчики изменений полей ввода ---
     fun onEmailChange(newValue: String) { _email.value = newValue; _error.value = null }
     fun onPasswordChange(newValue: String) { _password.value = newValue; _error.value = null }
     fun onConfirmPasswordChange(newValue: String) { _confirmPassword.value = newValue; _error.value = null }
@@ -167,6 +175,17 @@ class AuthViewModel : ViewModel() {
         _error.value = null 
     }
     fun onOtpCodeChange(newValue: String) { _otpCode.value = newValue; _error.value = null }
+    
+    /**
+     * Отображение ошибки: в UI и в системную шторку (только для админа).
+     */
+    private fun showError(msg: String) {
+        _error.value = msg
+        if (isAdmin()) {
+            NotificationHelper.showNotification(GymApplication.instance, "System Error", msg)
+        }
+    }
+
     fun setAuthMode(mode: String) { 
         _authMode.value = mode
         _error.value = null 
@@ -177,11 +196,11 @@ class AuthViewModel : ViewModel() {
     fun dismissSetPasswordDialog() { _showSetPasswordDialog.value = false }
 
     /**
-     * Вход по e-mail и паролю.
+     * Вход по Email и паролю.
      */
     fun signInWithEmail(onSuccess: (String) -> Unit) {
         if (_email.value.isBlank() || _password.value.isBlank()) {
-            _error.value = "Заполните все поля"
+            showError("Заполните все поля")
             return
         }
         _isLoading.value = true
@@ -194,43 +213,44 @@ class AuthViewModel : ViewModel() {
                     _currentUserEmail.value = email
                     _currentUid.value = uid
                     
-                    // Синхронизация профиля в Firestore и RTDB для видимости в чате
-                    val profile = UserProfile(uid, email, email.substringBefore("@"))
+                    // Синхронизация профиля в Firestore для списка чатов
+                    val isUserAdmin = isStaticAdmin(email)
+                    val displayName = if (isUserAdmin) "Администратор" else email.substringBefore("@")
+                    
+                    val profile = UserProfile(uid, email, displayName, hasPassword = true)
+                    
                     firestore.collection("users").document(uid).set(profile, com.google.firebase.firestore.SetOptions.merge())
-                    database.getReference("users").child(uid).updateChildren(mapOf(
-                        "uid" to uid,
-                        "email" to email,
-                        "name" to email.substringBefore("@")
-                    ))
+                    database.getReference("users").child(uid).setValue(profile)
                     
                     fetchUserProfile(uid)
                     _isLoading.value = false
                     onSuccess(email)
                 } else {
                     _isLoading.value = false
-                    _error.value = when {
+                    val errorMsg = when {
                         task.exception is FirebaseAuthInvalidUserException -> "Пользователь не найден"
                         task.exception is FirebaseAuthInvalidCredentialsException -> "Неверный пароль"
-                        else -> task.exception?.message
+                        else -> task.exception?.message ?: "Unknown error"
                     }
+                    showError(errorMsg)
                 }
             }
     }
 
     /**
-     * Регистрация нового аккаунта по e-mail.
+     * Регистрация нового аккаунта по Email.
      */
     fun signUpWithEmail(onSuccess: (String) -> Unit) {
         if (_email.value.isBlank() || _password.value.isBlank() || _confirmPassword.value.isBlank()) {
-            _error.value = "Заполните все поля"
+            showError("Заполните все поля")
             return
         }
         if (_password.value != _confirmPassword.value) {
-            _error.value = "Пароли не совпадают"
+            showError("Пароли не совпадают")
             return
         }
         if (_password.value.length < 6) {
-            _error.value = "Пароль должен быть не менее 6 символов"
+            showError("Пароль должен быть не менее 6 символов")
             return
         }
         _isLoading.value = true
@@ -249,20 +269,21 @@ class AuthViewModel : ViewModel() {
                     _confirmPassword.value = ""
                     onSuccess(email)
                 } else {
-                    _error.value = task.exception?.message
+                    showError(task.exception?.message ?: "Sign up failed")
                 }
             }
     }
 
     /**
-     * Вход по номеру телефона и паролю (для пользователей, уже установивших пароль).
+     * Вход по номеру телефона и постоянному паролю (если он был установлен ранее).
      */
     fun signInWithPhoneAndPassword(onSuccess: (String) -> Unit) {
         if (_phoneNumber.value.isBlank() || _password.value.isBlank()) {
-            _error.value = "Заполните все поля"
+            showError("Заполните все поля")
             return
         }
         _isLoading.value = true
+        // Используем внутренний формат "почты" для связки телефона и пароля
         val dummyEmail = "${_phoneNumber.value.replace("+", "")}@phone.gym"
         auth.signInWithEmailAndPassword(dummyEmail, _password.value)
             .addOnCompleteListener { task ->
@@ -275,7 +296,7 @@ class AuthViewModel : ViewModel() {
                     fetchUserProfile(user?.uid ?: "")
                     onSuccess(phone)
                 } else {
-                    _error.value = "Неверный логин или пароль"
+                    showError("Неверный логин или пароль")
                 }
             }
     }
@@ -285,7 +306,7 @@ class AuthViewModel : ViewModel() {
      */
     fun startPhoneVerification(activity: Activity) {
         if (_phoneNumber.value.isBlank() || !_phoneNumber.value.startsWith("+")) {
-            _error.value = "Введите номер в формате +7..."
+            showError("Введите номер в формате +7...")
             return
         }
 
@@ -296,14 +317,14 @@ class AuthViewModel : ViewModel() {
             .setActivity(activity)
             .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
                 override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                    // Автоматический вход, если Firebase может прочитать SMS
+                    // Автоматический вход при получении SMS системой
                     signInWithPhoneCredential(credential, onSuccess = { email -> 
                         _currentUserEmail.value = email
                     })
                 }
                 override fun onVerificationFailed(e: com.google.firebase.FirebaseException) {
                     _isLoading.value = false
-                    _error.value = "Ошибка проверки телефона"
+                    showError("Ошибка проверки телефона: ${e.message}")
                     android.util.Log.e("AuthViewModel", "Phone verification failed", e)
                 }
                 override fun onCodeSent(id: String, token: PhoneAuthProvider.ForceResendingToken) {
@@ -319,7 +340,7 @@ class AuthViewModel : ViewModel() {
      */
     fun verifyOtp(context: Context, onSuccess: (String) -> Unit) {
         if (_otpCode.value.isBlank()) {
-            _error.value = "Введите код подтверждения"
+            showError("Введите код подтверждения")
             return
         }
 
@@ -328,7 +349,7 @@ class AuthViewModel : ViewModel() {
             val uid = auth.currentUser?.uid ?: ""
             database.getReference("users").child(uid).get().addOnSuccessListener { snapshot ->
                 val profile = snapshot.getValue(UserProfile::class.java)
-                // Если пользователь зашел по SMS впервые, просим установить пароль
+                // Если зашли по SMS впервые, просим установить пароль для входа в будущем без SMS
                 if (profile == null || !profile.hasPassword) {
                     _showSetPasswordDialog.value = true
                 }
@@ -352,20 +373,25 @@ class AuthViewModel : ViewModel() {
                 firestore.collection("users").document(uid).get().addOnSuccessListener { snapshot ->
                     val existingProfile = snapshot.toObject(UserProfile::class.java)
                     if (existingProfile == null) {
-                        // Создаем технический e-mail для мобильного входа
+                        // Создаем технический Email для мобильного входа
                         val dummyEmail = "${phone.replace("+", "")}@phone.gym"
-                        val profile = UserProfile(uid, dummyEmail, "Пользователь", hasPassword = false)
+                        val isUserAdmin = isStaticAdmin(phone)
+                        val displayName = if (isUserAdmin) "Администратор" else "Пользователь"
+                        
+                        val profile = UserProfile(uid, dummyEmail, displayName, hasPassword = false)
                         database.getReference("users").child(uid).setValue(profile)
                         firestore.collection("users").document(uid).set(profile)
                         _currentUserProfile.value = profile
                     } else {
+                        // Обновляем существующий профиль
                         _currentUserProfile.value = existingProfile
+                        firestore.collection("users").document(uid).set(existingProfile, com.google.firebase.firestore.SetOptions.merge())
                     }
                     _currentUserEmail.value = phone
                     onSuccess(phone)
                 }
             } else {
-                _error.value = task.exception?.message
+                showError(task.exception?.message ?: "Sign in failed")
             }
         }
     }
@@ -391,7 +417,7 @@ class AuthViewModel : ViewModel() {
                 onSuccess()
             } else {
                 _isLoading.value = false
-                _error.value = "Не удалось установить пароль"
+                showError("Не удалось установить пароль: ${task.exception?.message}")
             }
         }
     }
@@ -424,7 +450,7 @@ class AuthViewModel : ViewModel() {
                 }
             } else {
                 _isLoading.value = false
-                _error.value = task.exception?.message
+                showError(task.exception?.message ?: "Google sign in failed")
             }
         }
     }

@@ -16,6 +16,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.business.gym.R
 import com.business.gym.ui.viewmodel.SettingsViewModel
 
+import androidx.compose.ui.graphics.Color
+
 @Composable
 fun SettingsScreen(
     currentUserEmail: String?,
@@ -24,6 +26,10 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isWideScreen = configuration.screenWidthDp > 600
+    val contentModifier = if (isWideScreen) Modifier.width(600.dp) else Modifier.fillMaxWidth()
+    
     val themeMode by viewModel.themeMode
     
     LaunchedEffect(currentUserEmail) {
@@ -34,18 +40,27 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = stringResource(R.string.settings_title),
-            style = MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineMedium,
+            color = Color.Red,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            modifier = contentModifier
         )
         Spacer(modifier = Modifier.height(16.dp))
         
-        Text(text = stringResource(R.string.settings_theme_mode), style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = stringResource(R.string.settings_theme_mode), 
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = contentModifier
+        )
         Spacer(modifier = Modifier.height(8.dp))
         
-        Column {
+        Column(modifier = contentModifier) {
             ThemeOption("light", themeMode, stringResource(R.string.theme_light)) { viewModel.setThemeMode(context, currentUserEmail, it) }
             ThemeOption("dark", themeMode, stringResource(R.string.theme_dark)) { viewModel.setThemeMode(context, currentUserEmail, it) }
             ThemeOption("system", themeMode, stringResource(R.string.theme_system)) { viewModel.setThemeMode(context, currentUserEmail, it) }
@@ -53,13 +68,18 @@ fun SettingsScreen(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        Text(text = stringResource(R.string.settings_language), style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = stringResource(R.string.settings_language), 
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = contentModifier
+        )
         Spacer(modifier = Modifier.height(8.dp))
         
         val currentLocale = if (AppCompatDelegate.getApplicationLocales().isEmpty) "system" 
                            else AppCompatDelegate.getApplicationLocales().get(0)?.language ?: "system"
         
-        Column {
+        Column(modifier = contentModifier) {
             LanguageOption("system", currentLocale, stringResource(R.string.language_system)) { viewModel.setLanguage(context, currentUserEmail, it) }
             LanguageOption("en", currentLocale, stringResource(R.string.language_english)) { viewModel.setLanguage(context, currentUserEmail, it) }
             LanguageOption("ru", currentLocale, stringResource(R.string.language_russian)) { viewModel.setLanguage(context, currentUserEmail, it) }
@@ -67,14 +87,20 @@ fun SettingsScreen(
 
         if (currentUserEmail != null) {
             Spacer(modifier = Modifier.height(32.dp))
-            Text(text = "Logged in as: $currentUserEmail", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Logged in as: $currentUserEmail", 
+                style = MaterialTheme.typography.bodyMedium, 
+                color = Color.Gray,
+                modifier = contentModifier
+            )
+            Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = onLogout,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                modifier = contentModifier.height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
             ) {
-                Text(stringResource(R.string.auth_logout))
+                Text(stringResource(R.string.auth_logout), color = Color.White)
             }
         }
     }
@@ -82,16 +108,36 @@ fun SettingsScreen(
 
 @Composable
 fun ThemeOption(mode: String, currentMode: String, label: String, onClick: (String) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onClick(mode) }) {
-        RadioButton(selected = currentMode == mode, onClick = { onClick(mode) })
-        Text(label, style = MaterialTheme.typography.bodyLarge)
+    Row(
+        verticalAlignment = Alignment.CenterVertically, 
+        modifier = Modifier.fillMaxWidth().clickable { onClick(mode) }.padding(vertical = 4.dp)
+    ) {
+        RadioButton(
+            selected = currentMode == mode, 
+            onClick = { onClick(mode) },
+            colors = RadioButtonDefaults.colors(
+                selectedColor = Color.Red, 
+                unselectedColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+            )
+        )
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onBackground)
     }
 }
 
 @Composable
 fun LanguageOption(lang: String, currentLang: String, label: String, onClick: (String) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onClick(lang) }) {
-        RadioButton(selected = currentLang == lang, onClick = { onClick(lang) })
-        Text(label, style = MaterialTheme.typography.bodyLarge)
+    Row(
+        verticalAlignment = Alignment.CenterVertically, 
+        modifier = Modifier.fillMaxWidth().clickable { onClick(lang) }.padding(vertical = 4.dp)
+    ) {
+        RadioButton(
+            selected = currentLang == lang, 
+            onClick = { onClick(lang) },
+            colors = RadioButtonDefaults.colors(
+                selectedColor = Color.Red, 
+                unselectedColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+            )
+        )
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onBackground)
     }
 }

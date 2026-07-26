@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -27,6 +28,11 @@ import com.business.gym.data.model.Track
 import com.business.gym.ui.component.TrackItem
 import com.business.gym.ui.viewmodel.PlaylistViewModel
 
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.platform.LocalConfiguration
+
 @Composable
 fun PlaylistScreen(
     exoPlayer: ExoPlayer,
@@ -35,6 +41,9 @@ fun PlaylistScreen(
     viewModel: PlaylistViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isWideScreen = configuration.screenWidthDp > 600
+    val columns = if (isWideScreen) 2 else 1
     val tracks by viewModel.tracks
     val isUploading by viewModel.isUploading
     
@@ -47,21 +56,34 @@ fun PlaylistScreen(
     if (showUrlDialog) {
         AlertDialog(
             onDismissRequest = { showUrlDialog = false },
-            title = { Text(stringResource(R.string.add_track_url_title)) },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text(stringResource(R.string.add_track_url_title), color = Color.Red) },
             text = {
-                Column {
+                Column(modifier = if (isWideScreen) Modifier.width(480.dp) else Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = nameInput,
                         onValueChange = { nameInput = it },
-                        label = { Text(stringResource(R.string.track_name_label)) },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text(stringResource(R.string.track_name_label), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            focusedBorderColor = Color.Red,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        )
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = urlInput,
                         onValueChange = { urlInput = it },
-                        label = { Text(stringResource(R.string.url_label)) },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text(stringResource(R.string.url_label), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            focusedBorderColor = Color.Red,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        )
                     )
                 }
             },
@@ -73,10 +95,14 @@ fun PlaylistScreen(
                         urlInput = ""
                         nameInput = ""
                     }
-                }) { Text(stringResource(R.string.btn_add)) }
+                }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) { 
+                    Text(stringResource(R.string.btn_add), color = Color.White) 
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showUrlDialog = false }) { Text(stringResource(R.string.btn_cancel)) }
+                TextButton(onClick = { showUrlDialog = false }) { 
+                    Text(stringResource(R.string.btn_cancel), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) 
+                }
             }
         )
     }
@@ -116,15 +142,22 @@ fun PlaylistScreen(
         onDispose { exoPlayer.removeListener(listener) }
     }
 
-    Column(modifier = modifier.padding(16.dp)) {
+    Column(
+        modifier = modifier.padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        val topRowModifier = if (isWideScreen) Modifier.width(800.dp) else Modifier.fillMaxWidth()
+        
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = topRowModifier,
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = stringResource(R.string.playlist_title),
                 style = MaterialTheme.typography.headlineMedium,
+                color = Color.Red,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -154,10 +187,19 @@ fun PlaylistScreen(
 
         if (tracks.isEmpty()) {
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Text(text = stringResource(R.string.playlist_empty))
+                Text(
+                    text = stringResource(R.string.playlist_empty),
+                    color = MaterialTheme.colorScheme.onBackground
+                )
             }
         } else {
-            LazyColumn(modifier = Modifier.weight(1f)) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columns),
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 items(tracks) { track ->
                     val isThisTrackSelected = currentTrack?.id == track.id
                     TrackItem(
@@ -188,13 +230,18 @@ fun PlaylistScreen(
 
         if (currentTrack != null) {
             Card(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                modifier = topRowModifier.padding(vertical = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Red)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = currentTrack?.name ?: "",
                         style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -209,14 +256,14 @@ fun PlaylistScreen(
                             exoPlayer.clearMediaItems()
                             currentTrack = null
                         }) {
-                            Icon(Icons.Default.Stop, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Default.Stop, contentDescription = null, tint = Color.Red)
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         IconButton(
                             onClick = { if (isPlaying) exoPlayer.pause() else exoPlayer.play() },
                             colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
+                                containerColor = Color.Red,
+                                contentColor = Color.White
                             )
                         ) {
                             Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null)
