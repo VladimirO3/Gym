@@ -17,18 +17,103 @@ import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
 import java.util.*
 
+import com.business.gym.data.api.NewsApiService
+import com.business.gym.data.api.LocalNews
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
+import java.util.*
+
 class NewsViewModel : ViewModel() {
     private val database = FirebaseDatabase.getInstance().getReference("news_items")
     private val storage = FirebaseStorage.getInstance().getReference("news_media")
+    private val localApiService = NewsApiService.create()
 
     private val _newsItems = mutableStateOf(listOf<NewsItem>())
     val newsItems: State<List<NewsItem>> = _newsItems
+
+    private val _localNews = mutableStateOf(listOf<LocalNews>())
+    val localNews: State<List<LocalNews>> = _localNews
 
     private val _isUploading = mutableStateOf(false)
     val isUploading: State<Boolean> = _isUploading
 
     init {
         fetchNews()
+        fetchLocalNews(null) // По умолчанию без токена
+    }
+
+    fun fetchLocalNews(token: String?) {
+        viewModelScope.launch {
+            try {
+                // Если токен есть, добавляем "Bearer ", как того требует стандарт JWT
+                val authHeader = if (token.isNullOrBlank()) "" else "Bearer $token"
+                val news = localApiService.getLocalNews(authHeader)
+                _localNews.value = news
+                Log.d("NewsViewModel", "Loaded ${news.size} news from local server")
+            } catch (e: Exception) {
+                Log.e("NewsViewModel", "Failed to load from local server: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Загрузка новости на собственный сервер (API)
+     */
+    fun uploadToLocalServer(
+        context: Context, 
+        uri: Uri?, 
+        title: String, 
+        content: String, 
+        token: String,
+        onSuccess: () -> Unit
+    ) {
+        _isUploading.value = true
+        viewModelScope.launch {
+            try {
+                val titlePart = title.toRequestBody("text/plain".toMediaTypeOrNull())
+                val contentPart = content.toRequestBody("text/plain".toMediaTypeOrNull())
+                
+                val type = if (uri != null) {
+                    context.contentResolver.getType(uri)?.let { 
+                        if (it.contains("video")) "video" else "image"
+                    } ?: "image"
+                } else "text"
+                val typePart = type.toRequestBody("text/plain".toMediaTypeOrNull())
+
+                var mediaPart: MultipartBody.Part? = null
+                if (uri != null) {
+                    val file = File(context.cacheDir, "upload_tmp")
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        file.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    val requestFile = file.asRequestBody(context.contentResolver.getType(uri)?.toMediaTypeOrNull())
+                    mediaPart = MultipartBody.Part.createFormData("media", file.name, requestFile)
+                }
+
+                val response = localApiService.postLocalNews(
+                    token = "Bearer $token",
+                    title = titlePart,
+                    content = contentPart,
+                    type = typePart,
+                    media = mediaPart
+                )
+                
+                Log.d("NewsViewModel", "Local server response: $response")
+                Toast.makeText(context, "Новость добавлена на сервер!", Toast.LENGTH_SHORT).show()
+                fetchLocalNews(token)
+                onSuccess()
+            } catch (e: Exception) {
+                Log.e("NewsViewModel", "Local upload failed", e)
+                Toast.makeText(context, "Ошибка сервера: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                _isUploading.value = false
+            }
+        }
     }
 
     private fun fetchNews() {
@@ -138,5 +223,21 @@ class NewsViewModel : ViewModel() {
         try {
             FirebaseStorage.getInstance().getReferenceFromUrl(item.url).delete()
         } catch (e: Exception) {}
+    }
+
+    /**
+     * Удаление новости с локального сервера
+     */
+    fun deleteLocalNewsItem(id: String, token: String?) {
+        if (token == null) return
+        viewModelScope.launch {
+            try {
+                localApiService.deleteLocalNews("Bearer $token", id)
+                fetchLocalNews(token)
+                Log.d("NewsViewModel", "Local news deleted: $id")
+            } catch (e: Exception) {
+                Log.e("NewsViewModel", "Failed to delete local news", e)
+            }
+        }
     }
 }

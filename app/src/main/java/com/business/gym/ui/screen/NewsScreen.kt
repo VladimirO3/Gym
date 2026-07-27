@@ -22,35 +22,140 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.business.gym.R
 import com.business.gym.ui.component.NewsMediaItem
 import com.business.gym.ui.component.VideoPlayer
+import com.business.gym.ui.viewmodel.AuthViewModel
 import com.business.gym.ui.viewmodel.NewsViewModel
 
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalConfiguration
 
 @Composable
 fun NewsScreen(
     isAdmin: Boolean,
     viewModel: NewsViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(), // Добавляем доступ к Auth
     modifier: Modifier = Modifier
 ) {
     val newsItems by viewModel.newsItems
+    val localNews by viewModel.localNews
     val isUploading by viewModel.isUploading
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp > 600
     val columns = if (isWideScreen) 2 else 1
     
+    val jwtToken by authViewModel.jwtToken
+
+    // Автоматически обновляем локальные новости, когда получен токен
+    LaunchedEffect(jwtToken) {
+        viewModel.fetchLocalNews(jwtToken)
+    }
+    
     var showUrlDialog by remember { mutableStateOf(false) }
     var urlInput by remember { mutableStateOf("") }
     var urlType by remember { mutableStateOf("image") }
 
+    // Состояния для добавления новости на СВОЙ сервер
+    var showLocalAddDialog by remember { mutableStateOf(false) }
+    var localTitle by remember { mutableStateOf("") }
+    var localContent by remember { mutableStateOf("") }
+    var selectedMediaUri by remember { mutableStateOf<Uri?>(null) }
+
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let { viewModel.uploadMedia(context, it) }
+        if (showLocalAddDialog) {
+            selectedMediaUri = uri // Если открыт диалог своего сервера, просто запоминаем файл
+        } else {
+            uri?.let { viewModel.uploadMedia(context, it) } // Иначе сразу грузим в Firebase
+        }
+    }
+
+    if (showLocalAddDialog) {
+        AlertDialog(
+            onDismissRequest = { showLocalAddDialog = false },
+            containerColor = Color.Black,
+            title = { Text("Новость на свой сервер", color = Color.Red) },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                    OutlinedTextField(
+                        value = localTitle,
+                        onValueChange = { localTitle = it },
+                        label = { Text("Заголовок", color = Color.White) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color.Red,
+                            unfocusedBorderColor = Color.Gray
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = localContent,
+                        onValueChange = { localContent = it },
+                        label = { Text("Текст новости", color = Color.White) },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color.Red,
+                            unfocusedBorderColor = Color.Gray
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    if (selectedMediaUri != null) {
+                        Text("Файл выбран", color = Color.Green, style = MaterialTheme.typography.bodySmall)
+                    }
+                    
+                    Button(
+                        onClick = { launcher.launch("image/* video/*") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
+                    ) {
+                        Icon(Icons.Default.AttachFile, null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (selectedMediaUri == null) "Выбрать фото/видео" else "Изменить файл")
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (localTitle.isNotBlank()) {
+                            viewModel.uploadToLocalServer(
+                                context = context,
+                                uri = selectedMediaUri,
+                                title = localTitle,
+                                content = localContent,
+                                token = jwtToken ?: "",
+                                onSuccess = {
+                                    showLocalAddDialog = false
+                                    localTitle = ""
+                                    localContent = ""
+                                    selectedMediaUri = null
+                                }
+                            )
+                        }
+                    },
+                    enabled = !isUploading && localTitle.isNotBlank(), // Кнопка активна, если введен заголовок
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    if (isUploading) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+                    else Text("Опубликовать")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLocalAddDialog = false }) { Text("Отмена", color = Color.Gray) }
+            }
+        )
     }
 
     if (showUrlDialog) {
@@ -135,14 +240,9 @@ fun NewsScreen(
                         }
                         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.add_photo_firebase)) },
-                                onClick = { expanded = false; launcher.launch("image/*") },
-                                leadingIcon = { Icon(Icons.Default.AddAPhoto, null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.add_video_firebase)) },
-                                onClick = { expanded = false; launcher.launch("video/*") },
-                                leadingIcon = { Icon(Icons.Default.VideoCall, null) }
+                                text = { Text("Загрузить на свой сервер") },
+                                onClick = { expanded = false; showLocalAddDialog = true },
+                                leadingIcon = { Icon(Icons.Default.CloudUpload, null) }
                             )
                             HorizontalDivider()
                             DropdownMenuItem(
@@ -177,6 +277,64 @@ fun NewsScreen(
             }
             items(newsItems) { item ->
                 NewsMediaItem(item, isAdmin, onDelete = { viewModel.deleteNewsItem(item) })
+            }
+            
+            // Отображаем новости с вашего будущего локального сервера
+            if (localNews.isNotEmpty()) {
+                item(span = { GridItemSpan(columns) }) {
+                    Text(
+                        "Новости с вашего сервера:", 
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.Red,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
+                items(localNews) { localItem ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(alpha = 0.5f))
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                if (localItem.url.isNotBlank()) {
+                                    val isVideo = localItem.url.lowercase().contains(".mp4") || localItem.url.lowercase().contains(".mov")
+                                    if (isVideo) {
+                                        VideoPlayer(
+                                            videoUrl = localItem.url,
+                                            modifier = Modifier.fillMaxWidth().height(250.dp).padding(bottom = 8.dp),
+                                            autoPlay = true,
+                                            muted = true,
+                                            looping = true
+                                        )
+                                    } else {
+                                        coil.compose.AsyncImage(
+                                            model = localItem.url,
+                                            contentDescription = "Local News Media",
+                                            modifier = Modifier.fillMaxWidth().height(250.dp).padding(bottom = 8.dp),
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                        )
+                                    }
+                                }
+                                Text(localItem.title, fontWeight = FontWeight.Bold, color = Color.Red)
+                                Text(localItem.content, color = Color.White)
+                            }
+                            
+                            if (isAdmin) {
+                                IconButton(
+                                    onClick = { viewModel.deleteLocalNewsItem(localItem.id, jwtToken) },
+                                    modifier = Modifier.align(Alignment.TopEnd)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete",
+                                        tint = Color.White, // Сделал иконку ярче (белой) на темном фоне
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -163,7 +163,8 @@ fun GymApp(
         },
         onExitRequest = onExitRequest,
         settingsViewModel = settingsViewModel,
-        isDarkTheme = isDarkTheme
+        isDarkTheme = isDarkTheme,
+        authViewModel = authViewModel
     )
 }
 
@@ -177,7 +178,8 @@ fun GymAppContent(
     onSaveSession: (String) -> Unit,
     onExitRequest: () -> Unit,
     settingsViewModel: SettingsViewModel,
-    isDarkTheme: Boolean
+    isDarkTheme: Boolean,
+    authViewModel: AuthViewModel
 ) {
     val coroutineScope = rememberCoroutineScope()
     
@@ -346,7 +348,10 @@ fun GymAppContent(
                                 modifier = Modifier.fillMaxSize()
                             ) { page ->
                                 when (tabs[page].third) {
-                                    "news" -> NewsScreen(isAdmin = isAdmin)
+                                    "news" -> NewsScreen(
+                                        isAdmin = isAdmin,
+                                        authViewModel = authViewModel
+                                    )
                                     "playlist" -> PlaylistScreen(exoPlayer = exoPlayer, isAdmin = isAdmin)
                                     "chat" -> {
                                         if (currentUserEmail == null) {
@@ -393,6 +398,7 @@ fun GymAppContent(
 @Composable
 fun GymAppPreview() {
     val settingsViewModel: SettingsViewModel = viewModel()
+    val authViewModel: AuthViewModel = viewModel()
     GymTheme {
         GymAppContent(
             currentUserEmail = "test@example.com",
@@ -403,7 +409,8 @@ fun GymAppPreview() {
             onSaveSession = {},
             onExitRequest = {},
             settingsViewModel = settingsViewModel,
-            isDarkTheme = true
+            isDarkTheme = true,
+            authViewModel = authViewModel
         )
     }
 }

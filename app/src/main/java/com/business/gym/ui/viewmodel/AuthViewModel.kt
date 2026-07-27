@@ -15,6 +15,10 @@ import androidx.core.content.edit
 import com.business.gym.GymApplication
 import com.business.gym.util.NotificationHelper
 
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import android.util.Log
+
 /**
  * ViewModel для управления процессами авторизации (Email, Телефон, Google).
  * Содержит логику входа, регистрации и синхронизации профиля пользователя с облаком.
@@ -67,6 +71,12 @@ class AuthViewModel : ViewModel() {
 
     private val _currentUid = mutableStateOf(auth.currentUser?.uid ?: "")
     val currentUid: State<String> = _currentUid
+
+    // JWT Токен для вашего собственного сервера
+    private val _jwtToken = mutableStateOf<String?>(null)
+    val jwtToken: State<String?> = _jwtToken
+
+    private val localApiService = com.business.gym.data.api.NewsApiService.create()
 
     // Флаги управления диалоговыми окнами
     private val _showSetPasswordDialog = mutableStateOf(false)
@@ -145,6 +155,10 @@ class AuthViewModel : ViewModel() {
             // Сессия считается валидной 3 дня
             if (savedEmail != null && (System.currentTimeMillis() - savedTimestamp) < 3 * 24 * 60 * 60 * 1000L) {
                 _currentUserEmail.value = savedEmail
+                // Если восстановилась сессия админа, получаем токен от локального сервера
+                if (savedEmail == "verso0100@gmail.com") {
+                    loginToLocalBackend(savedEmail)
+                }
             }
         }
     }
@@ -195,6 +209,20 @@ class AuthViewModel : ViewModel() {
     fun toggleLoginWithPassword() { _loginWithPasswordMode.value = !_loginWithPasswordMode.value }
     fun dismissSetPasswordDialog() { _showSetPasswordDialog.value = false }
 
+    private fun loginToLocalBackend(email: String) {
+        viewModelScope.launch {
+            try {
+                // Пытаемся зайти на локальный сервер.
+                // Если мы админ, сервер примет любой пароль (мы настроили это ранее).
+                val response = localApiService.login(email, _password.value.ifBlank { "test_pass" })
+                _jwtToken.value = response.token
+                Log.d("AuthViewModel", "Successfully got JWT token from local server")
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Local backend login failed: ${e.message}")
+            }
+        }
+    }
+
     /**
      * Вход по Email и паролю.
      */
@@ -204,27 +232,47 @@ class AuthViewModel : ViewModel() {
             return
         }
         _isLoading.value = true
-        auth.signInWithEmailAndPassword(_email.value, _password.value)
+        val email = _email.value
+
+        // ТЕСТОВАЯ ЛОГИКА: Если это наш админ, сначала пробуем локальный сервер
+        if (email == "verso0100@gmail.com") {
+            viewModelScope.launch {
+                try {
+                    val response = localApiService.login(email, _password.value)
+                    _jwtToken.value = response.token
+                    _currentUserEmail.value = email
+                    _isLoading.value = false
+                    Log.d("AuthViewModel", "Admin logged in via LOCAL SERVER")
+                    onSuccess(email)
+                    return@launch
+                } catch (e: Exception) {
+                    Log.e("AuthViewModel", "Local login failed, falling back to Firebase: ${e.message}")
+                }
+            }
+        }
+
+        auth.signInWithEmailAndPassword(email, _password.value)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     val user = auth.currentUser
-                    val email = user?.email ?: _email.value
+                    val finalEmail = user?.email ?: email
                     val uid = user?.uid ?: ""
-                    _currentUserEmail.value = email
+                    _currentUserEmail.value = finalEmail
                     _currentUid.value = uid
                     
                     // Синхронизация профиля в Firestore для списка чатов
-                    val isUserAdmin = isStaticAdmin(email)
-                    val displayName = if (isUserAdmin) "Администратор" else email.substringBefore("@")
+                    val isUserAdmin = isStaticAdmin(finalEmail)
+                    val displayName = if (isUserAdmin) "Администратор" else finalEmail.substringBefore("@")
                     
-                    val profile = UserProfile(uid, email, displayName, hasPassword = true)
+                    val profile = UserProfile(uid, finalEmail, displayName, hasPassword = true)
                     
                     firestore.collection("users").document(uid).set(profile, com.google.firebase.firestore.SetOptions.merge())
                     database.getReference("users").child(uid).setValue(profile)
                     
                     fetchUserProfile(uid)
+                    loginToLocalBackend(finalEmail) // Пытаемся получить токен с вашего сервера
                     _isLoading.value = false
-                    onSuccess(email)
+                    onSuccess(finalEmail)
                 } else {
                     _isLoading.value = false
                     val errorMsg = when {

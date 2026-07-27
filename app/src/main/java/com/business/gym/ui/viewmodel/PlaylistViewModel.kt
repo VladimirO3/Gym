@@ -16,18 +16,90 @@ import com.google.firebase.database.ValueEventListener
 import com.google.firebase.storage.FirebaseStorage
 import java.util.*
 
+import com.business.gym.data.api.NewsApiService
+import com.business.gym.data.api.LocalTrack
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
+import java.util.*
+
 class PlaylistViewModel : ViewModel() {
     private val database = FirebaseDatabase.getInstance().getReference("playlist")
     private val storage = FirebaseStorage.getInstance().getReference("music")
+    private val localApiService = NewsApiService.create()
 
     private val _tracks = mutableStateOf(listOf<Track>())
     val tracks: State<List<Track>> = _tracks
+
+    private val _localTracks = mutableStateOf(listOf<LocalTrack>())
+    val localTracks: State<List<LocalTrack>> = _localTracks
 
     private val _isUploading = mutableStateOf(false)
     val isUploading: State<Boolean> = _isUploading
 
     init {
         fetchTracks()
+        fetchLocalTracks()
+    }
+
+    /**
+     * Загрузка списка треков с вашего сервера
+     */
+    private fun fetchLocalTracks() {
+        viewModelScope.launch {
+            try {
+                val local = localApiService.getLocalTracks()
+                _localTracks.value = local
+                Log.d("PlaylistViewModel", "Loaded ${local.size} tracks from local server")
+            } catch (e: Exception) {
+                Log.e("PlaylistViewModel", "Failed to load local tracks: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Загрузка трека на ВАШ сервер (вместо Firebase)
+     */
+    fun uploadTrackToLocalServer(context: Context, uri: Uri, token: String?) {
+        if (token == null) {
+            Toast.makeText(context, "Нужна авторизация на сервере", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        _isUploading.value = true
+        viewModelScope.launch {
+            try {
+                val fileName = getFileName(context, uri) ?: "Track_${UUID.randomUUID()}"
+                val namePart = fileName.toRequestBody("text/plain".toMediaTypeOrNull())
+
+                // Копируем файл во временное хранилище для отправки
+                val file = File(context.cacheDir, "upload_audio_tmp")
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    file.outputStream().use { output -> input.copyTo(output) }
+                }
+
+                val requestFile = file.asRequestBody(context.contentResolver.getType(uri)?.toMediaTypeOrNull())
+                val mediaPart = MultipartBody.Part.createFormData("media", fileName, requestFile)
+
+                localApiService.postLocalTrack(
+                    token = "Bearer $token",
+                    name = namePart,
+                    media = mediaPart
+                )
+
+                Toast.makeText(context, "Трек загружен на сервер!", Toast.LENGTH_SHORT).show()
+                fetchLocalTracks() // Обновляем список
+            } catch (e: Exception) {
+                Log.e("PlaylistViewModel", "Local upload failed", e)
+                Toast.makeText(context, "Ошибка загрузки на сервер: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                _isUploading.value = false
+            }
+        }
     }
 
     private fun fetchTracks() {

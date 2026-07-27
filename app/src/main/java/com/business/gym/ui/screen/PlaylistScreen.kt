@@ -27,10 +27,12 @@ import com.business.gym.R
 import com.business.gym.data.model.Track
 import com.business.gym.ui.component.TrackItem
 import com.business.gym.ui.viewmodel.PlaylistViewModel
+import com.business.gym.ui.viewmodel.AuthViewModel
 
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.ui.platform.LocalConfiguration
 
 @Composable
@@ -38,79 +40,27 @@ fun PlaylistScreen(
     exoPlayer: ExoPlayer,
     isAdmin: Boolean,
     modifier: Modifier = Modifier,
-    viewModel: PlaylistViewModel = viewModel()
+    viewModel: PlaylistViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp > 600
     val columns = if (isWideScreen) 2 else 1
+    
     val tracks by viewModel.tracks
+    val localTracks by viewModel.localTracks
     val isUploading by viewModel.isUploading
+    val jwtToken by authViewModel.jwtToken
     
     var currentTrack by remember { mutableStateOf<Track?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
-    var showUrlDialog by remember { mutableStateOf(false) }
-    var urlInput by remember { mutableStateOf("") }
-    var nameInput by remember { mutableStateOf("") }
 
-    if (showUrlDialog) {
-        AlertDialog(
-            onDismissRequest = { showUrlDialog = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text(stringResource(R.string.add_track_url_title), color = Color.Red) },
-            text = {
-                Column(modifier = if (isWideScreen) Modifier.width(480.dp) else Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = nameInput,
-                        onValueChange = { nameInput = it },
-                        label = { Text(stringResource(R.string.track_name_label), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            focusedBorderColor = Color.Red,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = urlInput,
-                        onValueChange = { urlInput = it },
-                        label = { Text(stringResource(R.string.url_label), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            focusedBorderColor = Color.Red,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                        )
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    if (urlInput.isNotBlank() && nameInput.isNotBlank()) {
-                        viewModel.addTrackByUrl(nameInput, urlInput)
-                        showUrlDialog = false
-                        urlInput = ""
-                        nameInput = ""
-                    }
-                }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) { 
-                    Text(stringResource(R.string.btn_add), color = Color.White) 
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showUrlDialog = false }) { 
-                    Text(stringResource(R.string.btn_cancel), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) 
-                }
-            }
-        )
-    }
-
+    // Лаунчер для выбора аудио (теперь грузим на свой сервер)
     val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents()
-    ) { uris: List<Uri> ->
-        viewModel.uploadTracks(context, uris)
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { viewModel.uploadTrackToLocalServer(context, it, jwtToken) }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -165,19 +115,13 @@ fun PlaylistScreen(
             
             if (isAdmin) {
                 Row {
-                    IconButton(
-                        onClick = { showUrlDialog = true },
-                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF008B8B))
-                    ) {
-                        Icon(Icons.Default.Link, contentDescription = null, tint = Color.White)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    // Кнопка загрузки на СВОЙ сервер
                     IconButton(
                         onClick = { checkAndLaunch() },
                         colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF8B0000))
                     ) {
                         if (isUploading) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
-                        else Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+                        else Icon(Icons.Default.CloudUpload, contentDescription = "Загрузить на сервер", tint = Color.White)
                     }
                 }
             }
@@ -185,7 +129,7 @@ fun PlaylistScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (tracks.isEmpty()) {
+        if (tracks.isEmpty() && localTracks.isEmpty()) {
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Text(
                     text = stringResource(R.string.playlist_empty),
@@ -200,6 +144,7 @@ fun PlaylistScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Сначала треки из Firebase
                 items(tracks) { track ->
                     val isThisTrackSelected = currentTrack?.id == track.id
                     TrackItem(
@@ -224,6 +169,43 @@ fun PlaylistScreen(
                             currentTrack = null
                         }
                     )
+                }
+
+                // Затем треки с вашего сервера
+                if (localTracks.isNotEmpty()) {
+                    item(span = { GridItemSpan(columns) }) {
+                        Text(
+                            "Плейлист с вашего сервера:", 
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.Red,
+                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                        )
+                    }
+                    items(localTracks) { localTrack ->
+                        val isThisTrackSelected = currentTrack?.url == localTrack.url
+                        TrackItem(
+                            track = Track(id = localTrack.id.toString(), url = localTrack.url, name = localTrack.name),
+                            isSelected = isThisTrackSelected,
+                            isPlaying = isPlaying,
+                            isAdmin = isAdmin,
+                            onDelete = { /* Добавить метод удаления */ },
+                            onPlayPause = {
+                                if (!isThisTrackSelected) {
+                                    currentTrack = Track(id = localTrack.id.toString(), url = localTrack.url, name = localTrack.name)
+                                    exoPlayer.setMediaItem(MediaItem.fromUri(localTrack.url))
+                                    exoPlayer.prepare()
+                                    exoPlayer.play()
+                                } else {
+                                    if (isPlaying) exoPlayer.pause() else exoPlayer.play()
+                                }
+                            },
+                            onStop = {
+                                exoPlayer.stop()
+                                exoPlayer.clearMediaItems()
+                                currentTrack = null
+                            }
+                        )
+                    }
                 }
             }
         }
