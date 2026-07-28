@@ -1,5 +1,7 @@
 package com.business.gym.data.api
 
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
@@ -24,6 +26,26 @@ data class LocalTrack(
 )
 
 /**
+ * Модель данных сообщения для локального чата.
+ */
+data class LocalChatMessage(
+    val id: Int = 0,
+    val text: String = "",
+    val senderId: String = "",
+    val senderName: String = "",
+    val timestamp: Long = 0
+)
+
+/**
+ * Модель данных пользователя для локального чата.
+ */
+data class LocalUser(
+    val uid: String = "",
+    val email: String = "",
+    val name: String = ""
+)
+
+/**
  * Модель для входа на сервер.
  */
 data class LoginResponse(val token: String)
@@ -32,61 +54,84 @@ data class LoginResponse(val token: String)
  * Описание запросов к вашему собственному серверу (Ktor/Node.js/Python).
  */
 interface NewsApiService {
-    
-    // Публичный метод для входа (получение JWT токена)
+
+    // --- АВТОРИЗАЦИЯ ---
     @FormUrlEncoded
     @POST("login")
     suspend fun login(
         @Field("email") email: String,
-        @Field("password") password: String
+        @Field("password") pass: String
     ): LoginResponse
 
-    // Защищенный метод получения новостей
+    // --- НОВОСТИ ---
     @GET("news")
     suspend fun getLocalNews(
         @Header("Authorization") token: String
     ): List<LocalNews>
 
-    // Добавление новости на свой сервер (Multipart для фото/видео + текст)
     @Multipart
-    @POST("admin/news")
+    @POST("news")
     suspend fun postLocalNews(
         @Header("Authorization") token: String,
-        @Part("title") title: okhttp3.RequestBody,
-        @Part("content") content: okhttp3.RequestBody,
-        @Part("type") type: okhttp3.RequestBody,
-        @Part media: okhttp3.MultipartBody.Part?
+        @Part("title") title: RequestBody,
+        @Part("content") content: RequestBody,
+        @Part("type") type: RequestBody,
+        @Part media: MultipartBody.Part?
     ): Map<String, String>
 
-    // Удаление новости с вашего сервера
-    @DELETE("admin/news/{id}")
+    @DELETE("news/{id}")
     suspend fun deleteLocalNews(
         @Header("Authorization") token: String,
         @Path("id") id: String
-    ): Map<String, String>
+    )
 
-    // --- ПЛЕЙЛИСТ ---
-
-    // Получение списка треков с вашего сервера
+    // --- МУЗЫКА ---
     @GET("tracks")
     suspend fun getLocalTracks(): List<LocalTrack>
 
-    // Загрузка трека на ваш сервер
     @Multipart
-    @POST("admin/tracks")
+    @POST("tracks")
     suspend fun postLocalTrack(
         @Header("Authorization") token: String,
-        @Part("name") name: okhttp3.RequestBody,
-        @Part media: okhttp3.MultipartBody.Part
+        @Part("name") name: RequestBody,
+        @Part media: MultipartBody.Part?
+    ): Map<String, String>
+
+    // --- ЧАТ ---
+
+    // Получение списка доступных собеседников
+    @GET("chat/users")
+    suspend fun getChatUsers(
+        @Header("Authorization") token: String
+    ): List<LocalUser>
+
+    // Получение истории сообщений с конкретным пользователем
+    @GET("chat/messages/{peerUid}")
+    suspend fun getChatMessages(
+        @Header("Authorization") token: String,
+        @Path("peerUid") peerUid: String
+    ): List<LocalChatMessage>
+
+    // Отправка сообщения
+    @FormUrlEncoded
+    @POST("chat/send")
+    suspend fun sendChatMessage(
+        @Header("Authorization") token: String,
+        @Field("peerUid") peerUid: String,
+        @Field("text") text: String
     ): Map<String, String>
 
     companion object {
-        // IP 10.0.2.2 используется в эмуляторе Android для обращения к "localhost" вашего ПК.
-        private const val BASE_URL = "http://10.0.2.2:8080/"
+        // Базовый адрес по умолчанию
+        private var currentBaseUrl = "http://192.168.0.13:5557/"
+
+        fun updateBaseUrl(newUrl: String) {
+            currentBaseUrl = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
+        }
 
         fun create(): NewsApiService {
             return Retrofit.Builder()
-                .baseUrl(BASE_URL)
+                .baseUrl(currentBaseUrl)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
                 .create(NewsApiService::class.java)

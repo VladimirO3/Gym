@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,15 +37,27 @@ import androidx.compose.ui.graphics.Color
 fun ChatScreen(
     currentUid: String,
     isAdmin: Boolean,
-    viewModel: ChatViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val application = context.applicationContext as android.app.Application
+    val viewModel: ChatViewModel = viewModel(
+        factory = ChatViewModel.Factory(application)
+    )
+
     val selectedUser by viewModel.selectedUser
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val jwtToken by authViewModel.jwtToken
     
-    LaunchedEffect(currentUid, isAdmin) {
-        viewModel.fetchUsers(currentUid, isAdmin)
+    // Загрузка пользователей (из Firebase и локально)
+    LaunchedEffect(currentUid, isAdmin, jwtToken) {
+        if (jwtToken != null) {
+            viewModel.fetchLocalUsers(jwtToken!!)
+        } else {
+            viewModel.fetchUsers(currentUid, isAdmin)
+        }
     }
 
     if (currentUid.isBlank()) {
@@ -58,7 +71,7 @@ fun ChatScreen(
                 Box(modifier = Modifier.weight(0.4f)) {
                     UserListScreen(
                         users = viewModel.users.value,
-                        onUserSelected = { viewModel.selectUser(it, currentUid) },
+                        onUserSelected = { viewModel.selectUser(it, currentUid, jwtToken) },
                         selectedUser = selectedUser
                     )
                 }
@@ -69,8 +82,15 @@ fun ChatScreen(
                             currentUid = currentUid,
                             peer = selectedUser!!,
                             messages = viewModel.messages.value,
-                            onBack = { viewModel.selectUser(null, currentUid) },
-                            onSendMessage = { viewModel.sendMessage(selectedUser!!, it, currentUid) },
+                            onBack = { viewModel.selectUser(null, currentUid, jwtToken) },
+                            onSendMessage = { 
+                                // Если есть токен, шлем на свой сервер
+                                if (jwtToken != null) {
+                                    viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken)
+                                } else {
+                                    viewModel.sendMessage(selectedUser!!, it, currentUid) 
+                                }
+                            },
                             showBackButton = false
                         )
                     } else {
@@ -88,7 +108,7 @@ fun ChatScreen(
             if (selectedUser == null) {
                 UserListScreen(
                     users = viewModel.users.value,
-                    onUserSelected = { viewModel.selectUser(it, currentUid) },
+                    onUserSelected = { viewModel.selectUser(it, currentUid, jwtToken) },
                     modifier = modifier
                 )
             } else {
@@ -96,8 +116,14 @@ fun ChatScreen(
                     currentUid = currentUid,
                     peer = selectedUser!!,
                     messages = viewModel.messages.value,
-                    onBack = { viewModel.selectUser(null, currentUid) },
-                    onSendMessage = { viewModel.sendMessage(selectedUser!!, it, currentUid) },
+                    onBack = { viewModel.selectUser(null, currentUid, jwtToken) },
+                    onSendMessage = { 
+                        if (jwtToken != null) {
+                            viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken)
+                        } else {
+                            viewModel.sendMessage(selectedUser!!, it, currentUid)
+                        }
+                    },
                     modifier = modifier,
                     showBackButton = true
                 )

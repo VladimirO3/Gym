@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.business.gym.R
 import com.business.gym.ui.viewmodel.SettingsViewModel
+import com.business.gym.ui.viewmodel.AuthViewModel
 
 import androidx.compose.ui.graphics.Color
 
@@ -23,6 +24,7 @@ fun SettingsScreen(
     currentUserEmail: String?,
     onLogout: () -> Unit,
     viewModel: SettingsViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -31,7 +33,15 @@ fun SettingsScreen(
     val contentModifier = if (isWideScreen) Modifier.width(600.dp) else Modifier.fillMaxWidth()
     
     val themeMode by viewModel.themeMode
+    val isAdmin = remember(currentUserEmail) { authViewModel.isAdmin() }
+    val serverIp by viewModel.serverIp
+    var serverIpInput by remember { mutableStateOf(serverIp) }
     
+    // Синхронизируем ввод, когда меняется значение в ViewModel (например, при загрузке)
+    LaunchedEffect(serverIp) {
+        serverIpInput = serverIp
+    }
+
     LaunchedEffect(currentUserEmail) {
         viewModel.loadSettings(context, currentUserEmail)
     }
@@ -83,6 +93,39 @@ fun SettingsScreen(
             LanguageOption("system", currentLocale, stringResource(R.string.language_system)) { viewModel.setLanguage(context, currentUserEmail, it) }
             LanguageOption("en", currentLocale, stringResource(R.string.language_english)) { viewModel.setLanguage(context, currentUserEmail, it) }
             LanguageOption("ru", currentLocale, stringResource(R.string.language_russian)) { viewModel.setLanguage(context, currentUserEmail, it) }
+        }
+
+        if (isAdmin) {
+            Spacer(modifier = Modifier.height(32.dp))
+            Text(
+                text = "Server Configuration (Admin)", 
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.Red,
+                modifier = contentModifier
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = serverIpInput,
+                onValueChange = { serverIpInput = it },
+                label = { Text("Server IP:Port") },
+                modifier = contentModifier,
+                placeholder = { Text("192.168.0.13:5557") },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Red,
+                    focusedLabelColor = Color.Red
+                )
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = { 
+                    viewModel.setServerIp(context, currentUserEmail, serverIpInput)
+                    android.widget.Toast.makeText(context, "IP Updated", android.widget.Toast.LENGTH_SHORT).show()
+                },
+                modifier = contentModifier,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
+            ) {
+                Text("Save Server IP", color = Color.White)
+            }
         }
 
         if (currentUserEmail != null) {

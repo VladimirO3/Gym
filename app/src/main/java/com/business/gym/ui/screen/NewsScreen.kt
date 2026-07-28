@@ -4,6 +4,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.exoplayer.ExoPlayer
 import com.business.gym.R
+import com.business.gym.data.model.NewsItem
 import com.business.gym.ui.component.NewsMediaItem
 import com.business.gym.ui.component.VideoPlayer
 import com.business.gym.ui.viewmodel.AuthViewModel
@@ -37,19 +39,46 @@ import androidx.compose.ui.platform.LocalConfiguration
 @Composable
 fun NewsScreen(
     isAdmin: Boolean,
-    viewModel: NewsViewModel = viewModel(),
-    authViewModel: AuthViewModel = viewModel(), // Добавляем доступ к Auth
+    authViewModel: AuthViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val application = context.applicationContext as android.app.Application
+    val viewModel: NewsViewModel = viewModel(
+        factory = NewsViewModel.Factory(application)
+    )
+    val settingsViewModel: com.business.gym.ui.viewmodel.SettingsViewModel = viewModel(
+        factory = com.business.gym.ui.viewmodel.SettingsViewModel.Factory(application)
+    )
+    
     val newsItems by viewModel.newsItems
     val localNews by viewModel.localNews
     val isUploading by viewModel.isUploading
-    val context = LocalContext.current
+    val serverIp by settingsViewModel.serverIp
+
+    fun getFullUrl(rawUrl: String): String {
+        if (rawUrl.isBlank()) return ""
+        if (rawUrl.startsWith("http")) return rawUrl
+        val base = if (serverIp.startsWith("http")) serverIp else "http://$serverIp"
+        val cleanBase = if (base.endsWith("/")) base else "$base/"
+        val cleanRaw = if (rawUrl.startsWith("/")) rawUrl.substring(1) else rawUrl
+        return cleanBase + cleanRaw
+    }
+
     val configuration = LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp > 600
     val columns = if (isWideScreen) 2 else 1
     
     val jwtToken by authViewModel.jwtToken
+
+    // Принудительно запрашиваем токен, если мы админ, но его нет
+    LaunchedEffect(isAdmin, jwtToken) {
+        if (isAdmin && jwtToken == null) {
+            authViewModel.currentUserEmail.value?.let { email ->
+                authViewModel.retryLocalLogin(email)
+            }
+        }
+    }
 
     // Автоматически обновляем локальные новости, когда получен токен
     LaunchedEffect(jwtToken) {
@@ -129,20 +158,25 @@ fun NewsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        if (localTitle.isNotBlank()) {
-                            viewModel.uploadToLocalServer(
-                                context = context,
-                                uri = selectedMediaUri,
-                                title = localTitle,
-                                content = localContent,
-                                token = jwtToken ?: "",
-                                onSuccess = {
-                                    showLocalAddDialog = false
-                                    localTitle = ""
-                                    localContent = ""
-                                    selectedMediaUri = null
-                                }
-                            )
+                        val token = jwtToken
+                        if (token != null) {
+                            if (localTitle.isNotBlank()) {
+                                viewModel.uploadToLocalServer(
+                                    context = context,
+                                    uri = selectedMediaUri,
+                                    title = localTitle,
+                                    content = localContent,
+                                    token = token,
+                                    onSuccess = {
+                                        showLocalAddDialog = false
+                                        localTitle = ""
+                                        localContent = ""
+                                        selectedMediaUri = null
+                                    }
+                                )
+                            }
+                        } else {
+                            Toast.makeText(context, "Ошибка: Токен авторизации не найден. Попробуйте перезайти.", Toast.LENGTH_LONG).show()
                         }
                     },
                     enabled = !isUploading && localTitle.isNotBlank(), // Кнопка активна, если введен заголовок
@@ -198,7 +232,7 @@ fun NewsScreen(
             confirmButton = {
                 Button(onClick = {
                     if (urlInput.isNotBlank()) {
-                        viewModel.addByUrl(urlInput, urlType)
+                        viewModel.addByUrl(urlInput, urlType, "", "")
                         showUrlDialog = false
                         urlInput = ""
                     }
@@ -221,9 +255,24 @@ fun NewsScreen(
         if (isAdmin) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Индикатор состояния токена для админа
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(if (jwtToken != null) Color.Green else Color.Red, androidx.compose.foundation.shape.CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (jwtToken != null) "Server Connected" else "Server Disconnected",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (jwtToken != null) Color.Green else Color.Red
+                    )
+                }
+
                 if (isUploading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
@@ -275,65 +324,45 @@ fun NewsScreen(
                     looping = true
                 )
             }
-            items(newsItems) { item ->
-                NewsMediaItem(item, isAdmin, onDelete = { viewModel.deleteNewsItem(item) })
-            }
-            
-            // Отображаем новости с вашего будущего локального сервера
+
+            // ПРИОРИТЕТ: Новости с вашего ТЕСТОВОГО сервера
             if (localNews.isNotEmpty()) {
                 item(span = { GridItemSpan(columns) }) {
                     Text(
                         "Новости с вашего сервера:", 
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.Red,
-                        modifier = Modifier.padding(top = 16.dp)
+                        modifier = Modifier.padding(top = 8.dp)
                     )
                 }
                 items(localNews) { localItem ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(alpha = 0.5f))
-                    ) {
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                if (localItem.url.isNotBlank()) {
-                                    val isVideo = localItem.url.lowercase().contains(".mp4") || localItem.url.lowercase().contains(".mov")
-                                    if (isVideo) {
-                                        VideoPlayer(
-                                            videoUrl = localItem.url,
-                                            modifier = Modifier.fillMaxWidth().height(250.dp).padding(bottom = 8.dp),
-                                            autoPlay = true,
-                                            muted = true,
-                                            looping = true
-                                        )
-                                    } else {
-                                        coil.compose.AsyncImage(
-                                            model = localItem.url,
-                                            contentDescription = "Local News Media",
-                                            modifier = Modifier.fillMaxWidth().height(250.dp).padding(bottom = 8.dp),
-                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                        )
-                                    }
-                                }
-                                Text(localItem.title, fontWeight = FontWeight.Bold, color = Color.Red)
-                                Text(localItem.content, color = Color.White)
-                            }
-                            
-                            if (isAdmin) {
-                                IconButton(
-                                    onClick = { viewModel.deleteLocalNewsItem(localItem.id, jwtToken) },
-                                    modifier = Modifier.align(Alignment.TopEnd)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete",
-                                        tint = Color.White, // Сделал иконку ярче (белой) на темном фоне
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    val newsItem = NewsItem(
+                        id = localItem.id,
+                        url = getFullUrl(localItem.url),
+                        type = if (localItem.url.lowercase().contains(".mp4")) "video" else "image",
+                        title = localItem.title,
+                        content = localItem.content
+                    )
+                    NewsMediaItem(
+                        item = newsItem, 
+                        isAdmin = isAdmin, 
+                        onDelete = { viewModel.deleteLocalNewsItem(localItem.id, jwtToken) }
+                    )
+                }
+            }
+            
+            // ВТОРОСТЕПЕННО: Новости из Firebase (если есть)
+            if (newsItems.isNotEmpty()) {
+                item(span = { GridItemSpan(columns) }) {
+                    Text(
+                        "Общие новости (Cloud):", 
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
+                items(newsItems) { item ->
+                    NewsMediaItem(item, isAdmin, onDelete = { viewModel.deleteNewsItem(item) })
                 }
             }
         }

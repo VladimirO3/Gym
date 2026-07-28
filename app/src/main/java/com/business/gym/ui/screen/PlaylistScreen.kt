@@ -40,10 +40,14 @@ fun PlaylistScreen(
     exoPlayer: ExoPlayer,
     isAdmin: Boolean,
     modifier: Modifier = Modifier,
-    viewModel: PlaylistViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val application = context.applicationContext as android.app.Application
+    val viewModel: PlaylistViewModel = viewModel(
+        factory = PlaylistViewModel.Factory(application)
+    )
+
     val configuration = LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp > 600
     val columns = if (isWideScreen) 2 else 1
@@ -90,6 +94,19 @@ fun PlaylistScreen(
         }
         exoPlayer.addListener(listener)
         onDispose { exoPlayer.removeListener(listener) }
+    }
+
+    val currentUserEmail by authViewModel.currentUserEmail
+    val isAdmin = remember(currentUserEmail) { authViewModel.isAdmin() }
+    val settingsViewModel: com.business.gym.ui.viewmodel.SettingsViewModel = viewModel(factory = com.business.gym.ui.viewmodel.SettingsViewModel.Factory(application))
+    val serverIp by settingsViewModel.serverIp
+
+    fun getFullUrl(rawUrl: String): String {
+        if (rawUrl.startsWith("http")) return rawUrl
+        val base = if (serverIp.startsWith("http")) serverIp else "http://$serverIp"
+        val cleanBase = if (base.endsWith("/")) base else "$base/"
+        val cleanRaw = if (rawUrl.startsWith("/")) rawUrl.substring(1) else rawUrl
+        return cleanBase + cleanRaw
     }
 
     Column(
@@ -182,17 +199,18 @@ fun PlaylistScreen(
                         )
                     }
                     items(localTracks) { localTrack ->
-                        val isThisTrackSelected = currentTrack?.url == localTrack.url
+                        val fullUrl = getFullUrl(localTrack.url)
+                        val isThisTrackSelected = currentTrack?.url == fullUrl
                         TrackItem(
-                            track = Track(id = localTrack.id.toString(), url = localTrack.url, name = localTrack.name),
+                            track = Track(id = localTrack.id.toString(), url = fullUrl, name = localTrack.name),
                             isSelected = isThisTrackSelected,
                             isPlaying = isPlaying,
                             isAdmin = isAdmin,
                             onDelete = { /* Добавить метод удаления */ },
                             onPlayPause = {
                                 if (!isThisTrackSelected) {
-                                    currentTrack = Track(id = localTrack.id.toString(), url = localTrack.url, name = localTrack.name)
-                                    exoPlayer.setMediaItem(MediaItem.fromUri(localTrack.url))
+                                    currentTrack = Track(id = localTrack.id.toString(), url = fullUrl, name = localTrack.name)
+                                    exoPlayer.setMediaItem(MediaItem.fromUri(fullUrl))
                                     exoPlayer.prepare()
                                     exoPlayer.play()
                                 } else {

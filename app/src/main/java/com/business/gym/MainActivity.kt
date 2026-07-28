@@ -87,9 +87,13 @@ class MainActivity : AppCompatActivity() {
         setContent {
             var showSplash by rememberSaveable { mutableStateOf(true) }
             var showExit by remember { mutableStateOf(false) }
-            val authViewModel: AuthViewModel = viewModel()
-            val settingsViewModel: SettingsViewModel = viewModel()
             val context = LocalContext.current
+            val application = context.applicationContext as android.app.Application
+            
+            val authViewModel: AuthViewModel = viewModel()
+            val settingsViewModel: SettingsViewModel = viewModel(
+                factory = SettingsViewModel.Factory(application)
+            )
             
             if (showSplash) {
                 SplashScreen(onFinished = { showSplash = false })
@@ -98,13 +102,14 @@ class MainActivity : AppCompatActivity() {
             } else {
                 val player = remember { exoPlayer!! }
                 val currentUserEmail by authViewModel.currentUserEmail
+                val currentUid by authViewModel.currentUid
                 
                 LaunchedEffect(Unit) {
                     authViewModel.loadSession(context)
                 }
                 
-                LaunchedEffect(currentUserEmail) {
-                    settingsViewModel.loadSettings(context, currentUserEmail)
+                LaunchedEffect(currentUserEmail, currentUid) {
+                    settingsViewModel.loadSettings(context, currentUserEmail, currentUid)
                 }
 
                 val themeMode by settingsViewModel.themeMode

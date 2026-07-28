@@ -35,25 +35,50 @@ fun NewsMediaItem(item: NewsItem, isAdmin: Boolean, onDelete: () -> Unit) {
         )
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            // Отображение контента (видео или фото)
-            if (item.type == "video") {
-                VideoPlayer(
-                    videoUrl = item.url, 
-                    modifier = Modifier.fillMaxWidth().height(250.dp),
-                    autoPlay = true,
-                    muted = true,
-                    looping = true
-                )
-            } else {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(item.url)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = "News Image",
-                    modifier = Modifier.fillMaxWidth().height(250.dp),
-                    contentScale = ContentScale.Crop
-                )
+            Column {
+                // Отображение контента (видео или фото)
+                if (item.url.isNotBlank()) {
+                    if (item.type == "video") {
+                        VideoPlayer(
+                            videoUrl = item.url, 
+                            modifier = Modifier.fillMaxWidth().height(250.dp),
+                            autoPlay = true,
+                            muted = true,
+                            looping = true
+                        )
+                    } else {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(item.url)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "News Image",
+                            modifier = Modifier.fillMaxWidth().height(250.dp),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+                
+                // Отображение текста, если он есть
+                if (item.title.isNotBlank() || item.content.isNotBlank()) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        if (item.title.isNotBlank()) {
+                            androidx.compose.material3.Text(
+                                text = item.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.Red,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                        }
+                        if (item.content.isNotBlank()) {
+                            androidx.compose.material3.Text(
+                                text = item.content,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
             }
             
             // Кнопка удаления для администратора

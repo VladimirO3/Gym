@@ -3,6 +3,7 @@ plugins {
 	alias(libs.plugins.kotlin.compose)
 	id("com.google.gms.google-services")
 	id("com.google.firebase.crashlytics")
+	id("com.google.devtools.ksp")
 }
 
 android {
@@ -60,6 +61,11 @@ dependencies {
 	implementation(libs.androidx.lifecycle.viewmodel.compose)
 	implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 
+	// Room
+	implementation(libs.room.runtime)
+	implementation(libs.room.ktx)
+	ksp(libs.room.compiler)
+
 	// Firebase
 	implementation(platform(libs.firebase.bom))
 	implementation(libs.firebase.database)
@@ -70,9 +76,7 @@ dependencies {
 	implementation(libs.firebase.auth)
 	implementation("com.google.android.gms:play-services-auth:21.3.0")
 	implementation("io.coil-kt:coil-compose:2.5.0")
-	dependencies {
 
-	}
 	// Retrofit API
 	implementation("com.squareup.retrofit2:retrofit:2.9.0")
 	implementation("com.squareup.retrofit2:converter-gson:2.9.0")

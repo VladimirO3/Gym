@@ -76,7 +76,7 @@ class AuthViewModel : ViewModel() {
     private val _jwtToken = mutableStateOf<String?>(null)
     val jwtToken: State<String?> = _jwtToken
 
-    private val localApiService = com.business.gym.data.api.NewsApiService.create()
+    private val localApiService get() = com.business.gym.data.api.NewsApiService.create()
 
     // Флаги управления диалоговыми окнами
     private val _showSetPasswordDialog = mutableStateOf(false)
@@ -90,9 +90,14 @@ class AuthViewModel : ViewModel() {
         auth.addAuthStateListener { firebaseAuth ->
             val user = firebaseAuth.currentUser
             if (user != null) {
-                _currentUserEmail.value = user.email ?: user.phoneNumber
+                val email = user.email ?: user.phoneNumber
+                _currentUserEmail.value = email
                 _currentUid.value = user.uid
                 fetchUserProfile(user.uid)
+                // Если восстановился пользователь, который является админом, получаем токен
+                if (email != null && isStaticAdmin(email)) {
+                    loginToLocalBackend(email)
+                }
             } else {
                 _currentUserEmail.value = null
                 _currentUid.value = ""
@@ -131,8 +136,15 @@ class AuthViewModel : ViewModel() {
             if (emailOrPhone == null) return false
             val clean = emailOrPhone.trim().lowercase()
             val phoneDigits = ADMIN_PHONE.replace("+", "")
-            return clean == ADMIN_EMAIL.lowercase() || 
-                   clean == ADMIN_PHONE ||
+            
+            // Проверка по email
+            if (clean == ADMIN_EMAIL.lowercase()) return true
+            
+            // Проверка по телефону (включая разные форматы)
+            val cleanPhone = clean.replace(Regex("[^0-9]"), "")
+            val adminPhoneDigits = ADMIN_PHONE.replace(Regex("[^0-9]"), "")
+            
+            return cleanPhone == adminPhoneDigits ||
                    (clean.contains(phoneDigits) && clean.contains("@phone.gym"))
         }
     }
@@ -209,16 +221,21 @@ class AuthViewModel : ViewModel() {
     fun toggleLoginWithPassword() { _loginWithPasswordMode.value = !_loginWithPasswordMode.value }
     fun dismissSetPasswordDialog() { _showSetPasswordDialog.value = false }
 
+    fun retryLocalLogin(email: String) {
+        loginToLocalBackend(email)
+    }
+
     private fun loginToLocalBackend(email: String) {
         viewModelScope.launch {
             try {
+                Log.d("AuthViewModel", "Attempting local login for $email")
                 // Пытаемся зайти на локальный сервер.
                 // Если мы админ, сервер примет любой пароль (мы настроили это ранее).
                 val response = localApiService.login(email, _password.value.ifBlank { "test_pass" })
                 _jwtToken.value = response.token
-                Log.d("AuthViewModel", "Successfully got JWT token from local server")
+                Log.d("AuthViewModel", "Successfully got JWT token from local server: ${response.token}")
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Local backend login failed: ${e.message}")
+                Log.e("AuthViewModel", "Local backend login failed for $email: ${e.message}")
             }
         }
     }
@@ -232,57 +249,71 @@ class AuthViewModel : ViewModel() {
             return
         }
         _isLoading.value = true
-        val email = _email.value
+        val email = _email.value.trim().lowercase()
+        Log.d("AuthViewModel", "signInWithEmail: email=$email")
 
         // ТЕСТОВАЯ ЛОГИКА: Если это наш админ, сначала пробуем локальный сервер
-        if (email == "verso0100@gmail.com") {
+        if (isStaticAdmin(email)) {
+            Log.d("AuthViewModel", "Static admin detected! Trying local login first.")
             viewModelScope.launch {
                 try {
                     val response = localApiService.login(email, _password.value)
                     _jwtToken.value = response.token
                     _currentUserEmail.value = email
                     _isLoading.value = false
-                    Log.d("AuthViewModel", "Admin logged in via LOCAL SERVER")
+                    Log.d("AuthViewModel", "Admin logged in via LOCAL SERVER. Token: ${response.token}")
                     onSuccess(email)
-                    return@launch
                 } catch (e: Exception) {
                     Log.e("AuthViewModel", "Local login failed, falling back to Firebase: ${e.message}")
+                    auth.signInWithEmailAndPassword(email, _password.value)
+                        .addOnCompleteListener { task ->
+                            handleFirebaseLoginResult(task, email, onSuccess)
+                        }
                 }
             }
+            return
         }
 
         auth.signInWithEmailAndPassword(email, _password.value)
             .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val user = auth.currentUser
-                    val finalEmail = user?.email ?: email
-                    val uid = user?.uid ?: ""
-                    _currentUserEmail.value = finalEmail
-                    _currentUid.value = uid
-                    
-                    // Синхронизация профиля в Firestore для списка чатов
-                    val isUserAdmin = isStaticAdmin(finalEmail)
-                    val displayName = if (isUserAdmin) "Администратор" else finalEmail.substringBefore("@")
-                    
-                    val profile = UserProfile(uid, finalEmail, displayName, hasPassword = true)
-                    
-                    firestore.collection("users").document(uid).set(profile, com.google.firebase.firestore.SetOptions.merge())
-                    database.getReference("users").child(uid).setValue(profile)
-                    
-                    fetchUserProfile(uid)
-                    loginToLocalBackend(finalEmail) // Пытаемся получить токен с вашего сервера
-                    _isLoading.value = false
-                    onSuccess(finalEmail)
-                } else {
-                    _isLoading.value = false
-                    val errorMsg = when {
-                        task.exception is FirebaseAuthInvalidUserException -> "Пользователь не найден"
-                        task.exception is FirebaseAuthInvalidCredentialsException -> "Неверный пароль"
-                        else -> task.exception?.message ?: "Unknown error"
-                    }
-                    showError(errorMsg)
-                }
+                handleFirebaseLoginResult(task, email, onSuccess)
             }
+    }
+
+    private fun handleFirebaseLoginResult(
+        task: com.google.android.gms.tasks.Task<com.google.firebase.auth.AuthResult>,
+        email: String,
+        onSuccess: (String) -> Unit
+    ) {
+        if (task.isSuccessful) {
+            val user = auth.currentUser
+            val finalEmail = user?.email ?: email
+            val uid = user?.uid ?: ""
+            _currentUserEmail.value = finalEmail
+            _currentUid.value = uid
+            
+            // Синхронизация профиля в Firestore для списка чатов
+            val isUserAdmin = isStaticAdmin(finalEmail)
+            val displayName = if (isUserAdmin) "Администратор" else finalEmail.substringBefore("@")
+            
+            val profile = UserProfile(uid, finalEmail, displayName, hasPassword = true)
+            
+            firestore.collection("users").document(uid).set(profile, com.google.firebase.firestore.SetOptions.merge())
+            database.getReference("users").child(uid).setValue(profile)
+            
+            fetchUserProfile(uid)
+            loginToLocalBackend(finalEmail) // Пытаемся получить токен с вашего сервера
+            _isLoading.value = false
+            onSuccess(finalEmail)
+        } else {
+            _isLoading.value = false
+            val errorMsg = when {
+                task.exception is FirebaseAuthInvalidUserException -> "Пользователь не найден"
+                task.exception is FirebaseAuthInvalidCredentialsException -> "Неверный пароль"
+                else -> task.exception?.message ?: "Unknown error"
+            }
+            showError(errorMsg)
+        }
     }
 
     /**
@@ -509,5 +540,6 @@ class AuthViewModel : ViewModel() {
     fun signOut() {
         auth.signOut()
         _currentUserEmail.value = null
+        _jwtToken.value = null
     }
 }
