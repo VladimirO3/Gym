@@ -66,6 +66,10 @@ dependencies {
 	implementation(libs.room.ktx)
 	ksp(libs.room.compiler)
 
+	// Billing
+	implementation(libs.billing)
+	implementation(libs.billing.ktx)
+
 	// Firebase
 	implementation(platform(libs.firebase.bom))
 	implementation(libs.firebase.database)
@@ -74,12 +78,12 @@ dependencies {
 	implementation(libs.firebase.analytics)
 	implementation(libs.firebase.crashlytics)
 	implementation(libs.firebase.auth)
-	implementation("com.google.android.gms:play-services-auth:21.3.0")
-	implementation("io.coil-kt:coil-compose:2.5.0")
+	implementation(libs.play.services.auth)
+	implementation(libs.coil.compose)
 
 	// Retrofit API
-	implementation("com.squareup.retrofit2:retrofit:2.9.0")
-	implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+	implementation(libs.retrofit)
+	implementation(libs.retrofit.gson)
 
 	testImplementation(libs.junit)
 	androidTestImplementation(platform(libs.androidx.compose.bom))

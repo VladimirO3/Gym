@@ -96,10 +96,10 @@ class NewsViewModel(
                     mediaPart = MultipartBody.Part.createFormData("media", originalName, requestFile)
                 }
 
-                Log.d("NewsViewModel", "Calling localApiService.postLocalNews...")
-                // Отправляем на ВАШ сервер. Сервер должен сам сохранить данные в свою БД.
-                localApiService.postLocalNews(
-                    token = "Bearer $token",
+                Log.d("NewsViewModel", "Calling repository.uploadNews...")
+                // Отправляем на ВАШ сервер через репозиторий.
+                repository.uploadNews(
+                    token = token,
                     title = titlePart,
                     content = contentPart,
                     type = typePart,

@@ -64,13 +64,13 @@ interface NewsApiService {
     ): LoginResponse
 
     // --- НОВОСТИ ---
-    @GET("news")
+    @GET("news/")
     suspend fun getLocalNews(
         @Header("Authorization") token: String
     ): List<LocalNews>
 
     @Multipart
-    @POST("news")
+    @POST("news/")
     suspend fun postLocalNews(
         @Header("Authorization") token: String,
         @Part("title") title: RequestBody,

@@ -6,6 +6,8 @@ import com.business.gym.data.local.entity.NewsEntity
 import com.business.gym.data.api.LocalNews
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 
 class NewsRepository(
     private val apiService: NewsApiService,
@@ -27,5 +29,16 @@ class NewsRepository(
         } catch (e: Exception) {
             android.util.Log.e("NewsRepository", "Failed to refresh news", e)
         }
+    }
+
+    suspend fun uploadNews(
+        token: String,
+        title: RequestBody,
+        content: RequestBody,
+        type: RequestBody,
+        media: MultipartBody.Part?
+    ): Map<String, String> {
+        val authHeader = "Bearer $token"
+        return apiService.postLocalNews(authHeader, title, content, type, media)
     }
 }
