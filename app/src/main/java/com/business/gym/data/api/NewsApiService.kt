@@ -13,7 +13,8 @@ data class LocalNews(
     val id: String = "",
     val title: String = "",
     val content: String = "",
-    val url: String = "" // Добавлено поле URL
+    val url: String = "",
+    val type: String = "image"
 )
 
 /**
@@ -64,38 +65,44 @@ interface NewsApiService {
     ): LoginResponse
 
     // --- НОВОСТИ ---
-    @GET("news/")
+    @GET("news")
     suspend fun getLocalNews(
         @Header("Authorization") token: String
     ): List<LocalNews>
 
     @Multipart
-    @POST("news/")
+    @POST("admin/news")
     suspend fun postLocalNews(
         @Header("Authorization") token: String,
-        @Part("title") title: RequestBody,
-        @Part("content") content: RequestBody,
-        @Part("type") type: RequestBody,
+        @Part("title") title: String,
+        @Part("content") content: String,
+        @Part("type") type: String,
         @Part media: MultipartBody.Part?
-    ): Map<String, String>
+    ): okhttp3.ResponseBody
 
-    @DELETE("news/{id}")
+    @DELETE("admin/news/{id}")
     suspend fun deleteLocalNews(
         @Header("Authorization") token: String,
         @Path("id") id: String
-    )
+    ): okhttp3.ResponseBody
 
     // --- МУЗЫКА ---
     @GET("tracks")
     suspend fun getLocalTracks(): List<LocalTrack>
 
     @Multipart
-    @POST("tracks")
+    @POST("admin/tracks")
     suspend fun postLocalTrack(
         @Header("Authorization") token: String,
         @Part("name") name: RequestBody,
         @Part media: MultipartBody.Part?
-    ): Map<String, String>
+    ): okhttp3.ResponseBody
+
+    @DELETE("admin/tracks/{id}")
+    suspend fun deleteLocalTrack(
+        @Header("Authorization") token: String,
+        @Path("id") id: String
+    ): okhttp3.ResponseBody
 
     // --- ЧАТ ---
 
@@ -130,8 +137,15 @@ interface NewsApiService {
         }
 
         fun create(): NewsApiService {
+            val okHttpClient = okhttp3.OkHttpClient.Builder()
+                .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+
             return Retrofit.Builder()
                 .baseUrl(currentBaseUrl)
+                .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
                 .create(NewsApiService::class.java)

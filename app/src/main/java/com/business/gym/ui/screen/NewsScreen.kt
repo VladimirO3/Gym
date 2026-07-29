@@ -57,7 +57,7 @@ fun NewsScreen(
     val serverIp by settingsViewModel.serverIp
 
     fun getFullUrl(rawUrl: String): String {
-        if (rawUrl.isBlank()) return ""
+        if (rawUrl.isBlank() || rawUrl == "/uploads/") return ""
         if (rawUrl.startsWith("http")) return rawUrl
         val base = if (serverIp.startsWith("http")) serverIp else "http://$serverIp"
         val cleanBase = if (base.endsWith("/")) base else "$base/"
@@ -141,11 +141,20 @@ fun NewsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     
                     if (selectedMediaUri != null) {
-                        Text("Файл выбран", color = Color.Green, style = MaterialTheme.typography.bodySmall)
+                        val mimeType = context.contentResolver.getType(selectedMediaUri!!) ?: ""
+                        val isVideo = mimeType.contains("video")
+                        Text(
+                            text = if (isVideo) "Видео выбрано" else "Фото выбрано", 
+                            color = Color.Green, 
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                     
                     Button(
-                        onClick = { launcher.launch("image/* video/*") },
+                        onClick = { 
+                            // Правильный вызов для выбора и фото и видео
+                            launcher.launch("*/*") 
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
                     ) {
@@ -314,17 +323,6 @@ fun NewsScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            item(span = { GridItemSpan(columns) }) {
-                val videoUri = "android.resource://${context.packageName}/raw/promo_video"
-                VideoPlayer(
-                    videoUrl = videoUri, 
-                    modifier = Modifier.fillMaxWidth().height(250.dp).padding(vertical = 8.dp),
-                    autoPlay = true,
-                    muted = true,
-                    looping = true
-                )
-            }
-
             // ПРИОРИТЕТ: Новости с вашего ТЕСТОВОГО сервера
             if (localNews.isNotEmpty()) {
                 item(span = { GridItemSpan(columns) }) {
@@ -339,7 +337,7 @@ fun NewsScreen(
                     val newsItem = NewsItem(
                         id = localItem.id,
                         url = getFullUrl(localItem.url),
-                        type = if (localItem.url.lowercase().contains(".mp4")) "video" else "image",
+                        type = localItem.type,
                         title = localItem.title,
                         content = localItem.content
                     )

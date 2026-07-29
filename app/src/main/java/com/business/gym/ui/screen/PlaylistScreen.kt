@@ -206,7 +206,7 @@ fun PlaylistScreen(
                             isSelected = isThisTrackSelected,
                             isPlaying = isPlaying,
                             isAdmin = isAdmin,
-                            onDelete = { /* Добавить метод удаления */ },
+                            onDelete = { viewModel.deleteLocalTrack(localTrack.id.toString(), jwtToken) },
                             onPlayPause = {
                                 if (!isThisTrackSelected) {
                                     currentTrack = Track(id = localTrack.id.toString(), url = fullUrl, name = localTrack.name)

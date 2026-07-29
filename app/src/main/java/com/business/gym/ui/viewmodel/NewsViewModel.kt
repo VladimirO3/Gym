@@ -75,46 +75,51 @@ class NewsViewModel(
         _isUploading.value = true
         viewModelScope.launch {
             try {
-                val titlePart = title.toRequestBody("text/plain".toMediaTypeOrNull())
-                val contentPart = content.toRequestBody("text/plain".toMediaTypeOrNull())
-                
-                val type = if (uri != null) {
-                    context.contentResolver.getType(uri)?.let { 
-                        if (it.contains("video")) "video" else "image"
-                    } ?: "image"
+                val typeValue = if (uri != null) {
+                    val mimeType = context.contentResolver.getType(uri) ?: ""
+                    if (mimeType.contains("video")) "video" else "image"
                 } else "text"
-                val typePart = type.toRequestBody("text/plain".toMediaTypeOrNull())
 
                 var mediaPart: MultipartBody.Part? = null
                 if (uri != null) {
                     val originalName = getFileName(context, uri) ?: "file_${UUID.randomUUID()}"
+                    val mimeType = context.contentResolver.getType(uri)
+                    
                     val file = File(context.cacheDir, "upload_tmp_${System.currentTimeMillis()}")
                     context.contentResolver.openInputStream(uri)?.use { input ->
                         file.outputStream().use { output -> input.copyTo(output) }
                     }
-                    val requestFile = file.asRequestBody(context.contentResolver.getType(uri)?.toMediaTypeOrNull())
+                    
+                    val requestFile = file.asRequestBody(mimeType?.toMediaTypeOrNull())
                     mediaPart = MultipartBody.Part.createFormData("media", originalName, requestFile)
+                    Log.d("NewsViewModel", "Created mediaPart: $originalName, mime: $mimeType")
                 }
 
-                Log.d("NewsViewModel", "Calling repository.uploadNews...")
-                // Отправляем на ВАШ сервер через репозиторий.
-                repository.uploadNews(
+                Log.d("NewsViewModel", "Sending POST to local server...")
+                val result = repository.uploadNews(
                     token = token,
-                    title = titlePart,
-                    content = contentPart,
-                    type = typePart,
+                    title = title,
+                    content = content,
+                    type = typeValue,
                     media = mediaPart
                 )
                 
-                Log.d("NewsViewModel", "News successfully posted to LOCAL SERVER")
-                Toast.makeText(context, "Новость добавлена на ваш сервер!", Toast.LENGTH_SHORT).show()
+                Log.d("NewsViewModel", "Server response: $result")
                 
-                // Обновляем локальный список из вашей БД через репозиторий
+                // Сразу обновляем список новостей
                 repository.refreshNews(token)
+                
+                Log.d("NewsViewModel", "News successfully posted and refreshed")
+                Toast.makeText(context, "Новость успешно добавлена!", Toast.LENGTH_SHORT).show()
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("NewsViewModel", "CRITICAL: Local upload failed", e)
-                Toast.makeText(context, "Ошибка вашего сервера: ${e.message}", Toast.LENGTH_LONG).show()
+                val errorMsg = when (e) {
+                    is retrofit2.HttpException -> "Ошибка сервера ${e.code()}: ${e.message()}"
+                    is java.net.ConnectException -> "Не удалось подключиться к серверу ${NewsApiService.create().hashCode()}"
+                    else -> e.localizedMessage ?: "Неизвестная ошибка"
+                }
+                Toast.makeText(context, "Ошибка загрузки: $errorMsg", Toast.LENGTH_LONG).show()
             } finally {
                 _isUploading.value = false
             }
@@ -210,7 +215,7 @@ class NewsViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(NewsViewModel::class.java)) {
                 val database = GymDatabase.getDatabase(application)
-                val repository = NewsRepository(NewsApiService.create(), database.newsDao())
+                val repository = NewsRepository(database.newsDao())
                 @Suppress("UNCHECKED_CAST")
                 return NewsViewModel(application, repository) as T
             }

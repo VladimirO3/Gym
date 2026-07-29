@@ -10,9 +10,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class ChatRepository(
-    private val apiService: NewsApiService,
     private val chatDao: ChatDao
 ) {
+    private val apiService get() = NewsApiService.create()
+
     // Получение пользователей (собеседников)
     val allUsers: Flow<List<LocalUser>> = chatDao.getAllUsers().map { entities ->
         entities.map { LocalUser(uid = it.uid, email = it.email, name = it.name) }

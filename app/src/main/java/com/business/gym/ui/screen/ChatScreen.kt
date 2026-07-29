@@ -51,12 +51,10 @@ fun ChatScreen(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val jwtToken by authViewModel.jwtToken
     
-    // Загрузка пользователей (из Firebase и локально)
+    // Загрузка пользователей (только из локального сервера)
     LaunchedEffect(currentUid, isAdmin, jwtToken) {
         if (jwtToken != null) {
             viewModel.fetchLocalUsers(jwtToken!!)
-        } else {
-            viewModel.fetchUsers(currentUid, isAdmin)
         }
     }
 
@@ -84,12 +82,7 @@ fun ChatScreen(
                             messages = viewModel.messages.value,
                             onBack = { viewModel.selectUser(null, currentUid, jwtToken) },
                             onSendMessage = { 
-                                // Если есть токен, шлем на свой сервер
-                                if (jwtToken != null) {
-                                    viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken)
-                                } else {
-                                    viewModel.sendMessage(selectedUser!!, it, currentUid) 
-                                }
+                                viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken)
                             },
                             showBackButton = false
                         )
@@ -118,11 +111,7 @@ fun ChatScreen(
                     messages = viewModel.messages.value,
                     onBack = { viewModel.selectUser(null, currentUid, jwtToken) },
                     onSendMessage = { 
-                        if (jwtToken != null) {
-                            viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken)
-                        } else {
-                            viewModel.sendMessage(selectedUser!!, it, currentUid)
-                        }
+                        viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken)
                     },
                     modifier = modifier,
                     showBackButton = true

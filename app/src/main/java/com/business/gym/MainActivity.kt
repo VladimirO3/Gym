@@ -53,6 +53,8 @@ import android.Manifest
 import android.widget.Toast
 import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.launch
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 
 class MainActivity : AppCompatActivity() {
     private var exoPlayer: ExoPlayer? = null
@@ -77,10 +79,16 @@ class MainActivity : AppCompatActivity() {
         firebaseAnalytics = Firebase.analytics
 
         // Создаем плеер ОДИН РАЗ на уровне Activity, чтобы он не пересоздавался при смене ориентации
-        // Благодаря configChanges в манифесте, Activity не уничтожается при повороте,
-        // но на всякий случай сохраняем проверку.
         if (exoPlayer == null) {
-            exoPlayer = ExoPlayer.Builder(this).build()
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .build()
+
+            exoPlayer = ExoPlayer.Builder(this)
+                .setAudioAttributes(audioAttributes, true) // true = handleAudioFocus
+                .build()
+
             mediaSession = MediaSession.Builder(this, exoPlayer!!).build()
         }
 

@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.business.gym.data.local.entity.TrackEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -17,4 +18,13 @@ interface TrackDao {
 
     @Query("DELETE FROM tracks")
     suspend fun deleteAll()
+
+    @Query("DELETE FROM tracks WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Transaction
+    suspend fun updateData(tracks: List<TrackEntity>) {
+        deleteAll()
+        insertAll(tracks)
+    }
 }

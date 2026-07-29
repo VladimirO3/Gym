@@ -36,7 +36,7 @@ class PlaylistViewModel(
 ) : AndroidViewModel(application) {
     private val database = FirebaseDatabase.getInstance().getReference("playlist")
     private val storage = FirebaseStorage.getInstance().getReference("music")
-    private val localApiService = NewsApiService.create()
+    private val localApiService get() = NewsApiService.create()
 
     private val _tracks = mutableStateOf(listOf<Track>())
     val tracks: State<List<Track>> = _tracks
@@ -88,7 +88,8 @@ class PlaylistViewModel(
                     Toast.makeText(context, "Внимание: Сервер может отклонить файл с таким расширением", Toast.LENGTH_SHORT).show()
                 }
 
-                val namePart = fileName.toRequestBody("text/plain".toMediaTypeOrNull())
+                // Передаем как обычный текст
+                val namePart = fileName.toRequestBody(null)
 
                 val file = File(context.cacheDir, "upload_audio_tmp_${System.currentTimeMillis()}")
                 context.contentResolver.openInputStream(uri)?.use { input ->
@@ -105,13 +106,17 @@ class PlaylistViewModel(
                 val requestFile = file.asRequestBody(context.contentResolver.getType(uri)?.toMediaTypeOrNull())
                 val mediaPart = MultipartBody.Part.createFormData("media", fileName, requestFile)
 
-                Log.d("PlaylistViewModel", "Calling localApiService.postLocalTrack...")
-                val response = localApiService.postLocalTrack(
-                    token = "Bearer $token",
+                Log.d("PlaylistViewModel", "Calling repository.uploadTrack...")
+                repository.uploadTrack(
+                    token = token,
                     name = namePart,
                     media = mediaPart
                 )
-                Log.d("PlaylistViewModel", "Server response: $response")
+                Log.d("PlaylistViewModel", "Server response received")
+                
+                // Добавляем небольшую задержку перед обновлением, 
+                // чтобы сервер успел обновить индекс файлов на диске
+                kotlinx.coroutines.delay(500)
                 
                 Toast.makeText(context, "Трек загружен!", Toast.LENGTH_SHORT).show()
                 repository.refreshTracks()
@@ -182,11 +187,17 @@ class PlaylistViewModel(
         }
     }
 
+    fun deleteLocalTrack(id: String, token: String?) {
+        viewModelScope.launch {
+            repository.deleteTrack(id, token)
+        }
+    }
+
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(PlaylistViewModel::class.java)) {
                 val database = GymDatabase.getDatabase(application)
-                val repository = TrackRepository(NewsApiService.create(), database.trackDao())
+                val repository = TrackRepository(database.trackDao())
                 @Suppress("UNCHECKED_CAST")
                 return PlaylistViewModel(application, repository) as T
             }

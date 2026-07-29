@@ -228,14 +228,20 @@ class AuthViewModel : ViewModel() {
     private fun loginToLocalBackend(email: String) {
         viewModelScope.launch {
             try {
+                // Пытаемся залогиниться, используя тот URL, который сейчас установлен в NewsApiService
                 Log.d("AuthViewModel", "Attempting local login for $email")
-                // Пытаемся зайти на локальный сервер.
-                // Если мы админ, сервер примет любой пароль (мы настроили это ранее).
                 val response = localApiService.login(email, _password.value.ifBlank { "test_pass" })
                 _jwtToken.value = response.token
-                Log.d("AuthViewModel", "Successfully got JWT token from local server: ${response.token}")
+                Log.d("AuthViewModel", "Successfully got JWT token from local server")
+                _error.value = null // Сбрасываем ошибку при успехе
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Local backend login failed for $email: ${e.message}")
+                val errorMsg = e.localizedMessage ?: e.toString()
+                Log.e("AuthViewModel", "Local backend login failed: $errorMsg")
+                
+                // Если это админ, показываем ему причину ошибки подключения к серверу
+                if (isStaticAdmin(email)) {
+                    _error.value = "Ошибка сервера: $errorMsg. Проверьте IP в настройках."
+                }
             }
         }
     }

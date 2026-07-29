@@ -10,11 +10,12 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 
 class NewsRepository(
-    private val apiService: NewsApiService,
     private val newsDao: NewsDao
 ) {
+    private val apiService get() = NewsApiService.create()
+
     val allNews: Flow<List<LocalNews>> = newsDao.getAllNews().map { entities ->
-        entities.map { LocalNews(id = it.id, title = it.title, content = it.content, url = it.url) }
+        entities.map { LocalNews(id = it.id, title = it.title, content = it.content, url = it.url, type = it.type) }
     }
 
     suspend fun refreshNews(token: String?) {
@@ -22,7 +23,7 @@ class NewsRepository(
             val authHeader = if (token.isNullOrBlank()) "" else "Bearer $token"
             val news = apiService.getLocalNews(authHeader)
             val entities = news.map { 
-                NewsEntity(id = it.id, title = it.title, content = it.content, url = it.url) 
+                NewsEntity(id = it.id, title = it.title, content = it.content, url = it.url, type = it.type)
             }
             newsDao.deleteAll()
             newsDao.insertAll(entities)
@@ -33,11 +34,11 @@ class NewsRepository(
 
     suspend fun uploadNews(
         token: String,
-        title: RequestBody,
-        content: RequestBody,
-        type: RequestBody,
+        title: String,
+        content: String,
+        type: String,
         media: MultipartBody.Part?
-    ): Map<String, String> {
+    ): okhttp3.ResponseBody {
         val authHeader = "Bearer $token"
         return apiService.postLocalNews(authHeader, title, content, type, media)
     }
