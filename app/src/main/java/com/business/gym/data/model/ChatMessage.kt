@@ -20,5 +20,6 @@ data class ChatMessage(
     val text: String = "",
     val senderId: String = "",
     val senderName: String = "",
-    val timestamp: Timestamp? = null
+    val timestamp: Timestamp? = null,
+    val isRead: Boolean = false
 )

@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.business.gym.R
 import com.business.gym.ui.viewmodel.SettingsViewModel
@@ -125,6 +126,53 @@ fun SettingsScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
             ) {
                 Text("Save Server IP", color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+            Text(
+                text = "Pending Approvals", 
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.Red,
+                modifier = contentModifier
+            )
+            
+            val pendingUsers by authViewModel.pendingUsers
+            LaunchedEffect(Unit) {
+                authViewModel.fetchPendingUsers()
+            }
+
+            if (pendingUsers.isEmpty()) {
+                Text(
+                    "No pending registration requests", 
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray,
+                    modifier = contentModifier.padding(vertical = 8.dp)
+                )
+            } else {
+                pendingUsers.forEach { user ->
+                    Card(
+                        modifier = contentModifier.padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(user.name, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = Color.White)
+                                Text(user.email, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                            }
+                            Button(
+                                onClick = { authViewModel.approveUser(user.uid) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Text("Approve", color = Color.Black, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
             }
         }
 

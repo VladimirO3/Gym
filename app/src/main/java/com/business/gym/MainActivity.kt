@@ -117,7 +117,8 @@ class MainActivity : AppCompatActivity() {
                 }
                 
                 LaunchedEffect(currentUserEmail, currentUid) {
-                    settingsViewModel.loadSettings(context, currentUserEmail, currentUid)
+                    // Мы больше не зависим от UID из Firebase, используем email как ключ настроек
+                    settingsViewModel.loadSettings(context, currentUserEmail, currentUserEmail)
                 }
 
                 val themeMode by settingsViewModel.themeMode
@@ -172,7 +173,7 @@ fun GymApp(
             authViewModel.clearSession(context)
         },
         onSaveSession = { email ->
-            authViewModel.saveSession(context, email)
+            authViewModel.saveSession(context, email, authViewModel.jwtToken.value ?: "")
         },
         onExitRequest = onExitRequest,
         settingsViewModel = settingsViewModel,

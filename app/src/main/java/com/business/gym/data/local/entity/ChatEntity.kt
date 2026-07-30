@@ -10,7 +10,8 @@ data class ChatMessageEntity(
     val senderId: String,
     val senderName: String,
     val timestamp: Long,
-    val peerUid: String // Для фильтрации истории с конкретным пользователем
+    val peerUid: String, // Для фильтрации истории с конкретным пользователем
+    val isRead: Boolean = false
 )
 
 @Entity(tableName = "users")

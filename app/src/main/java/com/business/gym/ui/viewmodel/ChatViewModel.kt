@@ -49,9 +49,20 @@ class ChatViewModel(
         // Подписка на локальных пользователей из SQLite
         viewModelScope.launch {
             repository.allUsers.collect { localUsers ->
-                _users.value = localUsers.map { 
+                val profiles = localUsers.map { 
                     UserProfile(uid = it.uid, email = it.email, name = it.name) 
+                }.toMutableList()
+                
+                // Всегда добавляем администратора в список, если его там нет (чтобы обычные пользователи могли ему написать)
+                if (profiles.none { AuthViewModel.isStaticAdmin(it.email) }) {
+                    profiles.add(0, UserProfile(
+                        uid = AuthViewModel.ADMIN_EMAIL,
+                        email = AuthViewModel.ADMIN_EMAIL,
+                        name = "Администратор"
+                    ))
                 }
+                
+                _users.value = profiles
             }
         }
     }
@@ -75,7 +86,8 @@ class ChatViewModel(
                             text = try { EncryptionUtils.decrypt(it.text) } catch (e: Exception) { it.text },
                             senderId = it.senderId,
                             senderName = it.senderName,
-                            timestamp = Timestamp(it.timestamp / 1000, 0)
+                            timestamp = Timestamp(it.timestamp / 1000, 0),
+                            isRead = it.isRead
                         )
                     }
                 }
@@ -101,7 +113,11 @@ class ChatViewModel(
                 // Проверка на новые сообщения для уведомления
                 if (!isFirstMessagesLoad && _messages.value.size > oldMessageCount) {
                     val lastMsg = _messages.value.last()
-                    if (lastMsg.senderId != auth.currentUser?.uid) {
+                    // Используем email из настроек как ID текущего пользователя для сравнения
+                    val currentEmail = getApplication<GymApplication>().getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
+                        .getString("user_session_email", null)
+
+                    if (lastMsg.senderId != currentEmail) {
                         val decryptedText = try { 
                             EncryptionUtils.decrypt(lastMsg.text) 
                         } catch (e: Exception) { 

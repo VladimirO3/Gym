@@ -41,7 +41,8 @@ class ChatRepository(
                     text = it.text, 
                     senderId = it.senderId, 
                     senderName = it.senderName, 
-                    timestamp = it.timestamp
+                    timestamp = it.timestamp,
+                    isRead = it.isRead
                 ) 
             }
         }
@@ -56,7 +57,8 @@ class ChatRepository(
                     senderId = it.senderId, 
                     senderName = it.senderName, 
                     timestamp = it.timestamp,
-                    peerUid = peerUid
+                    peerUid = peerUid,
+                    isRead = it.isRead
                 ) 
             }
             chatDao.deleteMessagesForPeer(peerUid)

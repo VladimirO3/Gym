@@ -25,6 +25,8 @@
         android:roundIcon="@mipmap/ic_launcher_background"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:hardwareAccelerated="true"
         android:theme="@style/Theme.Gym">
         <activity
             android:name=".MainActivity"

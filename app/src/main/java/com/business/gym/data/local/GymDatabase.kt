@@ -22,7 +22,7 @@ import com.business.gym.data.local.entity.UserEntity
         UserEntity::class,
         ProfileEntity::class
     ], 
-    version = 4, 
+    version = 5,
     exportSchema = false
 )
 abstract class GymDatabase : RoomDatabase() {

@@ -34,7 +34,8 @@ data class LocalChatMessage(
     val text: String = "",
     val senderId: String = "",
     val senderName: String = "",
-    val timestamp: Long = 0
+    val timestamp: Long = 0,
+    val isRead: Boolean = false
 )
 
 /**
@@ -63,6 +64,27 @@ interface NewsApiService {
         @Field("email") email: String,
         @Field("password") pass: String
     ): LoginResponse
+
+    @FormUrlEncoded
+    @POST("register")
+    suspend fun register(
+        @Field("email") email: String,
+        @Field("password") pass: String,
+        @Field("name") name: String
+    ): okhttp3.ResponseBody
+
+    // --- АДМИН-ПАНЕЛЬ (Управление пользователями) ---
+    @GET("admin/pending-users")
+    suspend fun getPendingUsers(
+        @Header("Authorization") token: String
+    ): List<LocalUser>
+
+    @FormUrlEncoded
+    @POST("admin/approve-user")
+    suspend fun approveUser(
+        @Header("Authorization") token: String,
+        @Field("uid") userUid: String
+    ): okhttp3.ResponseBody
 
     // --- НОВОСТИ ---
     @GET("news")
