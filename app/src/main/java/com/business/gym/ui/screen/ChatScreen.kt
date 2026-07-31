@@ -82,7 +82,7 @@ fun ChatScreen(
                             messages = viewModel.messages.value,
                             onBack = { viewModel.selectUser(null, currentUid, jwtToken) },
                             onSendMessage = { 
-                                viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken)
+                                viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken, context)
                             },
                             showBackButton = false
                         )
@@ -111,7 +111,7 @@ fun ChatScreen(
                     messages = viewModel.messages.value,
                     onBack = { viewModel.selectUser(null, currentUid, jwtToken) },
                     onSendMessage = { 
-                        viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken)
+                        viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken, context)
                     },
                     modifier = modifier,
                     showBackButton = true

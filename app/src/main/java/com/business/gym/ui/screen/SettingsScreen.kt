@@ -96,41 +96,41 @@ fun SettingsScreen(
             LanguageOption("ru", currentLocale, stringResource(R.string.language_russian)) { viewModel.setLanguage(context, currentUserEmail, it) }
         }
 
+        Spacer(modifier = Modifier.height(32.dp))
+        Text(
+            text = "Настройки подключения", 
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.Red,
+            modifier = contentModifier
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = serverIpInput,
+            onValueChange = { serverIpInput = it },
+            label = { Text("IP-адрес сервера:Порт") },
+            modifier = contentModifier,
+            placeholder = { Text("192.168.0.13:5557") },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.Red,
+                focusedLabelColor = Color.Red
+            )
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            onClick = { 
+                viewModel.setServerIp(context, currentUserEmail, serverIpInput)
+                android.widget.Toast.makeText(context, "IP-адрес обновлен", android.widget.Toast.LENGTH_SHORT).show()
+            },
+            modifier = contentModifier,
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
+        ) {
+            Text("Сохранить IP", color = Color.White)
+        }
+
         if (isAdmin) {
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "Server Configuration (Admin)", 
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.Red,
-                modifier = contentModifier
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = serverIpInput,
-                onValueChange = { serverIpInput = it },
-                label = { Text("Server IP:Port") },
-                modifier = contentModifier,
-                placeholder = { Text("192.168.0.13:5557") },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Red,
-                    focusedLabelColor = Color.Red
-                )
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = { 
-                    viewModel.setServerIp(context, currentUserEmail, serverIpInput)
-                    android.widget.Toast.makeText(context, "IP Updated", android.widget.Toast.LENGTH_SHORT).show()
-                },
-                modifier = contentModifier,
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
-            ) {
-                Text("Save Server IP", color = Color.White)
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                text = "Pending Approvals", 
+                text = "Pending Approvals (Admin)", 
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.Red,
                 modifier = contentModifier
@@ -140,6 +140,7 @@ fun SettingsScreen(
             LaunchedEffect(Unit) {
                 authViewModel.fetchPendingUsers()
             }
+            // ...
 
             if (pendingUsers.isEmpty()) {
                 Text(

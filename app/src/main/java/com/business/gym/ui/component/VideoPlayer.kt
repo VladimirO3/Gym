@@ -1,5 +1,6 @@
 package com.business.gym.ui.component
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -39,22 +40,36 @@ fun VideoPlayer(
 
     val context = LocalContext.current
     val internalPlayer = remember {
-        if (exoPlayer == null) ExoPlayer.Builder(context).build().apply {
+        ExoPlayer.Builder(context).build().apply {
             repeatMode = if (looping) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
             volume = if (muted) 0f else 1f
             playWhenReady = autoPlay
-        } else null
+        }
     }
-    val activePlayer = exoPlayer ?: internalPlayer!!
     
-    var isFullMode by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(true) }
+    // Используем переданный плеер или созданный внутри
+    val activePlayer = exoPlayer ?: internalPlayer
+    
+    var isFullMode by remember { mutableStateOf(value = false) }
+    var isLoading by remember { mutableStateOf(value = true) }
+    var errorMessage by remember { mutableStateOf<String?>(value = null) }
 
-    // Listener для отслеживания загрузки
+    // Listener для отслеживания состояния
     DisposableEffect(activePlayer) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
-                isLoading = state == Player.STATE_BUFFERING
+                isLoading = (state == Player.STATE_BUFFERING || state == Player.STATE_IDLE)
+                Log.d("VideoPlayer", "State changed: $state for $videoUrl")
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                errorMessage = when (error.errorCode) {
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "Ошибка сети: Сервер недоступен"
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Тайм-аут: Сервер не отвечает"
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "Файл не найден на сервере"
+                    else -> "Ошибка воспроизведения: ${error.localizedMessage}"
+                }
+                Log.e("VideoPlayer", "Player error: ${error.errorCodeName} (${error.errorCode})", error)
             }
         }
         activePlayer.addListener(listener)
@@ -63,13 +78,21 @@ fun VideoPlayer(
         }
     }
 
+    // Загрузка контента
     LaunchedEffect(videoUrl) {
-        if (activePlayer.currentMediaItem?.localConfiguration?.uri.toString() != videoUrl) {
-            activePlayer.setMediaItem(MediaItem.fromUri(videoUrl))
+        Log.d("VideoPlayer", "Loading URL: $videoUrl")
+        errorMessage = null
+        try {
+            val mediaItem = MediaItem.fromUri(videoUrl)
+            activePlayer.setMediaItem(mediaItem)
             activePlayer.prepare()
+            if (autoPlay) activePlayer.play()
+        } catch (e: Exception) {
+            errorMessage = e.localizedMessage
         }
     }
     
+    // Управление параметрами
     LaunchedEffect(isFullMode, muted, looping, autoPlay) {
         activePlayer.repeatMode = if (isFullMode) Player.REPEAT_MODE_OFF else (if (looping) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF)
         activePlayer.volume = if (isFullMode) 1f else (if (muted) 0f else 1f)
@@ -83,7 +106,7 @@ fun VideoPlayer(
                     player = activePlayer
                     useController = isFullMode || !autoPlay
                     resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER) // Используем свой индикатор
+                    setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                 }
             },
             update = {
@@ -94,10 +117,20 @@ fun VideoPlayer(
         )
 
         // Индикатор загрузки
-        if (isLoading) {
+        if (isLoading && errorMessage == null) {
             CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center).size(40.dp),
                 color = Color.Red
+            )
+        }
+
+        // Сообщение об ошибке
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage!!,
+                color = Color.White,
+                modifier = Modifier.align(Alignment.Center).padding(16.dp),
+                style = MaterialTheme.typography.bodySmall
             )
         }
 
@@ -121,10 +154,11 @@ fun VideoPlayer(
         }
     }
 
+    // Очистка только если мы создали плеер сами
     if (exoPlayer == null) {
-        DisposableEffect(internalPlayer) {
+        DisposableEffect(Unit) {
             onDispose {
-                internalPlayer?.release()
+                internalPlayer.release()
             }
         }
     }

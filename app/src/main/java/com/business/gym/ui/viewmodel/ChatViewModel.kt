@@ -49,12 +49,18 @@ class ChatViewModel(
         // Подписка на локальных пользователей из SQLite
         viewModelScope.launch {
             repository.allUsers.collect { localUsers ->
-                val profiles = localUsers.map { 
-                    UserProfile(uid = it.uid, email = it.email, name = it.name) 
-                }.toMutableList()
+                // Получаем текущий email для фильтрации "себя"
+                val currentEmail = getApplication<com.business.gym.GymApplication>()
+                    .getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
+                    .getString("user_session_email", "") ?: ""
+
+                val profiles = localUsers
+                    .filter { it.email != currentEmail } // Убираем самого себя из списка
+                    .map { UserProfile(uid = it.uid, email = it.email, name = it.name) }
+                    .toMutableList()
                 
-                // Всегда добавляем администратора в список, если его там нет (чтобы обычные пользователи могли ему написать)
-                if (profiles.none { AuthViewModel.isStaticAdmin(it.email) }) {
+                // Всегда добавляем администратора в список, если его там нет и МЫ не администратор
+                if (currentEmail != AuthViewModel.ADMIN_EMAIL && profiles.none { AuthViewModel.isStaticAdmin(it.email) }) {
                     profiles.add(0, UserProfile(
                         uid = AuthViewModel.ADMIN_EMAIL,
                         email = AuthViewModel.ADMIN_EMAIL,
@@ -147,11 +153,17 @@ class ChatViewModel(
         }
     }
 
-    fun sendLocalMessage(peerUid: String, text: String, token: String?) {
-        if (token == null) return
+    fun sendLocalMessage(peerUid: String, text: String, token: String?, context: android.content.Context) {
+        if (token == null) {
+            android.widget.Toast.makeText(context, "Ошибка: Вы не авторизованы", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
         viewModelScope.launch {
             val encrypted = EncryptionUtils.encrypt(text)
-            repository.sendMessage(token, peerUid, encrypted)
+            val success = repository.sendMessage(token, peerUid, encrypted)
+            if (!success) {
+                android.widget.Toast.makeText(context, "Не удалось отправить сообщение. Проверьте подключение к серверу.", android.widget.Toast.LENGTH_LONG).show()
+            }
         }
     }
 

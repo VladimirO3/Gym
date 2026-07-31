@@ -59,7 +59,12 @@ class NewsViewModel(
 
     fun fetchLocalNews(token: String?) {
         viewModelScope.launch {
-            repository.refreshNews(token)
+            try {
+                repository.refreshNews(token)
+            } catch (e: Exception) {
+                Log.e("NewsViewModel", "Failed to fetch local news", e)
+                // Можно добавить уведомление пользователя через State, если нужно
+            }
         }
     }
 
@@ -116,7 +121,8 @@ class NewsViewModel(
                 Log.e("NewsViewModel", "CRITICAL: Local upload failed", e)
                 val errorMsg = when (e) {
                     is retrofit2.HttpException -> "Ошибка сервера ${e.code()}: ${e.message()}"
-                    is java.net.ConnectException -> "Не удалось подключиться к серверу ${NewsApiService.create().hashCode()}"
+                    is java.net.ConnectException -> "Не удалось подключиться к серверу (ConnectException)"
+                    is java.net.SocketTimeoutException -> "Время ожидания истекло. Проверьте IP сервера в настройках."
                     else -> e.localizedMessage ?: "Неизвестная ошибка"
                 }
                 Toast.makeText(context, "Ошибка загрузки: $errorMsg", Toast.LENGTH_LONG).show()
