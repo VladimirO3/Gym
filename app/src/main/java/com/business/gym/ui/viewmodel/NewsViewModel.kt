@@ -221,6 +221,19 @@ class NewsViewModel(
         }
     }
 
+    fun reactToNews(id: String, type: String, token: String?) {
+        if (token == null || token == "guest_token") return
+        viewModelScope.launch {
+            try {
+                repository.postReaction(token, id, type)
+                repository.refreshNews(token)
+                Log.d("NewsViewModel", "Reaction $type posted for $id")
+            } catch (e: Exception) {
+                Log.e("NewsViewModel", "Failed to post reaction", e)
+            }
+        }
+    }
+
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(NewsViewModel::class.java)) {

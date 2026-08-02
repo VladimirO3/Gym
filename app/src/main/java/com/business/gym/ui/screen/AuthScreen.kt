@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,7 +26,9 @@ fun AuthScreen(
     val error by viewModel.error
     val isLoading by viewModel.isLoading
     val otpEmail by viewModel.otpEmail
+    val otpPhone by viewModel.otpPhone
     val otpCode by viewModel.otpCode
+    val authMode by viewModel.authMode
 
     val context = LocalContext.current
 
@@ -48,21 +51,64 @@ fun AuthScreen(
         
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Основное поле для ввода почты
-        OutlinedTextField(
-            value = otpEmail,
-            onValueChange = { viewModel.onOtpEmailChange(it) },
-            label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !isLoading,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                focusedLabelColor = Color.Red,
-                focusedBorderColor = Color.Red
+        // Переключатель Email / Телефон
+        TabRow(
+            selectedTabIndex = if (authMode == "email") 0 else 1,
+            containerColor = Color.Transparent,
+            contentColor = Color.Red,
+            divider = {},
+            indicator = { tabPositions ->
+                TabRowDefaults.SecondaryIndicator(
+                    Modifier.tabIndicatorOffset(tabPositions[if (authMode == "email") 0 else 1]),
+                    color = Color.Red
+                )
+            }
+        ) {
+            Tab(
+                selected = authMode == "email",
+                onClick = { viewModel.setAuthMode("email") },
+                text = { Text("Email", color = if (authMode == "email") Color.Red else Color.Gray) }
             )
-        )
+            Tab(
+                selected = authMode == "phone",
+                onClick = { viewModel.setAuthMode("phone") },
+                text = { Text("Телефон", color = if (authMode == "phone") Color.Red else Color.Gray) }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        if (authMode == "email") {
+            OutlinedTextField(
+                value = otpEmail,
+                onValueChange = { viewModel.onOtpEmailChange(it) },
+                label = { Text("Email") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !isLoading,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    focusedLabelColor = Color.Red,
+                    focusedBorderColor = Color.Red
+                )
+            )
+        } else {
+            OutlinedTextField(
+                value = otpPhone,
+                onValueChange = { viewModel.onOtpPhoneChange(it) },
+                label = { Text("Номер телефона (например, +7...)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !isLoading,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    focusedLabelColor = Color.Red,
+                    focusedBorderColor = Color.Red
+                )
+            )
+        }
         
         Spacer(modifier = Modifier.height(12.dp))
         
@@ -89,7 +135,7 @@ fun AuthScreen(
         ) {
             TextButton(
                 onClick = { viewModel.requestOtp() },
-                enabled = !isLoading && otpEmail.isNotBlank()
+                enabled = !isLoading && (if (authMode == "email") otpEmail.isNotBlank() else otpPhone.isNotBlank())
             ) {
                 Text("Получить код", color = Color.Red)
             }
@@ -112,7 +158,7 @@ fun AuthScreen(
         } else {
             Button(
                 onClick = { 
-                    viewModel.verifyOtp(context) { onAuthSuccess(otpEmail) }
+                    viewModel.verifyOtp(context) { onAuthSuccess(it) }
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(12.dp),
@@ -122,6 +168,23 @@ fun AuthScreen(
                     "ВОЙТИ / ЗАРЕГИСТРИРОВАТЬСЯ", 
                     color = Color.White,
                     fontWeight = FontWeight.Bold
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            OutlinedButton(
+                onClick = { 
+                    viewModel.loginAsGuest { onAuthSuccess(AuthViewModel.GUEST_EMAIL) }
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
+            ) {
+                Text(
+                    "ВОЙТИ КАК ГОСТЬ", 
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }

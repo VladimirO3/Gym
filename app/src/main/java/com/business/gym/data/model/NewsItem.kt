@@ -6,5 +6,6 @@ data class NewsItem(
     val type: String = "image",
     val title: String = "",
     val content: String = "",
-    val timestamp: Long = 0
+    val timestamp: Long = 0,
+    val reactions: Map<String, Int> = emptyMap()
 )

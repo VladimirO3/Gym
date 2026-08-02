@@ -356,12 +356,15 @@ fun NewsScreen(
                         url = getFullUrl(localItem.mediaUrl),
                         type = localItem.mediaType,
                         title = localItem.title,
-                        content = localItem.content
+                        content = localItem.content,
+                        timestamp = localItem.createdAt.toLongOrNull() ?: 0,
+                        reactions = localItem.reactions
                     )
                     NewsMediaItem(
                         item = newsItem, 
                         isAdmin = isAdmin, 
-                        onDelete = { viewModel.deleteLocalNewsItem(localItem.id, jwtToken) }
+                        onDelete = { viewModel.deleteLocalNewsItem(localItem.id, jwtToken) },
+                        onReact = { type -> viewModel.reactToNews(localItem.id, type, jwtToken) }
                     )
                 }
             }

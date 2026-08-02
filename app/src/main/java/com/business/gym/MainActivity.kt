@@ -22,6 +22,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -172,13 +173,9 @@ fun GymApp(
             authViewModel.signOut()
             authViewModel.clearSession(context)
         },
-        onSaveSession = { email ->
-            authViewModel.saveSession(
-                context, 
-                email, 
-                authViewModel.jwtToken.value ?: "",
-                authViewModel.refreshToken.value
-            )
+        onSaveSession = { identifier ->
+            // Сессия уже сохранена внутри ViewModel.verifyOtp, 
+            // здесь мы просто можем выполнить дополнительные действия если нужно.
         },
         onExitRequest = onExitRequest,
         settingsViewModel = settingsViewModel,
@@ -186,6 +183,12 @@ fun GymApp(
         authViewModel = authViewModel
     )
 }
+
+data class GymTab(
+    val title: String,
+    val icon: ImageVector,
+    val key: String
+)
 
 @Composable
 fun GymAppContent(
@@ -201,17 +204,24 @@ fun GymAppContent(
     authViewModel: AuthViewModel
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val isGuest = authViewModel.isGuest.value
     
     // Список вкладок (Заголовок, Иконка, Ключ)
-    val tabs = listOf(
-        Triple(stringResource(R.string.tab_news), Icons.Default.Newspaper, "news"),
-        Triple(stringResource(R.string.tab_playlist), Icons.Default.PlayArrow, "playlist"),
-        Triple(stringResource(R.string.tab_chat), Icons.AutoMirrored.Filled.Send, "chat"),
-        Triple(stringResource(R.string.tab_settings), Icons.Default.Settings, "settings"), 
-        Triple(stringResource(R.string.tab_shop), Icons.Default.ShoppingCart, "shop"),
-        Triple(stringResource(R.string.tab_privacy), Icons.Default.Gavel, "privacy"),
-        Triple(stringResource(R.string.tab_about), Icons.Default.Add, "about")
-    )
+    val tabs = remember(isGuest) {
+        val list = mutableListOf<GymTab>()
+        list.add(GymTab("Новости", Icons.Default.Newspaper, "news"))
+        list.add(GymTab("Плейлист", Icons.Default.PlayArrow, "playlist"))
+        
+        if (!isGuest) {
+            list.add(GymTab("Чат", Icons.AutoMirrored.Filled.Send, "chat"))
+        }
+        
+        list.add(GymTab("Настройки", Icons.Default.Settings, "settings"))
+        list.add(GymTab("Магазин", Icons.Default.ShoppingCart, "shop"))
+        list.add(GymTab("Право", Icons.Default.Gavel, "privacy"))
+        list.add(GymTab("О нас", Icons.Default.Add, "about"))
+        list
+    }
 
     // Состояние пайджера для свайпов
     val pagerState = rememberPagerState(pageCount = { tabs.size })
@@ -246,14 +256,14 @@ fun GymAppContent(
                                 .verticalScroll(rememberScrollState()),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            tabs.forEachIndexed { index, (title, icon, _) ->
+                            tabs.forEachIndexed { index, tab ->
                                 NavigationRailItem(
                                     selected = pagerState.currentPage == index && !showAuthOverlay,
                                     onClick = { 
                                         coroutineScope.launch { pagerState.animateScrollToPage(index) }
                                         showAuthOverlay = false 
                                     },
-                                    icon = { Icon(icon, contentDescription = title) },
+                                    icon = { Icon(tab.icon, contentDescription = tab.title) },
                                     colors = NavigationRailItemDefaults.colors(
                                         selectedIconColor = Color.Red,
                                         selectedTextColor = Color.Red,
@@ -313,15 +323,15 @@ fun GymAppContent(
                                         )
                                     }
                                 ) {
-                                    tabs.forEachIndexed { index, (title, icon, _) ->
+                                    tabs.forEachIndexed { index, tab ->
                                         Tab(
                                             selected = pagerState.currentPage == index && !showAuthOverlay,
                                             onClick = { 
                                                 coroutineScope.launch { pagerState.animateScrollToPage(index) }
                                                 showAuthOverlay = false 
                                             },
-                                            text = { Text(title, fontSize = 10.sp, maxLines = 1) },
-                                            icon = { Icon(icon, contentDescription = title, modifier = Modifier.size(20.dp)) },
+                                            text = { Text(tab.title, fontSize = 10.sp, maxLines = 1) },
+                                            icon = { Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp)) },
                                             selectedContentColor = Color.Red,
                                             unselectedContentColor = Color.Gray
                                         )
@@ -367,7 +377,8 @@ fun GymAppContent(
                                 state = pagerState,
                                 modifier = Modifier.fillMaxSize()
                             ) { page ->
-                                when (tabs[page].third) {
+                                val tabKey = if (page < tabs.size) tabs[page].key else ""
+                                when (tabKey) {
                                     "news" -> NewsScreen(
                                         isAdmin = isAdmin,
                                         authViewModel = authViewModel

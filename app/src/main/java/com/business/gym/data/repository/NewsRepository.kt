@@ -25,7 +25,8 @@ class NewsRepository(
                 content = it.content, 
                 mediaUrl = it.mediaUrl, 
                 mediaType = it.mediaType,
-                createdAt = it.createdAt
+                createdAt = it.createdAt,
+                reactions = emptyMap() // Пока из БД не тянем
             ) 
         }
     }
@@ -33,6 +34,9 @@ class NewsRepository(
     suspend fun refreshNews(token: String?) {
         try {
             val news = apiService.getLocalNews()
+            android.util.Log.d("NewsRepository", "Refreshing news, count: ${news.size}")
+            // ТАК КАК В NEWS_ENTITY НЕТ РЕАКЦИЙ, МЫ ИХ НЕ СОХРАНЯЕМ В БД
+            // В реальном приложении нужно добавить колонки в Room
             val entities = news.map { 
                 NewsEntity(
                     id = it.id, 
@@ -69,5 +73,9 @@ class NewsRepository(
             typeBody, 
             filePart
         )
+    }
+
+    suspend fun postReaction(token: String, id: String, type: String) {
+        apiService.postReaction("Bearer $token", id, type)
     }
 }

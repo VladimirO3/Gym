@@ -1,34 +1,57 @@
 package com.business.gym.ui.component
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.business.gym.data.model.NewsItem
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Элемент списка новостей с медиафайлом (фото или видео).
- * Поддерживает удаление администратором.
+ * Поддерживает удаление администратором и реакции.
  */
 @Composable
-fun NewsMediaItem(item: NewsItem, isAdmin: Boolean, onDelete: () -> Unit) {
+fun NewsMediaItem(
+    item: NewsItem, 
+    isAdmin: Boolean, 
+    onDelete: () -> Unit,
+    onReact: (String) -> Unit = {}
+) {
     // Считаем текстовой новостью, если URL пустой ИЛИ содержит заглушку /uploads/
     val isTextOnly = item.url.isNullOrBlank() || item.url.endsWith("/uploads/") || item.url == "/uploads"
+    
+    val dateText = remember(item.timestamp) {
+        if (item.timestamp > 0) {
+            val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("ru"))
+            sdf.format(Date(item.timestamp))
+        } else ""
+    }
+
+    // Список доступных реакций (Emoji -> Ключ для сервера)
+    val reactionList = listOf(
+        "🔥" to "fire", 
+        "❤️" to "heart", 
+        "💪" to "muscle", 
+        "👍" to "thumb", 
+        "😮" to "wow"
+    )
 
     // Полностью убираем фон, рамки и тени для всех новостей
     Card(
@@ -56,7 +79,7 @@ fun NewsMediaItem(item: NewsItem, isAdmin: Boolean, onDelete: () -> Unit) {
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         if (!item.title.isNullOrBlank()) {
-                            androidx.compose.material3.Text(
+                            Text(
                                 text = item.title,
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = Color.Red,
@@ -67,7 +90,7 @@ fun NewsMediaItem(item: NewsItem, isAdmin: Boolean, onDelete: () -> Unit) {
                         }
                         if (!item.content.isNullOrBlank()) {
                             if (!item.title.isNullOrBlank()) Spacer(modifier = Modifier.height(8.dp))
-                            androidx.compose.material3.Text(
+                            Text(
                                 text = item.content,
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -87,7 +110,7 @@ fun NewsMediaItem(item: NewsItem, isAdmin: Boolean, onDelete: () -> Unit) {
                     ) {
                         if (item.type == "video") {
                             VideoPlayer(
-                                videoUrl = item.url,
+                                videoUrl = item.url, 
                                 modifier = Modifier.fillMaxSize(),
                                 autoPlay = true,
                                 muted = true,
@@ -103,6 +126,54 @@ fun NewsMediaItem(item: NewsItem, isAdmin: Boolean, onDelete: () -> Unit) {
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
                             )
+                        }
+                    }
+                }
+                
+                // 3. Блок даты и реакций
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp, start = 16.dp, end = 16.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Дата
+                    if (dateText.isNotBlank()) {
+                        Text(
+                            text = dateText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.Gray
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.width(1.dp))
+                    }
+
+                    // Реакции
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        reactionList.forEach { (emoji, key) ->
+                            val count = item.reactions[key] ?: 0
+                            
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .background(Color.Transparent)
+                                    .clickable { onReact(key) }
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Text(text = emoji, fontSize = 18.sp)
+                                if (count > 0) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = count.toString(),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.Red,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
                     }
                 }

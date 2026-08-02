@@ -17,7 +17,8 @@ data class LocalNews(
     @SerializedName("content") val content: String = "",
     @SerializedName("url", alternate = ["media_url", "mediaUrl"]) val mediaUrl: String = "",
     @SerializedName("type", alternate = ["media_type", "mediaType"]) val mediaType: String = "image",
-    @SerializedName("created_at", alternate = ["createdAt"]) val createdAt: String = ""
+    @SerializedName("created_at", alternate = ["createdAt"]) val createdAt: String = "",
+    @SerializedName("reactions") val reactions: Map<String, Int> = emptyMap()
 )
 
 /**
@@ -83,13 +84,15 @@ interface NewsApiService {
     @FormUrlEncoded
     @POST("auth/request-otp")
     suspend fun requestOtp(
-        @Field("email") email: String
+        @Field("email") email: String? = null,
+        @Field("phone") phone: String? = null
     ): okhttp3.ResponseBody
 
     @FormUrlEncoded
     @POST("auth/verify-otp")
     suspend fun verifyOtp(
-        @Field("email") email: String,
+        @Field("email") email: String? = null,
+        @Field("phone") phone: String? = null,
         @Field("otp") otp: String
     ): LoginResponse
 
@@ -131,6 +134,14 @@ interface NewsApiService {
     suspend fun deleteLocalNews(
         @Header("Authorization") token: String,
         @Path("id") id: String
+    ): okhttp3.ResponseBody
+
+    @FormUrlEncoded
+    @POST("news/{id}/react")
+    suspend fun postReaction(
+        @Header("Authorization") token: String,
+        @Path("id") id: String,
+        @Field("type") type: String
     ): okhttp3.ResponseBody
 
     // --- МУЗЫКА ---
