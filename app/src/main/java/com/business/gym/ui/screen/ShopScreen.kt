@@ -1,9 +1,11 @@
 package com.business.gym.ui.screen
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ShoppingBag
@@ -12,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,6 +39,9 @@ fun ShopScreen(isAdmin: Boolean) {
         ProductPlaceholder(6, "Витамины", "990 ₽", "Мультивитаминный комплекс для спортсменов.")
     )
 
+    val configuration = LocalConfiguration.current
+    val columns = if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) 3 else 2
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -50,25 +56,26 @@ fun ShopScreen(isAdmin: Boolean) {
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // Слайдер (Горизонтальный список)
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columns),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.fillMaxWidth()
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth().weight(1f)
         ) {
             items(products) { product ->
                 ShopProductCard(product)
             }
         }
         
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         
         Text(
             text = "Скоро открытие полноценного магазина...",
             style = MaterialTheme.typography.bodySmall,
             color = Color.Gray,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 32.dp)
+            modifier = Modifier.padding(start = 32.dp, end = 32.dp, bottom = 16.dp)
         )
     }
 }
@@ -77,7 +84,7 @@ fun ShopScreen(isAdmin: Boolean) {
 fun ShopProductCard(product: ProductPlaceholder) {
     Card(
         modifier = Modifier
-            .width(200.dp)
+            .fillMaxWidth()
             .height(300.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(16.dp),
