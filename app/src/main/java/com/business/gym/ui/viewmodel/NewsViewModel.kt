@@ -36,7 +36,7 @@ class NewsViewModel(
 ) : AndroidViewModel(application) {
     private val database = FirebaseDatabase.getInstance().getReference("news_items")
     private val storage = FirebaseStorage.getInstance().getReference("news_media")
-    private val localApiService get() = NewsApiService.create()
+    private val localApiService get() = NewsApiService.create(getApplication())
 
     private val _newsItems = mutableStateOf(listOf<NewsItem>())
     val newsItems: State<List<NewsItem>> = _newsItems
@@ -85,28 +85,32 @@ class NewsViewModel(
                     if (mimeType.contains("video")) "video" else "image"
                 } else "text"
 
-                var mediaPart: MultipartBody.Part? = null
+                var filePart: MultipartBody.Part? = null
                 if (uri != null) {
-                    val originalName = getFileName(context, uri) ?: "file_${UUID.randomUUID()}"
-                    val mimeType = context.contentResolver.getType(uri)
+                    val contentResolver = context.contentResolver
+                    val fileName = getFileName(context, uri) ?: "upload_file"
+                    val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
                     
-                    val file = File(context.cacheDir, "upload_tmp_${System.currentTimeMillis()}")
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        file.outputStream().use { output -> input.copyTo(output) }
+                    val inputStream = contentResolver.openInputStream(uri)
+                    if (inputStream != null) {
+                        val bytes = inputStream.readBytes()
+                        val requestFile = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+                        filePart = MultipartBody.Part.createFormData("file", fileName, requestFile)
+                        inputStream.close()
                     }
-                    
-                    val requestFile = file.asRequestBody(mimeType?.toMediaTypeOrNull())
-                    mediaPart = MultipartBody.Part.createFormData("media", originalName, requestFile)
-                    Log.d("NewsViewModel", "Created mediaPart: $originalName, mime: $mimeType")
+                } else {
+                    // Если фото/видео нет, отправляем пустой файл-заглушку, чтобы сервер не выдавал 400
+                    val requestFile = "".toRequestBody("text/plain".toMediaTypeOrNull())
+                    filePart = MultipartBody.Part.createFormData("file", "", requestFile)
                 }
 
-                Log.d("NewsViewModel", "Sending POST to local server...")
+                Log.d("NewsViewModel", "Sending POST to local server with type: $typeValue")
                 val result = repository.uploadNews(
                     token = token,
                     title = title,
                     content = content,
                     type = typeValue,
-                    media = mediaPart
+                    filePart = filePart
                 )
                 
                 Log.d("NewsViewModel", "Server response: $result")
@@ -221,7 +225,7 @@ class NewsViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(NewsViewModel::class.java)) {
                 val database = GymDatabase.getDatabase(application)
-                val repository = NewsRepository(database.newsDao())
+                val repository = NewsRepository(database.newsDao(), application)
                 @Suppress("UNCHECKED_CAST")
                 return NewsViewModel(application, repository) as T
             }

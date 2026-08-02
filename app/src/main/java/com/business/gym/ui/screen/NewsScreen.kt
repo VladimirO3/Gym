@@ -56,13 +56,23 @@ fun NewsScreen(
     val isUploading by viewModel.isUploading
     val serverIp by settingsViewModel.serverIp
 
-    fun getFullUrl(rawUrl: String): String {
-        if (rawUrl.isBlank() || rawUrl == "/uploads/") return ""
+    fun getFullUrl(rawUrl: String?): String {
+        if (rawUrl.isNullOrBlank()) return ""
         if (rawUrl.startsWith("http")) return rawUrl
-        val base = if (serverIp.startsWith("http")) serverIp else "http://$serverIp"
-        val cleanBase = if (base.endsWith("/")) base else "$base/"
-        val cleanRaw = if (rawUrl.startsWith("/")) rawUrl.substring(1) else rawUrl
-        return cleanBase + cleanRaw
+        
+        // Очищаем IP от лишних протоколов и слешей
+        val cleanIp = serverIp.removePrefix("http://").removePrefix("https://").removeSuffix("/")
+        val base = "http://$cleanIp"
+        
+        // Удаляем /uploads/ если он уже есть в начале rawUrl, чтобы не дублировать, 
+        // но это зависит от того, как настроен ваш сервер. 
+        // Обычно сервер возвращает либо "filename.jpg" либо "/uploads/filename.jpg"
+        
+        val cleanRaw = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
+        val result = base + cleanRaw
+        
+        android.util.Log.d("NewsScreen", "Constructing URL: IP=$serverIp, RAW=$rawUrl -> RESULT=$result")
+        return result
     }
 
     val configuration = LocalConfiguration.current
@@ -98,10 +108,17 @@ fun NewsScreen(
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        if (showLocalAddDialog) {
-            selectedMediaUri = uri // Если открыт диалог своего сервера, просто запоминаем файл
-        } else {
-            uri?.let { viewModel.uploadMedia(context, it) } // Иначе сразу грузим в Firebase
+        uri?.let {
+            val mimeType = context.contentResolver.getType(it) ?: ""
+            if (mimeType.startsWith("image/") || mimeType.startsWith("video/")) {
+                if (showLocalAddDialog) {
+                    selectedMediaUri = it
+                } else {
+                    viewModel.uploadMedia(context, it)
+                }
+            } else {
+                Toast.makeText(context, "Это не фото или видео файл!", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -152,8 +169,8 @@ fun NewsScreen(
                     
                     Button(
                         onClick = { 
-                            // Правильный вызов для выбора и фото и видео
-                            launcher.launch("*/*") 
+                            // Правильный вызов для выбора фото и видео
+                            launcher.launch("image/*,video/*")
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
@@ -336,8 +353,8 @@ fun NewsScreen(
                 items(localNews) { localItem ->
                     val newsItem = NewsItem(
                         id = localItem.id,
-                        url = getFullUrl(localItem.url),
-                        type = localItem.type,
+                        url = getFullUrl(localItem.mediaUrl),
+                        type = localItem.mediaType,
                         title = localItem.title,
                         content = localItem.content
                     )

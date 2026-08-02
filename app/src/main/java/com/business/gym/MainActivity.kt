@@ -173,7 +173,12 @@ fun GymApp(
             authViewModel.clearSession(context)
         },
         onSaveSession = { email ->
-            authViewModel.saveSession(context, email, authViewModel.jwtToken.value ?: "")
+            authViewModel.saveSession(
+                context, 
+                email, 
+                authViewModel.jwtToken.value ?: "",
+                authViewModel.refreshToken.value
+            )
         },
         onExitRequest = onExitRequest,
         settingsViewModel = settingsViewModel,
@@ -203,6 +208,7 @@ fun GymAppContent(
         Triple(stringResource(R.string.tab_playlist), Icons.Default.PlayArrow, "playlist"),
         Triple(stringResource(R.string.tab_chat), Icons.AutoMirrored.Filled.Send, "chat"),
         Triple(stringResource(R.string.tab_settings), Icons.Default.Settings, "settings"), 
+        Triple(stringResource(R.string.tab_shop), Icons.Default.ShoppingCart, "shop"),
         Triple(stringResource(R.string.tab_privacy), Icons.Default.Gavel, "privacy"),
         Triple(stringResource(R.string.tab_about), Icons.Default.Add, "about")
     )
@@ -375,6 +381,7 @@ fun GymAppContent(
                                         }
                                     }
                                     "settings" -> SettingsScreen(currentUserEmail = currentUserEmail, onLogout = onSignOut)
+                                    "shop" -> ShopScreen(isAdmin = isAdmin)
                                     "privacy" -> {
                                         val currentContext = LocalContext.current
                                         PrivacyScreen(

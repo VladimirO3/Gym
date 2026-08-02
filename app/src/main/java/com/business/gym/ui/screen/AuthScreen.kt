@@ -1,24 +1,20 @@
 package com.business.gym.ui.screen
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.business.gym.R
 import com.business.gym.ui.viewmodel.AuthViewModel
 
 @Composable
@@ -26,12 +22,10 @@ fun AuthScreen(
     viewModel: AuthViewModel = viewModel(),
     onAuthSuccess: (String) -> Unit
 ) {
-    val email by viewModel.email
-    val password by viewModel.password
-    val confirmPassword by viewModel.confirmPassword
-    val isLogin by viewModel.isLogin
     val error by viewModel.error
     val isLoading by viewModel.isLoading
+    val otpEmail by viewModel.otpEmail
+    val otpCode by viewModel.otpCode
 
     val context = LocalContext.current
 
@@ -49,42 +43,16 @@ fun AuthScreen(
             text = "Gym App",
             style = MaterialTheme.typography.displaySmall,
             color = Color.Red,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            fontWeight = FontWeight.Bold
         )
         
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Вкладки: Вход / Регистрация
-        TabRow(
-            selectedTabIndex = if (isLogin) 0 else 1,
-            containerColor = Color.Transparent,
-            contentColor = Color.Red,
-            indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[if (isLogin) 0 else 1]),
-                    color = Color.Red
-                )
-            },
-            divider = {}
-        ) {
-            Tab(
-                selected = isLogin,
-                onClick = { viewModel.toggleIsLogin() },
-                text = { Text("ВХОД") }
-            )
-            Tab(
-                selected = !isLogin,
-                onClick = { viewModel.toggleIsLogin() },
-                text = { Text("РЕГИСТРАЦИЯ") }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
+        // Основное поле для ввода почты
         OutlinedTextField(
-            value = email,
-            onValueChange = { viewModel.onEmailChange(it) },
-            label = { Text("Email или Логин") },
+            value = otpEmail,
+            onValueChange = { viewModel.onOtpEmailChange(it) },
+            label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = !isLoading,
@@ -99,10 +67,9 @@ fun AuthScreen(
         Spacer(modifier = Modifier.height(12.dp))
         
         OutlinedTextField(
-            value = password,
-            onValueChange = { viewModel.onPasswordChange(it) },
-            label = { Text(stringResource(R.string.auth_password_hint)) },
-            visualTransformation = PasswordVisualTransformation(),
+            value = otpCode,
+            onValueChange = { viewModel.onOtpCodeChange(it) },
+            label = { Text("Код подтверждения (OTP)") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = !isLoading,
@@ -113,30 +80,25 @@ fun AuthScreen(
                 focusedBorderColor = Color.Red
             )
         )
-
-        if (!isLogin) {
-            Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(
-                value = confirmPassword,
-                onValueChange = { viewModel.onConfirmPasswordChange(it) },
-                label = { Text("Повторите пароль") },
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !isLoading,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    focusedLabelColor = Color.Red,
-                    focusedBorderColor = Color.Red
-                )
-            )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            TextButton(
+                onClick = { viewModel.requestOtp() },
+                enabled = !isLoading && otpEmail.isNotBlank()
+            ) {
+                Text("Получить код", color = Color.Red)
+            }
         }
 
         if (error != null) {
             Text(
                 text = error!!, 
-                color = if (error!!.contains("отправлена") || error!!.contains("ожидает")) Color.Green else MaterialTheme.colorScheme.error, 
+                color = if (error!!.contains("отправлен") || error!!.contains("успешно")) Color.Green else MaterialTheme.colorScheme.error, 
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(top = 16.dp),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -150,15 +112,14 @@ fun AuthScreen(
         } else {
             Button(
                 onClick = { 
-                    if (isLogin) viewModel.signInWithEmail(onAuthSuccess)
-                    else viewModel.signUpWithEmail(onAuthSuccess)
+                    viewModel.verifyOtp(context) { onAuthSuccess(otpEmail) }
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
             ) {
                 Text(
-                    if (isLogin) stringResource(R.string.auth_login) else "ОТПРАВИТЬ ЗАЯВКУ", 
+                    "ВОЙТИ / ЗАРЕГИСТРИРОВАТЬСЯ", 
                     color = Color.White,
                     fontWeight = FontWeight.Bold
                 )

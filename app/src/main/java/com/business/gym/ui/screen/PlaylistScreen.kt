@@ -64,7 +64,14 @@ fun PlaylistScreen(
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let { viewModel.uploadTrackToLocalServer(context, it, jwtToken) }
+        uri?.let {
+            val mimeType = context.contentResolver.getType(it) ?: ""
+            if (mimeType.startsWith("audio/")) {
+                viewModel.uploadTrackToLocalServer(context, it, jwtToken)
+            } else {
+                Toast.makeText(context, "Это не музыкальный файл!", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -101,12 +108,15 @@ fun PlaylistScreen(
     val settingsViewModel: com.business.gym.ui.viewmodel.SettingsViewModel = viewModel(factory = com.business.gym.ui.viewmodel.SettingsViewModel.Factory(application))
     val serverIp by settingsViewModel.serverIp
 
-    fun getFullUrl(rawUrl: String): String {
+    fun getFullUrl(rawUrl: String?): String {
+        if (rawUrl.isNullOrBlank()) return ""
         if (rawUrl.startsWith("http")) return rawUrl
-        val base = if (serverIp.startsWith("http")) serverIp else "http://$serverIp"
-        val cleanBase = if (base.endsWith("/")) base else "$base/"
-        val cleanRaw = if (rawUrl.startsWith("/")) rawUrl.substring(1) else rawUrl
-        return cleanBase + cleanRaw
+        
+        val cleanIp = serverIp.removePrefix("http://").removePrefix("https://").removeSuffix("/")
+        val base = "http://$cleanIp"
+        
+        val cleanRaw = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
+        return base + cleanRaw
     }
 
     Column(

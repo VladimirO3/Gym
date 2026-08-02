@@ -6,13 +6,16 @@ import com.business.gym.data.local.entity.TrackEntity
 import com.business.gym.data.model.Track
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class TrackRepository(
-    private val trackDao: TrackDao
+    private val trackDao: TrackDao,
+    private val context: android.content.Context
 ) {
-    private val apiService get() = NewsApiService.create()
+    private val apiService get() = NewsApiService.create(context)
 
     val allTracks: Flow<List<Track>> = trackDao.getAllTracks().map { entities ->
         entities.map { Track(id = it.id, name = it.name, url = it.url) }
@@ -52,9 +55,10 @@ class TrackRepository(
 
     suspend fun uploadTrack(
         token: String,
-        name: RequestBody,
-        media: MultipartBody.Part?
+        name: String,
+        filePart: MultipartBody.Part
     ): okhttp3.ResponseBody {
-        return apiService.postLocalTrack("Bearer $token", name, media)
+        val nameBody = name.toRequestBody("text/plain".toMediaTypeOrNull())
+        return apiService.postLocalTrack("Bearer $token", nameBody, filePart)
     }
 }

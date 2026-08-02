@@ -1,5 +1,7 @@
 package com.business.gym.data.api
 
+import android.util.Log
+import com.google.gson.annotations.SerializedName
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Retrofit
@@ -10,20 +12,22 @@ import retrofit2.http.*
  * Модель данных для локального API.
  */
 data class LocalNews(
-    val id: String = "",
-    val title: String = "",
-    val content: String = "",
-    val url: String = "",
-    val type: String = "image"
+    @SerializedName("id") val id: String = "",
+    @SerializedName("title") val title: String = "",
+    @SerializedName("content") val content: String = "",
+    @SerializedName("url", alternate = ["media_url", "mediaUrl"]) val mediaUrl: String = "",
+    @SerializedName("type", alternate = ["media_type", "mediaType"]) val mediaType: String = "image",
+    @SerializedName("created_at", alternate = ["createdAt"]) val createdAt: String = ""
 )
 
 /**
  * Модель данных для локального трека.
  */
 data class LocalTrack(
-    val id: Int = 0,
-    val name: String = "",
-    val url: String = ""
+    @SerializedName("id") val id: Int = 0,
+    @SerializedName("name") val name: String = "",
+    @SerializedName("url") val url: String = "",
+    @SerializedName("created_at") val createdAt: String = ""
 )
 
 /**
@@ -50,7 +54,10 @@ data class LocalUser(
 /**
  * Модель для входа на сервер.
  */
-data class LoginResponse(val token: String)
+data class LoginResponse(
+    val token: String,
+    val refreshToken: String? = null
+)
 
 /**
  * Описание запросов к вашему собственному серверу (Ktor/Node.js/Python).
@@ -73,6 +80,25 @@ interface NewsApiService {
         @Field("name") name: String
     ): okhttp3.ResponseBody
 
+    @FormUrlEncoded
+    @POST("auth/request-otp")
+    suspend fun requestOtp(
+        @Field("email") email: String
+    ): okhttp3.ResponseBody
+
+    @FormUrlEncoded
+    @POST("auth/verify-otp")
+    suspend fun verifyOtp(
+        @Field("email") email: String,
+        @Field("otp") otp: String
+    ): LoginResponse
+
+    @FormUrlEncoded
+    @POST("auth/refresh")
+    fun refreshToken(
+        @Field("refreshToken") refreshToken: String
+    ): retrofit2.Call<LoginResponse>
+
     // --- АДМИН-ПАНЕЛЬ (Управление пользователями) ---
     @GET("admin/pending-users")
     suspend fun getPendingUsers(
@@ -83,23 +109,22 @@ interface NewsApiService {
     @POST("admin/approve-user")
     suspend fun approveUser(
         @Header("Authorization") token: String,
-        @Field("uid") userUid: String
+        @Field("uid") userUid: String? = null,
+        @Field("email") email: String? = null
     ): okhttp3.ResponseBody
 
     // --- НОВОСТИ ---
     @GET("news")
-    suspend fun getLocalNews(
-        @Header("Authorization") token: String
-    ): List<LocalNews>
+    suspend fun getLocalNews(): List<LocalNews>
 
     @Multipart
     @POST("admin/news")
     suspend fun postLocalNews(
         @Header("Authorization") token: String,
-        @Part("title") title: String,
-        @Part("content") content: String,
-        @Part("type") type: String,
-        @Part media: MultipartBody.Part?
+        @Part("title") title: RequestBody,
+        @Part("content") content: RequestBody,
+        @Part("type") type: RequestBody,
+        @Part file: MultipartBody.Part? = null
     ): okhttp3.ResponseBody
 
     @DELETE("admin/news/{id}")
@@ -117,7 +142,7 @@ interface NewsApiService {
     suspend fun postLocalTrack(
         @Header("Authorization") token: String,
         @Part("name") name: RequestBody,
-        @Part media: MultipartBody.Part?
+        @Part file: MultipartBody.Part
     ): okhttp3.ResponseBody
 
     @DELETE("admin/tracks/{id}")
@@ -138,7 +163,8 @@ interface NewsApiService {
     @GET("chat/messages/{peerUid}")
     suspend fun getChatMessages(
         @Header("Authorization") token: String,
-        @Path("peerUid") peerUid: String
+        @Path("peerUid") peerUid: String,
+        @Query("offset") offset: Int = 0
     ): List<LocalChatMessage>
 
     // Отправка сообщения
@@ -146,9 +172,14 @@ interface NewsApiService {
     @POST("chat/send")
     suspend fun sendChatMessage(
         @Header("Authorization") token: String,
-        @Field("peerUid") peerUid: String,
-        @Field("text") text: String
+        @Field("receiverId") receiverId: String,
+        @Field("message") message: String
     ): Map<String, String>
+
+    @GET("chat/unread-count")
+    suspend fun getUnreadCount(
+        @Header("Authorization") token: String
+    ): Map<String, Int>
 
     companion object {
         // Базовый адрес по умолчанию
@@ -158,11 +189,70 @@ interface NewsApiService {
             currentBaseUrl = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
         }
 
-        fun create(): NewsApiService {
+        fun create(context: android.content.Context? = null): NewsApiService {
             val okHttpClient = okhttp3.OkHttpClient.Builder()
                 .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                 .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                 .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .addInterceptor { chain ->
+                    val request = chain.request()
+                    Log.d("NewsApiService", "Request: ${request.method} ${request.url}")
+                    
+                    // Если токен уже есть в заголовке, не перезаписываем
+                    val tokenHeader = request.header("Authorization")
+                    
+                    val sharedPref = context?.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
+                    val token = sharedPref?.getString("user_session_token", null)
+                    
+                    val newRequest = if (tokenHeader == null && token != null) {
+                        request.newBuilder()
+                            .header("Authorization", "Bearer $token")
+                            .build()
+                    } else {
+                        request
+                    }
+                    
+                    val response = chain.proceed(newRequest)
+                    Log.d("NewsApiService", "Response: ${response.code} for ${request.url}")
+                    response
+                }
+                .authenticator { _, response ->
+                    val sharedPref = context?.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
+                    val refreshToken = sharedPref?.getString("user_session_refresh_token", null)
+                    
+                    if (refreshToken != null && response.code == 401) {
+                        Log.w("NewsApiService", "401 Unauthorized - attempting token refresh")
+                        try {
+                            val api = Retrofit.Builder()
+                                .baseUrl(currentBaseUrl)
+                                .addConverterFactory(GsonConverterFactory.create())
+                                .build()
+                                .create(NewsApiService::class.java)
+                                
+                            val refreshResponse = api.refreshToken(refreshToken).execute()
+                            if (refreshResponse.isSuccessful) {
+                                val newTokens = refreshResponse.body()
+                                if (newTokens != null) {
+                                    Log.i("NewsApiService", "Token refreshed successfully")
+                                    sharedPref?.edit()?.apply {
+                                        putString("user_session_token", newTokens.token)
+                                        putString("user_session_refresh_token", newTokens.refreshToken)
+                                        apply()
+                                    }
+                                    
+                                    return@authenticator response.request.newBuilder()
+                                        .header("Authorization", "Bearer ${newTokens.token}")
+                                        .build()
+                                }
+                            } else {
+                                Log.e("NewsApiService", "Token refresh failed: ${refreshResponse.code()}")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("NewsApiService", "Token refresh failed with exception", e)
+                        }
+                    }
+                    null
+                }
                 .build()
 
             return Retrofit.Builder()

@@ -8,6 +8,7 @@ data class NewsEntity(
     @PrimaryKey val id: String,
     val title: String,
     val content: String,
-    val url: String,
-    val type: String = "image"
+    val mediaUrl: String,
+    val mediaType: String = "image",
+    val createdAt: String = ""
 )

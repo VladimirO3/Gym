@@ -176,7 +176,7 @@ class ChatViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(ChatViewModel::class.java)) {
                 val database = GymDatabase.getDatabase(application)
-                val repository = ChatRepository(database.chatDao())
+                val repository = ChatRepository(database.chatDao(), application)
                 @Suppress("UNCHECKED_CAST")
                 return ChatViewModel(application, repository) as T
             }

@@ -10,9 +10,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class ChatRepository(
-    private val chatDao: ChatDao
+    private val chatDao: ChatDao,
+    private val context: android.content.Context
 ) {
-    private val apiService get() = NewsApiService.create()
+    private val apiService get() = NewsApiService.create(context)
 
     // Получение пользователей (собеседников)
     val allUsers: Flow<List<LocalUser>> = chatDao.getAllUsers().map { entities ->
@@ -68,10 +69,10 @@ class ChatRepository(
         }
     }
 
-    suspend fun sendMessage(token: String, peerUid: String, text: String): Boolean {
+    suspend fun sendMessage(token: String, receiverId: String, message: String): Boolean {
         return try {
-            apiService.sendChatMessage("Bearer $token", peerUid, text)
-            refreshMessages(token, peerUid)
+            apiService.sendChatMessage("Bearer $token", receiverId, message)
+            refreshMessages(token, receiverId)
             true
         } catch (e: Exception) {
             false

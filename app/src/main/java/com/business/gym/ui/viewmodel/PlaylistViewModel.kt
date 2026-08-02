@@ -36,7 +36,7 @@ class PlaylistViewModel(
 ) : AndroidViewModel(application) {
     private val database = FirebaseDatabase.getInstance().getReference("playlist")
     private val storage = FirebaseStorage.getInstance().getReference("music")
-    private val localApiService get() = NewsApiService.create()
+    private val localApiService get() = NewsApiService.create(getApplication())
 
     private val _tracks = mutableStateOf(listOf<Track>())
     val tracks: State<List<Track>> = _tracks
@@ -83,42 +83,35 @@ class PlaylistViewModel(
                 val fileName = getFileName(context, uri) ?: "Track_${UUID.randomUUID()}"
                 Log.d("PlaylistViewModel", "File name: $fileName")
                 
-                // Проверяем расширение файла (сервер может блокировать не-аудио файлы)
-                if (!fileName.lowercase().endsWith(".mp3") && !fileName.lowercase().endsWith(".wav") && !fileName.lowercase().endsWith(".m4a")) {
-                    Toast.makeText(context, "Внимание: Сервер может отклонить файл с таким расширением", Toast.LENGTH_SHORT).show()
+                val contentResolver = context.contentResolver
+                val mimeType = contentResolver.getType(uri) ?: "audio/mpeg"
+                
+                val inputStream = contentResolver.openInputStream(uri)
+                val filePart = if (inputStream != null) {
+                    val bytes = inputStream.readBytes()
+                    val requestFile = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+                    val part = MultipartBody.Part.createFormData("file", fileName, requestFile)
+                    inputStream.close()
+                    part
+                } else {
+                    null
                 }
 
-                // Передаем как обычный текст
-                val namePart = fileName.toRequestBody(null)
-
-                val file = File(context.cacheDir, "upload_audio_tmp_${System.currentTimeMillis()}")
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    file.outputStream().use { output -> 
-                        input.copyTo(output)
-                    }
+                if (filePart == null) {
+                    throw Exception("Could not read file from Uri")
                 }
-                Log.d("PlaylistViewModel", "Temp file created: ${file.absolutePath}, Size: ${file.length()}")
-
-                if (!file.exists() || file.length() == 0L) {
-                    throw Exception("Не удалось создать временный файл")
-                }
-
-                val requestFile = file.asRequestBody(context.contentResolver.getType(uri)?.toMediaTypeOrNull())
-                val mediaPart = MultipartBody.Part.createFormData("media", fileName, requestFile)
 
                 Log.d("PlaylistViewModel", "Calling repository.uploadTrack...")
                 repository.uploadTrack(
                     token = token,
-                    name = namePart,
-                    media = mediaPart
+                    name = fileName,
+                    filePart = filePart
                 )
                 Log.d("PlaylistViewModel", "Server response received")
                 
-                // Добавляем небольшую задержку перед обновлением, 
-                // чтобы сервер успел обновить индекс файлов на диске
                 kotlinx.coroutines.delay(500)
                 
-                Toast.makeText(context, "Трек загружен!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Трек добавлен!", Toast.LENGTH_SHORT).show()
                 repository.refreshTracks()
             } catch (e: Exception) {
                 Log.e("PlaylistViewModel", "CRITICAL: Local upload failed", e)
@@ -197,7 +190,7 @@ class PlaylistViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(PlaylistViewModel::class.java)) {
                 val database = GymDatabase.getDatabase(application)
-                val repository = TrackRepository(database.trackDao())
+                val repository = TrackRepository(database.trackDao(), application)
                 @Suppress("UNCHECKED_CAST")
                 return PlaylistViewModel(application, repository) as T
             }
