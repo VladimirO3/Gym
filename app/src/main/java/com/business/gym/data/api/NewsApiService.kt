@@ -61,6 +61,22 @@ data class LoginResponse(
 )
 
 /**
+ * Модели для корзины.
+ */
+data class CartItemRequest(
+    @SerializedName("productId") val productId: Int,
+    @SerializedName("quantity") val quantity: Int
+)
+
+data class CartItemResponse(
+    @SerializedName("productId") val productId: Int,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("name") val name: String,
+    @SerializedName("price") val price: String,
+    @SerializedName("description") val description: String
+)
+
+/**
  * Описание запросов к вашему собственному серверу (Ktor/Node.js/Python).
  */
 interface NewsApiService {
@@ -72,6 +88,18 @@ interface NewsApiService {
         @Field("email") email: String,
         @Field("password") pass: String
     ): LoginResponse
+
+    // --- КОРЗИНА ---
+    @GET("cart")
+    suspend fun getCart(
+        @Header("Authorization") token: String
+    ): List<CartItemResponse>
+
+    @POST("cart")
+    suspend fun saveCart(
+        @Header("Authorization") token: String,
+        @Body items: List<CartItemRequest>
+    ): okhttp3.ResponseBody
 
     @FormUrlEncoded
     @POST("register")
@@ -195,23 +223,43 @@ interface NewsApiService {
     companion object {
         // Базовый адрес по умолчанию
         private var currentBaseUrl = "http://192.168.0.13:5557/"
+        private var cachedService: NewsApiService? = null
+
+        fun getBaseUrl(): String = currentBaseUrl
 
         fun updateBaseUrl(newUrl: String) {
-            currentBaseUrl = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
+            val formattedUrl = when {
+                newUrl.startsWith("http://") || newUrl.startsWith("https://") -> newUrl
+                else -> "http://$newUrl"
+            }
+            val finalUrl = if (formattedUrl.endsWith("/")) formattedUrl else "$formattedUrl/"
+            
+            Log.d("NewsApiService", "Updating Base URL to: $finalUrl (Previous: $currentBaseUrl)")
+            
+            if (currentBaseUrl != finalUrl) {
+                currentBaseUrl = finalUrl
+                cachedService = null
+            }
         }
 
         fun create(context: android.content.Context? = null): NewsApiService {
+            cachedService?.let { 
+                Log.d("NewsApiService", "Returning cached service for: $currentBaseUrl")
+                return it 
+            }
+
+            Log.d("NewsApiService", "Creating new Retrofit instance for: $currentBaseUrl")
+
             val okHttpClient = okhttp3.OkHttpClient.Builder()
-                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-                .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
                 .addInterceptor { chain ->
                     val request = chain.request()
                     Log.d("NewsApiService", "Request: ${request.method} ${request.url}")
                     
-                    // Если токен уже есть в заголовке, не перезаписываем
                     val tokenHeader = request.header("Authorization")
-                    
                     val sharedPref = context?.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
                     val token = sharedPref?.getString("user_session_token", null)
                     
@@ -255,23 +303,24 @@ interface NewsApiService {
                                         .header("Authorization", "Bearer ${newTokens.token}")
                                         .build()
                                 }
-                            } else {
-                                Log.e("NewsApiService", "Token refresh failed: ${refreshResponse.code()}")
                             }
                         } catch (e: Exception) {
-                            Log.e("NewsApiService", "Token refresh failed with exception", e)
+                            Log.e("NewsApiService", "Token refresh failed", e)
                         }
                     }
                     null
                 }
                 .build()
 
-            return Retrofit.Builder()
+            val service = Retrofit.Builder()
                 .baseUrl(currentBaseUrl)
                 .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
                 .create(NewsApiService::class.java)
+            
+            cachedService = service
+            return service
         }
     }
 }

@@ -160,9 +160,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 _isLoading.value = false
                 _error.value = "Ошибка входа: ${e.code()}"
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Login unexpected error", e)
+                val errorMessage = when (e) {
+                    is java.net.ConnectException -> "Сервер недоступен (${NewsApiService.getBaseUrl()}). Проверьте IP-адрес (иконка шестеренки)."
+                    is java.net.SocketTimeoutException -> "Время ожидания истекло. Проверьте сеть."
+                    is java.net.UnknownHostException -> "Хост не найден. Проверьте правильность IP."
+                    else -> "Ошибка сервера: ${e.localizedMessage}"
+                }
+                Log.e("AuthViewModel", "Login error: $errorMessage", e)
                 _isLoading.value = false
-                _error.value = "Сервер недоступен"
+                _error.value = errorMessage
             }
         }
     }
@@ -189,9 +195,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 _isLoading.value = false
                 _error.value = "Код отправлен!"
             } catch (e: Exception) {
+                val errorMessage = when (e) {
+                    is java.net.ConnectException -> "Сервер недоступен (${NewsApiService.getBaseUrl()}). Проверьте IP-адрес (иконка шестеренки)."
+                    is java.net.SocketTimeoutException -> "Время ожидания истекло. Проверьте сеть."
+                    is java.net.UnknownHostException -> "Хост не найден. Проверьте правильность IP."
+                    else -> "Ошибка отправки: ${e.localizedMessage}"
+                }
                 Log.e("AuthViewModel", "Failed to request OTP for $target", e)
                 _isLoading.value = false
-                _error.value = "Ошибка отправки: ${e.localizedMessage}"
+                _error.value = errorMessage
             }
         }
     }
@@ -222,9 +234,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 _isLoading.value = false
                 onSuccess(email ?: phone ?: "")
             } catch (e: Exception) {
+                val errorMessage = when (e) {
+                    is java.net.ConnectException -> "Сервер недоступен (${NewsApiService.getBaseUrl()}). Проверьте IP-адрес (иконка шестеренки)."
+                    is java.net.SocketTimeoutException -> "Время ожидания истекло. Проверьте сеть."
+                    is java.net.UnknownHostException -> "Хост не найден. Проверьте правильность IP."
+                    else -> "Неверный код или ошибка сервера"
+                }
                 Log.e("AuthViewModel", "OTP verification failed", e)
                 _isLoading.value = false
-                _error.value = "Неверный код или ошибка сервера"
+                _error.value = errorMessage
             }
         }
     }

@@ -43,6 +43,7 @@ import com.business.gym.ui.screen.*
 import com.business.gym.ui.theme.GymTheme
 import com.business.gym.ui.viewmodel.AuthViewModel
 import com.business.gym.ui.viewmodel.SettingsViewModel
+import com.business.gym.ui.viewmodel.CartViewModel
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.analytics
 import com.google.firebase.firestore.FirebaseFirestore
@@ -103,6 +104,7 @@ class MainActivity : AppCompatActivity() {
             val settingsViewModel: SettingsViewModel = viewModel(
                 factory = SettingsViewModel.Factory(application)
             )
+            val cartViewModel: CartViewModel = viewModel()
             
             if (showSplash) {
                 SplashScreen(onFinished = { showSplash = false })
@@ -112,9 +114,14 @@ class MainActivity : AppCompatActivity() {
                 val player = remember { exoPlayer!! }
                 val currentUserEmail by authViewModel.currentUserEmail
                 val currentUid by authViewModel.currentUid
+                val jwtToken by authViewModel.jwtToken
                 
                 LaunchedEffect(Unit) {
                     authViewModel.loadSession(context)
+                }
+
+                LaunchedEffect(jwtToken) {
+                    cartViewModel.init(jwtToken)
                 }
                 
                 LaunchedEffect(currentUserEmail, currentUid) {
@@ -134,6 +141,7 @@ class MainActivity : AppCompatActivity() {
                         exoPlayer = player, 
                         authViewModel = authViewModel, 
                         settingsViewModel = settingsViewModel, 
+                        cartViewModel = cartViewModel,
                         onExitRequest = { showExit = true },
                         isDarkTheme = useDarkTheme
                     )
@@ -156,6 +164,7 @@ fun GymApp(
     exoPlayer: ExoPlayer,
     authViewModel: AuthViewModel,
     settingsViewModel: SettingsViewModel,
+    cartViewModel: CartViewModel,
     onExitRequest: () -> Unit,
     isDarkTheme: Boolean
 ) {
@@ -172,6 +181,7 @@ fun GymApp(
         onSignOut = {
             authViewModel.signOut()
             authViewModel.clearSession(context)
+            cartViewModel.clearCart(sync = false)
         },
         onSaveSession = { identifier ->
             // Сессия уже сохранена внутри ViewModel.verifyOtp, 
@@ -179,6 +189,7 @@ fun GymApp(
         },
         onExitRequest = onExitRequest,
         settingsViewModel = settingsViewModel,
+        cartViewModel = cartViewModel,
         isDarkTheme = isDarkTheme,
         authViewModel = authViewModel
     )
@@ -200,6 +211,7 @@ fun GymAppContent(
     onSaveSession: (String) -> Unit,
     onExitRequest: () -> Unit,
     settingsViewModel: SettingsViewModel,
+    cartViewModel: CartViewModel,
     isDarkTheme: Boolean,
     authViewModel: AuthViewModel
 ) {
@@ -214,10 +226,11 @@ fun GymAppContent(
         
         if (!isGuest) {
             list.add(GymTab("Чат", Icons.AutoMirrored.Filled.Send, "chat"))
+            list.add(GymTab("Корзина", Icons.Default.ShoppingCart, "cart"))
         }
         
         list.add(GymTab("Настройки", Icons.Default.Settings, "settings"))
-        list.add(GymTab("Магазин", Icons.Default.ShoppingCart, "shop"))
+        list.add(GymTab("Магазин", Icons.Default.Store, "shop"))
         list.add(GymTab("Право", Icons.Default.Gavel, "privacy"))
         list.add(GymTab("О нас", Icons.Default.Add, "about"))
         list
@@ -263,7 +276,25 @@ fun GymAppContent(
                                         coroutineScope.launch { pagerState.animateScrollToPage(index) }
                                         showAuthOverlay = false 
                                     },
-                                    icon = { Icon(tab.icon, contentDescription = tab.title) },
+                                    icon = { 
+                                        if (tab.key == "cart") {
+                                            val cartItems by cartViewModel.cartItems
+                                            val count = cartItems.sumOf { it.second }
+                                            BadgedBox(
+                                                badge = {
+                                                    if (count > 0) {
+                                                        Badge(containerColor = Color.Red, contentColor = Color.White) {
+                                                            Text("$count")
+                                                        }
+                                                    }
+                                                }
+                                            ) {
+                                                Icon(tab.icon, contentDescription = tab.title)
+                                            }
+                                        } else {
+                                            Icon(tab.icon, contentDescription = tab.title)
+                                        }
+                                    },
                                     colors = NavigationRailItemDefaults.colors(
                                         selectedIconColor = Color.Red,
                                         selectedTextColor = Color.Red,
@@ -331,7 +362,25 @@ fun GymAppContent(
                                                 showAuthOverlay = false 
                                             },
                                             text = { Text(tab.title, fontSize = 10.sp, maxLines = 1) },
-                                            icon = { Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp)) },
+                                            icon = { 
+                                                if (tab.key == "cart") {
+                                                    val cartItems by cartViewModel.cartItems
+                                                    val count = cartItems.sumOf { it.second }
+                                                    BadgedBox(
+                                                        badge = {
+                                                            if (count > 0) {
+                                                                Badge(containerColor = Color.Red, contentColor = Color.White) {
+                                                                    Text("$count")
+                                                                }
+                                                            }
+                                                        }
+                                                    ) {
+                                                        Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp))
+                                                    }
+                                                } else {
+                                                    Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp))
+                                                }
+                                            },
                                             selectedContentColor = Color.Red,
                                             unselectedContentColor = Color.Gray
                                         )
@@ -386,13 +435,27 @@ fun GymAppContent(
                                     "playlist" -> PlaylistScreen(exoPlayer = exoPlayer, isAdmin = isAdmin)
                                     "chat" -> {
                                         if (currentUserEmail == null) {
-                                            AuthScreen(onAuthSuccess = { onSaveSession(it) })
+                                            AuthScreen(
+                                                viewModel = authViewModel,
+                                                settingsViewModel = settingsViewModel,
+                                                onAuthSuccess = { onSaveSession(it) }
+                                            )
                                         } else {
                                             ChatScreen(currentUid = currentUid, isAdmin = isAdmin)
                                         }
                                     }
+                                    "cart" -> CartScreen(cartViewModel = cartViewModel)
                                     "settings" -> SettingsScreen(currentUserEmail = currentUserEmail, onLogout = onSignOut)
-                                    "shop" -> ShopScreen(isAdmin = isAdmin)
+                                    "shop" -> ShopScreen(
+                                        isAdmin = isAdmin,
+                                        cartViewModel = cartViewModel,
+                                        onGoToCart = {
+                                            val cartIndex = tabs.indexOfFirst { it.key == "cart" }
+                                            if (cartIndex != -1) {
+                                                coroutineScope.launch { pagerState.animateScrollToPage(cartIndex) }
+                                            }
+                                        }
+                                    )
                                     "privacy" -> {
                                         val currentContext = LocalContext.current
                                         PrivacyScreen(
@@ -407,10 +470,14 @@ fun GymAppContent(
 
                         if (showAuthOverlay) {
                             Box(modifier = Modifier.fillMaxSize()) {
-                                AuthScreen(onAuthSuccess = { email ->
-                                    onSaveSession(email)
-                                    showAuthOverlay = false
-                                })
+                                AuthScreen(
+                                    viewModel = authViewModel,
+                                    settingsViewModel = settingsViewModel,
+                                    onAuthSuccess = { email ->
+                                        onSaveSession(email)
+                                        showAuthOverlay = false
+                                    }
+                                )
                                 IconButton(
                                     onClick = { showAuthOverlay = false },
                                     modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
@@ -431,6 +498,7 @@ fun GymAppContent(
 fun GymAppPreview() {
     val settingsViewModel: SettingsViewModel = viewModel()
     val authViewModel: AuthViewModel = viewModel()
+    val cartViewModel: CartViewModel = viewModel()
     GymTheme {
         GymAppContent(
             currentUserEmail = "test@example.com",
@@ -441,6 +509,7 @@ fun GymAppPreview() {
             onSaveSession = {},
             onExitRequest = {},
             settingsViewModel = settingsViewModel,
+            cartViewModel = cartViewModel,
             isDarkTheme = true,
             authViewModel = authViewModel
         )

@@ -47,6 +47,9 @@ fun PlaylistScreen(
     val viewModel: PlaylistViewModel = viewModel(
         factory = PlaylistViewModel.Factory(application)
     )
+    val settingsViewModel: com.business.gym.ui.viewmodel.SettingsViewModel = viewModel(
+        factory = com.business.gym.ui.viewmodel.SettingsViewModel.Factory(application)
+    )
 
     val configuration = LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp > 600
@@ -56,11 +59,21 @@ fun PlaylistScreen(
     val localTracks by viewModel.localTracks
     val isUploading by viewModel.isUploading
     val jwtToken by authViewModel.jwtToken
+    val serverIp by settingsViewModel.serverIp
     
     var currentTrack by remember { mutableStateOf<Track?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
 
-    // Лаунчер для выбора аудио (теперь грузим на свой сервер)
+    fun getFullUrl(rawUrl: String?): String {
+        if (rawUrl.isNullOrBlank()) return ""
+        if (rawUrl.startsWith("http")) return rawUrl
+        val cleanIp = serverIp.removePrefix("http://").removePrefix("https://").removeSuffix("/")
+        val base = "http://$cleanIp"
+        val cleanRaw = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
+        return base + cleanRaw
+    }
+
+    // Лаунчер для выбора аудио
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -93,30 +106,41 @@ fun PlaylistScreen(
         permissionLauncher.launch(permissions)
     }
 
+    // Synchronize currentTrack and isPlaying with ExoPlayer state
+    LaunchedEffect(exoPlayer, tracks, localTracks, serverIp) {
+        isPlaying = exoPlayer.isPlaying
+        val mediaItem = exoPlayer.currentMediaItem
+        if (mediaItem != null) {
+            val url = mediaItem.localConfiguration?.uri?.toString() ?: ""
+            val allTracks = tracks + localTracks.map { 
+                val fullUrl = getFullUrl(it.url)
+                Track(id = it.id.toString(), url = fullUrl, name = it.name)
+            }
+            currentTrack = allTracks.find { it.url == url } ?: Track(id = "remote", url = url, name = "Playing...")
+        }
+    }
+
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlayingNow: Boolean) {
                 isPlaying = isPlayingNow
             }
+            
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                if (mediaItem != null) {
+                    val url = mediaItem.localConfiguration?.uri?.toString() ?: ""
+                    val allTracks = tracks + localTracks.map { 
+                        val fullUrl = getFullUrl(it.url)
+                        Track(id = it.id.toString(), url = fullUrl, name = it.name)
+                    }
+                    currentTrack = allTracks.find { it.url == url } ?: Track(id = "sync", url = url, name = "Playing...")
+                } else {
+                    currentTrack = null
+                }
+            }
         }
         exoPlayer.addListener(listener)
         onDispose { exoPlayer.removeListener(listener) }
-    }
-
-    val currentUserEmail by authViewModel.currentUserEmail
-    val isAdmin = remember(currentUserEmail) { authViewModel.isAdmin() }
-    val settingsViewModel: com.business.gym.ui.viewmodel.SettingsViewModel = viewModel(factory = com.business.gym.ui.viewmodel.SettingsViewModel.Factory(application))
-    val serverIp by settingsViewModel.serverIp
-
-    fun getFullUrl(rawUrl: String?): String {
-        if (rawUrl.isNullOrBlank()) return ""
-        if (rawUrl.startsWith("http")) return rawUrl
-        
-        val cleanIp = serverIp.removePrefix("http://").removePrefix("https://").removeSuffix("/")
-        val base = "http://$cleanIp"
-        
-        val cleanRaw = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
-        return base + cleanRaw
     }
 
     Column(
@@ -142,7 +166,6 @@ fun PlaylistScreen(
             
             if (isAdmin) {
                 Row {
-                    // Кнопка загрузки на СВОЙ сервер
                     IconButton(
                         onClick = { checkAndLaunch() },
                         colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF8B0000))
@@ -171,9 +194,8 @@ fun PlaylistScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Сначала треки из Firebase
                 items(tracks) { track ->
-                    val isThisTrackSelected = currentTrack?.id == track.id
+                    val isThisTrackSelected = currentTrack?.url == track.url
                     TrackItem(
                         track = track,
                         isSelected = isThisTrackSelected,
@@ -198,7 +220,6 @@ fun PlaylistScreen(
                     )
                 }
 
-                // Затем треки с вашего сервера
                 if (localTracks.isNotEmpty()) {
                     item(span = { GridItemSpan(columns) }) {
                         Text(

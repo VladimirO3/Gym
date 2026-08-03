@@ -109,7 +109,7 @@ fun SettingsScreen(
             onValueChange = { serverIpInput = it },
             label = { Text("IP-адрес сервера:Порт") },
             modifier = contentModifier,
-            placeholder = { Text("192.168.0.13:5557") },
+            placeholder = { Text("10.0.2.2:5557") },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color.Red,
                 focusedLabelColor = Color.Red

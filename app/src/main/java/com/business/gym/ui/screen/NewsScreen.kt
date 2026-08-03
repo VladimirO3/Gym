@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.exoplayer.ExoPlayer
 import com.business.gym.R
@@ -35,6 +36,10 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.core.content.FileProvider
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun NewsScreen(
@@ -104,21 +109,48 @@ fun NewsScreen(
     var localTitle by remember { mutableStateOf("") }
     var localContent by remember { mutableStateOf("") }
     var selectedMediaUri by remember { mutableStateOf<Uri?>(null) }
+    var tempUri by remember { mutableStateOf<Uri?>(null) }
 
-    val launcher = rememberLauncherForActivityResult(
+    fun createTempFile(extension: String): File {
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val storageDir = context.getExternalFilesDir(if (extension == "jpg") android.os.Environment.DIRECTORY_PICTURES else android.os.Environment.DIRECTORY_MOVIES)
+        return File.createTempFile("NEWS_${timeStamp}_", ".$extension", storageDir)
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
             val mimeType = context.contentResolver.getType(it) ?: ""
             if (mimeType.startsWith("image/") || mimeType.startsWith("video/")) {
-                if (showLocalAddDialog) {
-                    selectedMediaUri = it
-                } else {
-                    viewModel.uploadMedia(context, it)
-                }
+                selectedMediaUri = it
             } else {
                 Toast.makeText(context, "Это не фото или видео файл!", Toast.LENGTH_LONG).show()
             }
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            selectedMediaUri = tempUri
+        }
+    }
+
+    val videoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CaptureVideo()
+    ) { success ->
+        if (success) {
+            selectedMediaUri = tempUri
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            Toast.makeText(context, "Разрешение на камеру отклонено", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -169,15 +201,58 @@ fun NewsScreen(
                     
                     Button(
                         onClick = { 
-                            // Правильный вызов для выбора фото и видео
-                            launcher.launch("image/*,video/*")
+                            galleryLauncher.launch("image/*,video/*")
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
                     ) {
                         Icon(Icons.Default.AttachFile, null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (selectedMediaUri == null) "Выбрать фото/видео" else "Изменить файл")
+                        Text(if (selectedMediaUri == null) "Выбрать из галереи" else "Изменить из галереи")
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                try {
+                                    val file = createTempFile("jpg")
+                                    val uri = FileProvider.getUriForFile(context, "com.business.gym.fileprovider", file)
+                                    tempUri = uri
+                                    cameraLauncher.launch(uri)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Ошибка камеры: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
+                        ) {
+                            Icon(Icons.Default.PhotoCamera, null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Фото", fontSize = 12.sp)
+                        }
+                        
+                        Button(
+                            onClick = {
+                                permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                try {
+                                    val file = createTempFile("mp4")
+                                    val uri = FileProvider.getUriForFile(context, "com.business.gym.fileprovider", file)
+                                    tempUri = uri
+                                    videoLauncher.launch(uri)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Ошибка видео: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
+                        ) {
+                            Icon(Icons.Default.Videocam, null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Видео", fontSize = 12.sp)
+                        }
                     }
                 }
             },
