@@ -221,8 +221,8 @@ interface NewsApiService {
     ): Map<String, Int>
 
     companion object {
-        // Базовый адрес по умолчанию
-        private var currentBaseUrl = "http://192.168.0.13:5557/"
+        // Базовый адрес по умолчанию (VPS)
+        private var currentBaseUrl = "http://194.87.248.47:5557/"
         private var cachedService: NewsApiService? = null
 
         fun getBaseUrl(): String = currentBaseUrl
