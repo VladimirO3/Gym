@@ -49,15 +49,18 @@ fun VideoPlayer(
     val token = sharedPref.getString("user_session_token", null)
 
     val internalPlayer = remember(token) {
-        // Мы НЕ добавляем Authorization в заголовок для медиа-запросов здесь, 
-        // так как сервер теперь передает токен прямо в URL.
-        val dataSourceFactory = DefaultHttpDataSource.Factory()
-        
-        val mediaSourceFactory = DefaultMediaSourceFactory(context)
-            .setDataSourceFactory(dataSourceFactory)
+        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                15000, // min buffer 15s
+                50000, // max buffer 50s
+                2500,  // buffer for playback 2.5s
+                5000   // buffer for playback after rebuffer 5s
+            )
+            .build()
 
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(mediaSourceFactory)
+            .setMediaSourceFactory(NewsApiService.getMediaSourceFactory(context))
+            .setLoadControl(loadControl)
             .build().apply {
                 repeatMode = if (looping) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
                 volume = if (muted) 0f else 1f

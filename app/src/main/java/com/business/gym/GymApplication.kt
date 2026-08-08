@@ -30,6 +30,17 @@ class GymApplication : Application(), ImageLoaderFactory {
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .okHttpClient { NewsApiService.getOkHttpClient(this) }
+            .diskCache {
+                coil.disk.DiskCache.Builder()
+                    .directory(this.cacheDir.resolve("image_cache"))
+                    .maxSizeBytes(100 * 1024 * 1024) // 100MB cache
+                    .build()
+            }
+            .memoryCache {
+                coil.memory.MemoryCache.Builder(this)
+                    .maxSizePercent(0.25) // 25% of app memory
+                    .build()
+            }
             .crossfade(true)
             .build()
     }

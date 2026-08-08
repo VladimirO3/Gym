@@ -11,6 +11,11 @@ import retrofit2.http.*
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.cache.CacheDataSource
+import java.io.File
 
 /**
  * Модель данных для локального API.
@@ -270,6 +275,20 @@ interface NewsApiService {
         }
 
         private var cachedClient: okhttp3.OkHttpClient? = null
+        
+        @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+        private var exoCache: Any? = null // Store as Any to avoid UnstableApi error on property
+
+        @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+        private fun getCache(context: android.content.Context): SimpleCache {
+            if (exoCache == null) {
+                val cacheDir = File(context.cacheDir, "exo_video_cache")
+                val evictor = LeastRecentlyUsedCacheEvictor(100 * 1024 * 1024) // 100MB
+                val databaseProvider = StandaloneDatabaseProvider(context)
+                exoCache = SimpleCache(cacheDir, evictor, databaseProvider)
+            }
+            return exoCache as SimpleCache
+        }
 
         fun getOkHttpClient(context: android.content.Context): okhttp3.OkHttpClient {
             cachedClient?.let { return it }
@@ -363,18 +382,20 @@ interface NewsApiService {
 
         @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
         fun getMediaSourceFactory(context: android.content.Context): DefaultMediaSourceFactory {
-            val dataSourceFactory = DataSource.Factory {
-                val httpDataSource = DefaultHttpDataSource.Factory()
-                val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
-                val token = sharedPref.getString("user_session_token", null)
-                
-                val source = httpDataSource.createDataSource()
-                if (token != null) {
-                    source.setRequestProperty("Authorization", "Bearer $token")
-                }
-                source
+            val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
+            val token = sharedPref.getString("user_session_token", null)
+
+            val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            if (token != null) {
+                httpDataSourceFactory.setDefaultRequestProperties(mapOf("Authorization" to "Bearer $token"))
             }
-            return DefaultMediaSourceFactory(context).setDataSourceFactory(dataSourceFactory)
+
+            val cacheDataSourceFactory = CacheDataSource.Factory()
+                .setCache(getCache(context))
+                .setUpstreamDataSourceFactory(httpDataSourceFactory)
+                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+
+            return DefaultMediaSourceFactory(context).setDataSourceFactory(cacheDataSourceFactory)
         }
 
         fun create(context: android.content.Context? = null): NewsApiService {
