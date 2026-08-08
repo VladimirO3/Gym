@@ -4,24 +4,19 @@ import android.app.Application
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewModelScope
 import com.business.gym.GymApplication
-import com.business.gym.data.api.LocalChatMessage
-import com.business.gym.data.api.LocalUser
-import com.business.gym.data.api.NewsApiService
 import com.business.gym.data.local.GymDatabase
 import com.business.gym.data.model.ChatMessage
 import com.business.gym.data.model.UserProfile
 import com.business.gym.data.repository.ChatRepository
-import com.business.gym.util.EncryptionUtils
 import com.business.gym.util.NotificationHelper
 import com.google.firebase.Timestamp
-import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 /**
  * ViewModel для управления чатом между пользователями и администратором.
@@ -30,15 +25,10 @@ class ChatViewModel(
     application: Application,
     private val repository: ChatRepository
 ) : AndroidViewModel(application) {
-    private val auth = FirebaseAuth.getInstance()
-    
     private var isFirstMessagesLoad = true
 
     private fun decodeMessageForUi(raw: String): String {
-        return when {
-            raw.startsWith("enc:v1:") -> "🔒 Зашифрованное сообщение"
-            else -> try { EncryptionUtils.decrypt(raw) } catch (_: Exception) { raw }
-        }
+        return raw
     }
 
     // --- Состояния UI ---
@@ -83,15 +73,18 @@ class ChatViewModel(
     /**
      * Метод для выбора собеседника.
      */
+    private var messagesJob: kotlinx.coroutines.Job? = null
+    private var pollingJob: kotlinx.coroutines.Job? = null
+
     fun selectUser(user: UserProfile?, currentUid: String, token: String?) {
         _selectedUser.value = user
         stopPolling()
+        stopMessagesObservation()
         
         if (user != null) {
             isFirstMessagesLoad = true
             
-            // Загружаем сообщения из локальной БД
-            viewModelScope.launch {
+            messagesJob = viewModelScope.launch {
                 repository.getMessages(user.uid).collect { localMsgs ->
                     _messages.value = localMsgs.map {
                         ChatMessage(
@@ -107,6 +100,9 @@ class ChatViewModel(
             }
 
             if (token != null) {
+                viewModelScope.launch {
+                    repository.refreshMessages(token, user.uid)
+                }
                 startLocalPolling(user.uid, token)
             }
         } else {
@@ -114,17 +110,15 @@ class ChatViewModel(
         }
     }
 
-    private var pollingJob: kotlinx.coroutines.Job? = null
-
     private fun startLocalPolling(peerUid: String, token: String) {
         pollingJob?.cancel()
         pollingJob = viewModelScope.launch {
-            while (true) {
+            while (isActive) {
                 val oldMessageCount = _messages.value.size
-                repository.refreshMessages(token, peerUid)
+                val refreshed = repository.refreshMessages(token, peerUid)
                 
                 // Проверка на новые сообщения для уведомления
-                if (!isFirstMessagesLoad && _messages.value.size > oldMessageCount) {
+                if (refreshed && !isFirstMessagesLoad && _messages.value.size > oldMessageCount) {
                     val lastMsg = _messages.value.last()
                     // Используем email из настроек как ID текущего пользователя для сравнения
                     val currentEmail = getApplication<GymApplication>().getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
@@ -150,6 +144,11 @@ class ChatViewModel(
         pollingJob = null
     }
 
+    private fun stopMessagesObservation() {
+        messagesJob?.cancel()
+        messagesJob = null
+    }
+
     fun fetchLocalUsers(token: String) {
         viewModelScope.launch {
             repository.refreshUsers(token)
@@ -172,6 +171,7 @@ class ChatViewModel(
     override fun onCleared() {
         super.onCleared()
         stopPolling()
+        stopMessagesObservation()
     }
 
     class Factory(private val application: Application) : ViewModelProvider.Factory {
