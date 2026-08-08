@@ -19,7 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.business.gym.R
 import com.business.gym.ui.viewmodel.AuthViewModel
 import com.business.gym.ui.viewmodel.SettingsViewModel
 
@@ -47,15 +49,15 @@ fun AuthScreen(
         var ipInput by remember { mutableStateOf(settingsViewModel.serverIp.value) }
         AlertDialog(
             onDismissRequest = { showIpDialog = false },
-            title = { Text("Настройки сервера") },
+            title = { Text(stringResource(R.string.auth_server_settings)) },
             text = {
                 Column {
-                    Text("Введите IP-адрес и порт локального сервера (например, 10.0.2.2:5557 для эмулятора)", fontSize = 12.sp)
+                    Text(stringResource(R.string.auth_server_ip_hint), fontSize = 12.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = ipInput,
                         onValueChange = { ipInput = it },
-                        label = { Text("IP:Порт") },
+                        label = { Text(stringResource(R.string.auth_ip_label)) },
                         singleLine = true
                     )
                 }
@@ -65,12 +67,12 @@ fun AuthScreen(
                     settingsViewModel.setServerIp(context, null, ipInput)
                     showIpDialog = false
                 }) {
-                    Text("Сохранить")
+                    Text(stringResource(R.string.btn_save))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showIpDialog = false }) {
-                    Text("Отмена")
+                    Text(stringResource(R.string.btn_cancel))
                 }
             }
         )
@@ -112,12 +114,12 @@ fun AuthScreen(
                 Tab(
                     selected = authMode == "email",
                     onClick = { viewModel.setAuthMode("email") },
-                    text = { Text("Email", color = if (authMode == "email") Color.Red else Color.Gray) }
+                    text = { Text(stringResource(R.string.auth_email_label), color = if (authMode == "email") Color.Red else Color.Gray) }
                 )
                 Tab(
                     selected = authMode == "phone",
                     onClick = { viewModel.setAuthMode("phone") },
-                    text = { Text("Телефон", color = if (authMode == "phone") Color.Red else Color.Gray) }
+                    text = { Text(stringResource(R.string.auth_phone_label), color = if (authMode == "phone") Color.Red else Color.Gray) }
                 )
             }
 
@@ -144,7 +146,7 @@ fun AuthScreen(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { viewModel.onPasswordChange(it) },
-                        label = { Text("Пароль") },
+                        label = { Text(stringResource(R.string.auth_password_hint)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         enabled = !isLoading,
@@ -170,7 +172,7 @@ fun AuthScreen(
                     OutlinedTextField(
                         value = otpCode,
                         onValueChange = { viewModel.onOtpCodeChange(it) },
-                        label = { Text("Код подтверждения (OTP)") },
+                        label = { Text(stringResource(R.string.auth_otp_label)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         enabled = !isLoading,
@@ -186,7 +188,7 @@ fun AuthScreen(
                 OutlinedTextField(
                     value = otpPhone,
                     onValueChange = { viewModel.onOtpPhoneChange(it) },
-                    label = { Text("Номер телефона (например, +7...)") },
+                    label = { Text(stringResource(R.string.auth_phone_hint)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     enabled = !isLoading,
@@ -223,18 +225,18 @@ fun AuthScreen(
             ) {
                 if (authMode == "email") {
                     TextButton(onClick = { viewModel.togglePasswordMode() }) {
-                        Text(if (isPasswordMode) "Использовать OTP" else "Войти по паролю", color = Color.Gray, fontSize = 12.sp)
+                        Text(if (isPasswordMode) stringResource(R.string.auth_use_otp) else stringResource(R.string.auth_use_password), color = Color.Gray, fontSize = 12.sp)
                     }
                 } else {
                     Spacer(modifier = Modifier.width(1.dp))
                 }
 
                 if (!isPasswordMode) {
-                    TextButton(
+                        TextButton(
                         onClick = { viewModel.requestOtp() },
                         enabled = !isLoading && (if (authMode == "email") otpEmail.isNotBlank() else otpPhone.isNotBlank())
                     ) {
-                        Text("Получить код", color = Color.Red)
+                        Text(stringResource(R.string.auth_send_code), color = Color.Red)
                     }
                 }
             }
@@ -267,7 +269,7 @@ fun AuthScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                 ) {
                     Text(
-                        "ВОЙТИ / ЗАРЕГИСТРИРОВАТЬСЯ",
+                        stringResource(R.string.auth_login_password),
                         color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
@@ -284,7 +286,7 @@ fun AuthScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
                 ) {
                     Text(
-                        "ВОЙТИ КАК ГОСТЬ", 
+                        stringResource(R.string.auth_login_guest),
                         color = MaterialTheme.colorScheme.onBackground,
                         fontWeight = FontWeight.Medium
                     )

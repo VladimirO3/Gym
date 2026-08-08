@@ -6,9 +6,23 @@
     <string name="tab_settings">Настройки</string>
     <string name="tab_about">О нас</string>
     <string name="tab_shop">Магазин</string>
-    <string name="tab_privacy">Правовая информация</string>
+    <string name="tab_privacy">Право</string>
     <string name="tab_contact">Контакты</string>
     <string name="tab_help">Помощь</string>
+
+    <string name="news_title">НОВОСТИ GYM ABS</string>
+    <string name="news_local_server">Новости GymABC:</string>
+    <string name="news_cloud_server">Общие новости (Cloud):</string>
+    <string name="news_add_local">Загрузить на свой сервер</string>
+    <string name="news_upload_photo">Выбрать фото</string>
+    <string name="news_upload_video">Выбрать видео</string>
+    <string name="news_photo_selected">Фото выбрано</string>
+    <string name="news_video_selected">Видео выбрано</string>
+    <string name="news_publish">Опубликовать</string>
+    <string name="news_title_label">Заголовок</string>
+    <string name="news_content_label">Текст новости</string>
+    <string name="news_from_gallery">Из галереи</string>
+    <string name="news_camera">Камера</string>
 
     <string name="settings_title">Настройки</string>
     <string name="settings_dark_theme">Темная тема</string>
@@ -26,6 +40,7 @@
     <string name="playlist_empty">Музыка еще не добавлена. Нажмите +, чтобы добавить песни.</string>
     <string name="playlist_add_desc">Добавить музыку</string>
     <string name="playlist_unknown_track">Неизвестный трек</string>
+    <string name="playlist_local_header">Плейлист с вашего сервера:</string>
 
     <string name="chat_title">Чат зала</string>
     <string name="chat_hint">Введите сообщение...</string>
@@ -91,6 +106,26 @@
     <string name="auth_login_with_password">Вход по паролю</string>
     <string name="auth_login_with_sms">Вход по SMS</string>
     <string name="auth_confirm_password_hint">Подтвердите пароль</string>
+    <string name="auth_administrator">Администратор</string>
+    <string name="auth_server_settings">Настройки сервера</string>
+    <string name="auth_server_ip_hint">Введите IP:Порт (например, 10.0.2.2:5557)</string>
+    <string name="auth_ip_label">IP:Порт</string>
+    <string name="auth_login_password">ВОЙТИ / ЗАРЕГИСТРИРОВАТЬСЯ</string>
+    <string name="auth_login_guest">ВОЙТИ КАК ГОСТЬ</string>
+    <string name="auth_use_otp">Использовать OTP</string>
+    <string name="auth_use_password">Войти по паролю</string>
+    <string name="auth_otp_sent">Код отправлен!</string>
+    <string name="auth_phone_hint">Номер телефона (+7...)</string>
+    <string name="auth_otp_label">Код подтверждения (OTP)</string>
+
+    <string name="shop_title">МАГАЗИН</string>
+    <string name="shop_buy">КУПИТЬ</string>
+    <string name="shop_add_to_cart">В КОРЗИНУ</string>
+    <string name="shop_coming_soon">Скоро открытие полноценного магазина...</string>
+    <string name="cart_empty">Ваша корзина пуста</string>
+    <string name="cart_total">Итого:</string>
+    <string name="cart_checkout">ОФОРМИТЬ ЗАКАЗ</string>
+
     <string name="btn_save">Сохранить</string>
     <string name="privacy_title">Политика конфиденциальности и правовая информация</string>
     <string name="privacy_content">Приложение "GYM" (ABS GYM) уважает вашу конфиденциальность. Мы собираем минимальные данные (email/телефон) для аутентификации и работы чата. Ваши данные надежно хранятся в Firebase. Используя это приложение, вы соглашаетесь с нашими условиями обслуживания.\n\n1. Использование данных: Для внутреннего общения в зале.\n2. Безопасность: Используется шифрование AES для чатов.\n3. Сторонние сервисы: Мы используем сервисы Google/Firebase.</string>

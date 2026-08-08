@@ -95,7 +95,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
         Text(
-            text = "Настройки подключения", 
+            text = stringResource(R.string.auth_server_settings), 
             style = MaterialTheme.typography.titleMedium,
             color = Color.Red,
             modifier = contentModifier
@@ -104,7 +104,7 @@ fun SettingsScreen(
         OutlinedTextField(
             value = serverIpInput,
             onValueChange = { serverIpInput = it },
-            label = { Text("IP-адрес сервера:Порт") },
+            label = { Text(stringResource(R.string.auth_ip_label)) },
             modifier = contentModifier,
             placeholder = { Text("10.0.2.2:5557") },
             colors = OutlinedTextFieldDefaults.colors(
@@ -121,7 +121,7 @@ fun SettingsScreen(
             modifier = contentModifier,
             colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
         ) {
-            Text("Сохранить IP", color = Color.White)
+            Text(stringResource(R.string.btn_save), color = Color.White)
         }
 
         if (isAdmin) {

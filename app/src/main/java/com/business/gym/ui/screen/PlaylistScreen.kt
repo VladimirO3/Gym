@@ -214,7 +214,7 @@ fun PlaylistScreen(
                 if (localTracks.isNotEmpty()) {
                     item(span = { GridItemSpan(columns) }) {
                         Text(
-                            "Плейлист с вашего сервера:", 
+                            stringResource(R.string.playlist_local_header),
                             style = MaterialTheme.typography.titleMedium,
                             color = Color.Red,
                             modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)

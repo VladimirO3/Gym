@@ -139,13 +139,13 @@ fun NewsScreen(
         AlertDialog(
             onDismissRequest = { showLocalAddDialog = false },
             containerColor = Color.Black,
-            title = { Text("Новость на свой сервер", color = Color.Red) },
+            title = { Text(stringResource(R.string.news_add_local), color = Color.Red) },
             text = {
                 Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                     OutlinedTextField(
                         value = localTitle,
                         onValueChange = { localTitle = it },
-                        label = { Text("Заголовок", color = Color.White) },
+                        label = { Text(stringResource(R.string.news_title_label), color = Color.White) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
@@ -158,7 +158,7 @@ fun NewsScreen(
                     OutlinedTextField(
                         value = localContent,
                         onValueChange = { localContent = it },
-                        label = { Text("Текст новости", color = Color.White) },
+                        label = { Text(stringResource(R.string.news_content_label), color = Color.White) },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -174,7 +174,7 @@ fun NewsScreen(
                         val mimeType = context.contentResolver.getType(selectedMediaUri!!) ?: ""
                         val isVideo = mimeType.contains("video")
                         Text(
-                            text = if (isVideo) "Видео выбрано" else "Фото выбрано", 
+                            text = if (isVideo) stringResource(R.string.news_video_selected) else stringResource(R.string.news_photo_selected), 
                             color = Color.Green, 
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -189,7 +189,7 @@ fun NewsScreen(
                     ) {
                         Icon(Icons.Default.AttachFile, null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (selectedMediaUri == null) "Выбрать из галереи" else "Изменить из галереи")
+                        Text(if (selectedMediaUri == null) stringResource(R.string.news_from_gallery) else stringResource(R.string.news_from_gallery))
                     }
                     
                     Spacer(modifier = Modifier.height(8.dp))
@@ -212,7 +212,7 @@ fun NewsScreen(
                         ) {
                             Icon(Icons.Default.PhotoCamera, null)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Фото", fontSize = 12.sp)
+                            Text(stringResource(R.string.news_camera), fontSize = 12.sp)
                         }
                         
                         Button(
@@ -232,7 +232,7 @@ fun NewsScreen(
                         ) {
                             Icon(Icons.Default.Videocam, null)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Видео", fontSize = 12.sp)
+                            Text(stringResource(R.string.news_camera), fontSize = 12.sp)
                         }
                     }
                 }
@@ -265,11 +265,11 @@ fun NewsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                 ) {
                     if (isUploading) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
-                    else Text("Опубликовать")
+                    else Text(stringResource(R.string.news_publish))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showLocalAddDialog = false }) { Text("Отмена", color = Color.Gray) }
+                TextButton(onClick = { showLocalAddDialog = false }) { Text(stringResource(R.string.btn_cancel), color = Color.Gray) }
             }
         )
     }
@@ -349,7 +349,7 @@ fun NewsScreen(
 
             // Центральный заголовок
             Text(
-                text = "Новости GYM ABS",
+                text = stringResource(R.string.news_title),
                 style = MaterialTheme.typography.titleLarge,
                 color = Color.Red,
                 fontWeight = FontWeight.Bold,
@@ -375,7 +375,7 @@ fun NewsScreen(
                         }
                         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             DropdownMenuItem(
-                                text = { Text("Загрузить на свой сервер") },
+                                text = { Text(stringResource(R.string.news_add_local)) },
                                 onClick = { expanded = false; showLocalAddDialog = true },
                                 leadingIcon = { Icon(Icons.Default.CloudUpload, null) }
                             )
@@ -428,7 +428,7 @@ fun NewsScreen(
             if (newsItems.isNotEmpty()) {
                 item(span = { GridItemSpan(columns) }) {
                     Text(
-                        "Общие новости (Cloud):", 
+                        stringResource(R.string.news_cloud_server),
                         style = MaterialTheme.typography.titleSmall,
                         color = Color.Gray,
                         modifier = Modifier.padding(top = 16.dp)

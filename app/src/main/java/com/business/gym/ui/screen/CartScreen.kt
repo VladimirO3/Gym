@@ -15,10 +15,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.business.gym.R
 import com.business.gym.ui.viewmodel.CartViewModel
 
 @Composable
@@ -35,7 +37,7 @@ fun CartScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "КОРЗИНА",
+            text = stringResource(R.string.tab_shop).uppercase(),
             style = MaterialTheme.typography.headlineMedium,
             color = Color.Red,
             fontWeight = FontWeight.Bold,
@@ -53,7 +55,7 @@ fun CartScreen(
                     )
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        text = "Ваша корзина пуста", 
+                        text = stringResource(R.string.cart_empty), 
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -81,12 +83,12 @@ fun CartScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Итого:", 
+                        text = stringResource(R.string.cart_total), 
                         style = MaterialTheme.typography.titleLarge, 
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = cartViewModel.formatPrice(totalPrice),
+                        text = cartViewModel.formatPrice(totalPrice), 
                         style = MaterialTheme.typography.headlineMedium, 
                         color = Color.Red, 
                         fontWeight = FontWeight.Bold
@@ -105,7 +107,7 @@ fun CartScreen(
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("ОФОРМИТЬ ЗАКАЗ", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.cart_checkout), fontWeight = FontWeight.Bold)
             }
         }
     }

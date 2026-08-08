@@ -20,12 +20,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.business.gym.R
 import com.business.gym.ui.viewmodel.CartViewModel
 
 data class ProductPlaceholder(
@@ -64,7 +66,7 @@ fun ShopScreen(
     ) {
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Text(
-                text = "МАГАЗИН",
+                text = stringResource(R.string.shop_title),
                 style = MaterialTheme.typography.headlineMedium,
                 color = Color.Red,
                 fontWeight = FontWeight.Bold
@@ -130,7 +132,7 @@ fun ShopScreen(
         Spacer(modifier = Modifier.height(16.dp))
         
         Text(
-            text = "Скоро открытие полноценного магазина...",
+            text = stringResource(R.string.shop_coming_soon),
             style = MaterialTheme.typography.bodySmall,
             color = Color.Gray,
             textAlign = TextAlign.Center,
@@ -220,7 +222,7 @@ fun ShopProductCard(
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(0.dp)
                 ) {
-                    Text("КУПИТЬ", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.shop_buy), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
 
                 Spacer(Modifier.height(8.dp))
@@ -282,7 +284,7 @@ fun ShopProductCard(
                             Icon(Icons.Default.AddShoppingCart, null, tint = Color.Red, modifier = Modifier.size(16.dp))
                         }
                         Spacer(Modifier.width(8.dp))
-                        Text("В КОРЗИНУ", fontSize = 12.sp, color = Color.Red)
+                        Text(stringResource(R.string.shop_add_to_cart), fontSize = 12.sp, color = Color.Red)
                     }
                 }
             }

@@ -133,7 +133,9 @@ fun UserListScreen(
             text = stringResource(R.string.chat_all_users),
             style = MaterialTheme.typography.headlineMedium,
             color = Color.Red,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -171,7 +173,7 @@ fun UserListScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = if (isUserAdmin) "Администратор" else user.name, 
+                                    text = if (isUserAdmin) stringResource(R.string.auth_administrator) else user.name, 
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = Color.White,
                                     fontWeight = if (isUserAdmin || isSelected) FontWeight.Bold else FontWeight.Normal,
@@ -214,22 +216,28 @@ fun ConversationScreen(
     }
 
     Column(modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 8.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            contentAlignment = Alignment.Center
         ) {
             if (showBackButton) {
-                IconButton(onClick = onBack) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
-                Spacer(modifier = Modifier.width(8.dp))
             }
+            
             Text(
-                text = if (AuthViewModel.isStaticAdmin(peer.email)) "Администратор" else peer.name,
+                text = if (AuthViewModel.isStaticAdmin(peer.email)) stringResource(R.string.auth_administrator) else peer.name,
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color.Red,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1
+                maxLines = 1,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
         
