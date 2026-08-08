@@ -171,8 +171,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             if (refreshToken != null) {
                 putString("user_session_refresh_token", refreshToken)
             }
-            apply()
+            commit() // Используем commit для немедленной записи токенов
         }
+        Log.d("AuthViewModel", "Session saved for: $email. Token present: ${token.isNotBlank()}")
     }
 
     fun clearSession(context: Context) {

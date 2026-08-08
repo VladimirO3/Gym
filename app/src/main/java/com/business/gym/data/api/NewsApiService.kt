@@ -282,15 +282,17 @@ interface NewsApiService {
                 .addInterceptor { chain ->
                     val request = chain.request()
                     val url = request.url.toString()
-                    val tokenHeader = request.header("Authorization")
+                    
                     val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
                     val token = sharedPref.getString("user_session_token", null)
                     
-                    // Добавляем токен для всех запросов, КРОМЕ медиафайлов (/uploads/), 
-                    // так как для медиа токен теперь передается в самом URL.
+                    // Добавляем токен для всех запросов к API, 
+                    // кроме тех, где он уже есть или если это прямой запрос к /uploads/
                     val isMedia = url.contains("/uploads/")
+                    val hasAuth = request.header("Authorization") != null
                     
-                    val newRequest = if (tokenHeader == null && token != null && !isMedia) {
+                    val newRequest = if (!hasAuth && token != null && !isMedia) {
+                        Log.d("NewsApiService", "Adding Authorization header to: $url")
                         request.newBuilder()
                             .header("Authorization", "Bearer $token")
                             .build()
@@ -299,38 +301,56 @@ interface NewsApiService {
                     }
                     
                     val response = chain.proceed(newRequest)
-                    Log.d("NewsApiService", "Request: ${request.url} -> Response: ${response.code}")
+                    Log.d("NewsApiService", "Request: ${request.method} ${request.url} -> Response: ${response.code}")
                     response
                 }
                 .authenticator { _, response ->
                     val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
                     val refreshToken = sharedPref.getString("user_session_refresh_token", null)
                     
-                    if (refreshToken != null && response.code == 401) {
-                        try {
-                            val api = Retrofit.Builder()
-                                .baseUrl(currentBaseUrl)
-                                .addConverterFactory(GsonConverterFactory.create())
-                                .build()
-                                .create(NewsApiService::class.java)
-                                
-                            val refreshResponse = api.refreshToken(refreshToken).execute()
-                            if (refreshResponse.isSuccessful) {
-                                val newTokens = refreshResponse.body()
-                                if (newTokens != null) {
-                                    sharedPref.edit().apply {
-                                        putString("user_session_token", newTokens.token)
-                                        putString("user_session_refresh_token", newTokens.refreshToken)
-                                        apply()
-                                    }
-                                    
-                                    return@authenticator response.request.newBuilder()
-                                        .header("Authorization", "Bearer ${newTokens.token}")
-                                        .build()
-                                }
+                    // Если получили 401 и есть токен обновления
+                    if (response.code == 401 && refreshToken != null) {
+                        Log.w("NewsApiService", "401 Unauthorized detected. Attempting token refresh...")
+                        
+                        synchronized(this) {
+                            // Повторно читаем токен, возможно другой поток его уже обновил
+                            val currentToken = sharedPref.getString("user_session_token", null)
+                            val requestToken = response.request.header("Authorization")?.removePrefix("Bearer ")
+                            
+                            if (requestToken != currentToken && currentToken != null) {
+                                // Токен уже был обновлен другим потоком, просто повторяем запрос с новым токеном
+                                return@authenticator response.request.newBuilder()
+                                    .header("Authorization", "Bearer $currentToken")
+                                    .build()
                             }
-                        } catch (e: Exception) {
-                            Log.e("NewsApiService", "Token refresh failed", e)
+
+                            try {
+                                val api = Retrofit.Builder()
+                                    .baseUrl(currentBaseUrl)
+                                    .addConverterFactory(GsonConverterFactory.create())
+                                    .build()
+                                    .create(NewsApiService::class.java)
+                                    
+                                val refreshResponse = api.refreshToken(refreshToken).execute()
+                                if (refreshResponse.isSuccessful) {
+                                    val newTokens = refreshResponse.body()
+                                    if (newTokens != null) {
+                                        Log.i("NewsApiService", "Token refreshed successfully!")
+                                        sharedPref.edit()
+                                            .putString("user_session_token", newTokens.token)
+                                            .putString("user_session_refresh_token", newTokens.refreshToken)
+                                            .commit() // Используем commit для немедленной записи
+                                        
+                                        return@authenticator response.request.newBuilder()
+                                            .header("Authorization", "Bearer ${newTokens.token}")
+                                            .build()
+                                    }
+                                } else {
+                                    Log.e("NewsApiService", "Refresh request failed with code: ${refreshResponse.code()}")
+                                }
+                            } catch (e: Exception) {
+                                Log.e("NewsApiService", "CRITICAL: Token refresh exception", e)
+                            }
                         }
                     }
                     null
@@ -358,19 +378,27 @@ interface NewsApiService {
         }
 
         fun create(context: android.content.Context? = null): NewsApiService {
-            cachedService?.let { return it }
-
-            val client = if (context != null) getOkHttpClient(context) else okhttp3.OkHttpClient()
-
-            val service = Retrofit.Builder()
-                .baseUrl(currentBaseUrl)
-                .client(client)
-                .addConverterFactory(GsonConverterFactory.create())
-                .build()
-                .create(NewsApiService::class.java)
-            
-            cachedService = service
-            return service
+            if (context != null) {
+                cachedService?.let { return it }
+                
+                val client = getOkHttpClient(context)
+                val service = Retrofit.Builder()
+                    .baseUrl(currentBaseUrl)
+                    .client(client)
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+                    .create(NewsApiService::class.java)
+                
+                cachedService = service
+                return service
+            } else {
+                // Если контекста нет, возвращаем новый временный сервис без кеширования
+                return Retrofit.Builder()
+                    .baseUrl(currentBaseUrl)
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+                    .create(NewsApiService::class.java)
+            }
         }
     }
 }

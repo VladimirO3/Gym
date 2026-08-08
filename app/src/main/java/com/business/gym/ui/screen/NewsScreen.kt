@@ -334,19 +334,30 @@ fun NewsScreen(
         modifier = modifier.padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (isAdmin) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Индикатор состояния токена для админа
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(if (jwtToken != null) Color.Green else Color.Red, androidx.compose.foundation.shape.CircleShape)
-                )
+        // ФИКСИРОВАННЫЙ ЗАГОЛОВОК (НЕ СКРОЛЛИТСЯ)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Индикатор состояния сервера
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .background(if (jwtToken != null) Color.Green else Color.Red, androidx.compose.foundation.shape.CircleShape)
+            )
 
+            // Центральный заголовок
+            Text(
+                text = "Новости GYM ABS",
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.Red,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+
+            // Кнопка добавления (только для админа)
+            if (isAdmin) {
                 if (isUploading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
@@ -357,9 +368,10 @@ fun NewsScreen(
                             colors = IconButtonDefaults.iconButtonColors(
                                 contentColor = Color.White,
                                 containerColor = Color(0xFF8B0000)
-                            )
+                            ),
+                            modifier = Modifier.size(32.dp)
                         ) {
-                            Icon(Icons.Default.AddCircle, contentDescription = "Add Content")
+                            Icon(Icons.Default.Add, contentDescription = "Add Content", modifier = Modifier.size(20.dp))
                         }
                         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             DropdownMenuItem(
@@ -376,6 +388,9 @@ fun NewsScreen(
                         }
                     }
                 }
+            } else {
+                // Пустой блок для выравнивания текста по центру
+                Spacer(modifier = Modifier.size(32.dp))
             }
         }
 
@@ -390,14 +405,6 @@ fun NewsScreen(
         ) {
             // ПРИОРИТЕТ: Новости с вашего ТЕСТОВОГО сервера
             if (localNews.isNotEmpty()) {
-                item(span = { GridItemSpan(columns) }) {
-                    Text(
-                        "Новости GymABC:",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.Red,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
                 items(localNews) { localItem ->
                     val newsItem = NewsItem(
                         id = localItem.id,
