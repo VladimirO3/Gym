@@ -33,11 +33,35 @@ class SettingsViewModel(
     private var currentUid: String? = null
 
     init {
-        // Загружаем глобальный IP сразу при создании ViewModel
+        // Загружаем глобальные настройки сразу при создании ViewModel
         val globalPref = getApplication<Application>().getSharedPreferences("settings_global", Context.MODE_PRIVATE)
+        
+        // 1. IP Сервера
         val savedIp = globalPref.getString("server_ip", "89.108.70.193:5557") ?: "89.108.70.193:5557"
         _serverIp.value = savedIp
         NewsApiService.updateBaseUrl("http://$savedIp/")
+        
+        // 2. Тема оформления (Глобально)
+        _themeMode.value = globalPref.getString("theme_mode", "system") ?: "system"
+        
+        // 3. Язык (Глобально)
+        val savedLang = globalPref.getString("lang", "system") ?: "system"
+        applyLanguage(savedLang)
+    }
+
+    private fun applyLanguage(lang: String) {
+        val currentAppLocales = AppCompatDelegate.getApplicationLocales()
+        if (lang == "system") {
+            if (!currentAppLocales.isEmpty) {
+                AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
+            }
+        } else {
+            val currentLangCode = currentAppLocales.get(0)?.language?.split("-")?.get(0)
+            if (currentLangCode != lang) {
+                val appLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(lang)
+                AppCompatDelegate.setApplicationLocales(appLocale)
+            }
+        }
     }
 
     fun loadSettings(context: Context, currentUserEmail: String?, uid: String? = null) {
@@ -46,22 +70,25 @@ class SettingsViewModel(
         val sharedPref = context.getSharedPreferences("settings_$emailKey", Context.MODE_PRIVATE)
         val globalPref = context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
         
-        val defaultIp = globalPref.getString("server_ip", "89.108.70.193:5557") ?: "89.108.70.193:5557"
+        // Тема и Язык теперь всегда из ГЛОБАЛЬНЫХ настроек
+        _themeMode.value = globalPref.getString("theme_mode", "system") ?: "system"
+        val savedLang = globalPref.getString("lang", "system") ?: "system"
+        applyLanguage(savedLang)
 
-        // Сначала грузим из SharedPreferences для мгновенного отклика
-        _themeMode.value = sharedPref.getString("theme_mode", "system") ?: "system"
+        // Privacy и IP (IP дублируется в глобальных)
         _privacyAgreed.value = sharedPref.getBoolean("privacy_agreed", false)
+        val defaultIp = globalPref.getString("server_ip", "89.108.70.193:5557") ?: "89.108.70.193:5557"
         _serverIp.value = sharedPref.getString("server_ip", defaultIp) ?: defaultIp
         
         // Обновляем базовый URL в API сервисе
         NewsApiService.updateBaseUrl("http://${_serverIp.value}/")
         
-        // Затем пробуем синхронизироваться с SQLite если есть UID
+        // Затем пробуем синхронизироваться с SQLite если есть UID (для личного профиля)
         uid?.let { id ->
             viewModelScope.launch {
                 repository.getProfile(id).collect { profile ->
                     profile?.let {
-                        _themeMode.value = it.themeMode
+                        // ThemeMode в профиле БД пока оставляем, но приоритет у глобальных настроек
                         _privacyAgreed.value = it.privacyAgreed
                     } ?: run {
                         // Если профиля в БД нет, создаем его
@@ -76,25 +103,15 @@ class SettingsViewModel(
                 }
             }
         }
-
-        val savedLang = sharedPref.getString("lang", "system") ?: "system"
-        val currentAppLocales = AppCompatDelegate.getApplicationLocales()
-        
-        if (savedLang == "system") {
-            if (!currentAppLocales.isEmpty) {
-                AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
-            }
-        } else {
-            val currentLangCode = currentAppLocales.get(0)?.language?.split("-")?.get(0)
-            if (currentLangCode != savedLang) {
-                val appLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(savedLang)
-                AppCompatDelegate.setApplicationLocales(appLocale)
-            }
-        }
     }
 
     fun setThemeMode(context: Context, currentUserEmail: String?, mode: String) {
         _themeMode.value = mode
+        // Сохраняем ГЛОБАЛЬНО
+        context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
+            .edit().putString("theme_mode", mode).apply()
+        
+        // Для обратной совместимости пишем и в профиль пользователя
         val emailKey = currentUserEmail?.replace(".", "_") ?: "guest"
         context.getSharedPreferences("settings_$emailKey", Context.MODE_PRIVATE)
             .edit().putString("theme_mode", mode).apply()
@@ -105,13 +122,13 @@ class SettingsViewModel(
     }
 
     fun setLanguage(context: Context, currentUserEmail: String?, lang: String) {
+        applyLanguage(lang)
+        
+        // Сохраняем ГЛОБАЛЬНО
+        context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
+            .edit().putString("lang", lang).apply()
+            
         val emailKey = currentUserEmail?.replace(".", "_") ?: "guest"
-        if (lang == "system") {
-            AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
-        } else {
-            val appLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(lang)
-            AppCompatDelegate.setApplicationLocales(appLocale)
-        }
         context.getSharedPreferences("settings_$emailKey", Context.MODE_PRIVATE)
             .edit().putString("lang", lang).apply()
             

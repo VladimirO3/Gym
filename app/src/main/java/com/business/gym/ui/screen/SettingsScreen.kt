@@ -43,10 +43,6 @@ fun SettingsScreen(
         serverIpInput = serverIp
     }
 
-    LaunchedEffect(currentUserEmail) {
-        viewModel.loadSettings(context, currentUserEmail)
-    }
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -59,7 +55,8 @@ fun SettingsScreen(
             style = MaterialTheme.typography.headlineMedium,
             color = Color.Red,
             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-            modifier = contentModifier
+            modifier = contentModifier,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
         

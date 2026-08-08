@@ -457,7 +457,12 @@ fun GymAppContent(
                                         }
                                     }
                                     "cart" -> CartScreen(cartViewModel = cartViewModel)
-                                    "settings" -> SettingsScreen(currentUserEmail = currentUserEmail, onLogout = onSignOut)
+                                    "settings" -> SettingsScreen(
+                                        currentUserEmail = currentUserEmail, 
+                                        onLogout = onSignOut,
+                                        viewModel = settingsViewModel,
+                                        authViewModel = authViewModel
+                                    )
                                     "shop" -> ShopScreen(
                                         isAdmin = isAdmin,
                                         cartViewModel = cartViewModel,
