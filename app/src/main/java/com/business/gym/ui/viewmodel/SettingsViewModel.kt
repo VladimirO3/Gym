@@ -36,11 +36,14 @@ class SettingsViewModel(
         currentUid = uid
         val emailKey = currentUserEmail?.replace(".", "_") ?: "guest"
         val sharedPref = context.getSharedPreferences("settings_$emailKey", Context.MODE_PRIVATE)
+        val globalPref = context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
         
+        val defaultIp = globalPref.getString("server_ip", "89.108.70.193:5557") ?: "89.108.70.193:5557"
+
         // Сначала грузим из SharedPreferences для мгновенного отклика
         _themeMode.value = sharedPref.getString("theme_mode", "system") ?: "system"
         _privacyAgreed.value = sharedPref.getBoolean("privacy_agreed", false)
-        _serverIp.value = sharedPref.getString("server_ip", "89.108.70.193:5557") ?: "89.108.70.193:5557"
+        _serverIp.value = sharedPref.getString("server_ip", defaultIp) ?: defaultIp
         
         // Обновляем базовый URL в API сервисе
         NewsApiService.updateBaseUrl("http://${_serverIp.value}/")
@@ -124,6 +127,10 @@ class SettingsViewModel(
         _serverIp.value = ip
         val emailKey = currentUserEmail?.replace(".", "_") ?: "guest"
         context.getSharedPreferences("settings_$emailKey", Context.MODE_PRIVATE)
+            .edit().putString("server_ip", ip).apply()
+        
+        // Дополнительно сохраняем в глобальные настройки для API
+        context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
             .edit().putString("server_ip", ip).apply()
         
         NewsApiService.updateBaseUrl("http://$ip/")

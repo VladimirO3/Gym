@@ -8,6 +8,10 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
 
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+
 /**
  * Модель данных для локального API.
  */
@@ -87,9 +91,11 @@ data class CartItemResponse(
 interface NewsApiService {
 
     // --- АВТОРИЗАЦИЯ ---
+    @FormUrlEncoded
     @POST("login")
     suspend fun login(
-        @Body body: LoginRequest
+        @Field("email") email: String,
+        @Field("password") pass: String
     ): LoginResponse
 
     // --- КОРЗИНА ---
@@ -242,31 +248,49 @@ interface NewsApiService {
             if (currentBaseUrl != finalUrl) {
                 currentBaseUrl = finalUrl
                 cachedService = null
+                cachedClient = null // Clear client to re-init with new IP if needed
             }
         }
 
-        fun create(context: android.content.Context? = null): NewsApiService {
-            cachedService?.let { 
-                Log.d("NewsApiService", "Returning cached service for: $currentBaseUrl")
-                return it 
-            }
+        fun getFullUrl(context: android.content.Context, rawUrl: String?): String {
+            if (rawUrl.isNullOrBlank()) return ""
+            
+            // Если это уже полный URL (начинается с http), возвращаем как есть.
+            // Это критически важно для сохранения query-параметров (токенов), 
+            // которые сервер теперь добавляет в поле url.
+            if (rawUrl.startsWith("http")) return rawUrl
+            
+            val settingsPref = context.getSharedPreferences("settings_global", android.content.Context.MODE_PRIVATE)
+            val serverIp = settingsPref.getString("server_ip", "89.108.70.193:5557") ?: "89.108.70.193:5557"
+            val cleanIp = serverIp.removePrefix("http://").removePrefix("https://").removeSuffix("/")
+            
+            val base = "http://$cleanIp"
+            val cleanRaw = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
+            return base + cleanRaw
+        }
 
-            Log.d("NewsApiService", "Creating new Retrofit instance for: $currentBaseUrl")
+        private var cachedClient: okhttp3.OkHttpClient? = null
 
-            val okHttpClient = okhttp3.OkHttpClient.Builder()
+        fun getOkHttpClient(context: android.content.Context): okhttp3.OkHttpClient {
+            cachedClient?.let { return it }
+
+            val client = okhttp3.OkHttpClient.Builder()
                 .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .addInterceptor { chain ->
                     val request = chain.request()
-                    Log.d("NewsApiService", "Request: ${request.method} ${request.url}")
-                    
+                    val url = request.url.toString()
                     val tokenHeader = request.header("Authorization")
-                    val sharedPref = context?.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
-                    val token = sharedPref?.getString("user_session_token", null)
+                    val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
+                    val token = sharedPref.getString("user_session_token", null)
                     
-                    val newRequest = if (tokenHeader == null && token != null) {
+                    // Добавляем токен для всех запросов, КРОМЕ медиафайлов (/uploads/), 
+                    // так как для медиа токен теперь передается в самом URL.
+                    val isMedia = url.contains("/uploads/")
+                    
+                    val newRequest = if (tokenHeader == null && token != null && !isMedia) {
                         request.newBuilder()
                             .header("Authorization", "Bearer $token")
                             .build()
@@ -275,15 +299,14 @@ interface NewsApiService {
                     }
                     
                     val response = chain.proceed(newRequest)
-                    Log.d("NewsApiService", "Response: ${response.code} for ${request.url}")
+                    Log.d("NewsApiService", "Request: ${request.url} -> Response: ${response.code}")
                     response
                 }
                 .authenticator { _, response ->
-                    val sharedPref = context?.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
-                    val refreshToken = sharedPref?.getString("user_session_refresh_token", null)
+                    val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
+                    val refreshToken = sharedPref.getString("user_session_refresh_token", null)
                     
                     if (refreshToken != null && response.code == 401) {
-                        Log.w("NewsApiService", "401 Unauthorized - attempting token refresh")
                         try {
                             val api = Retrofit.Builder()
                                 .baseUrl(currentBaseUrl)
@@ -295,8 +318,7 @@ interface NewsApiService {
                             if (refreshResponse.isSuccessful) {
                                 val newTokens = refreshResponse.body()
                                 if (newTokens != null) {
-                                    Log.i("NewsApiService", "Token refreshed successfully")
-                                    sharedPref?.edit()?.apply {
+                                    sharedPref.edit().apply {
                                         putString("user_session_token", newTokens.token)
                                         putString("user_session_refresh_token", newTokens.refreshToken)
                                         apply()
@@ -314,10 +336,35 @@ interface NewsApiService {
                     null
                 }
                 .build()
+            
+            cachedClient = client
+            return client
+        }
+
+        @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+        fun getMediaSourceFactory(context: android.content.Context): DefaultMediaSourceFactory {
+            val dataSourceFactory = DataSource.Factory {
+                val httpDataSource = DefaultHttpDataSource.Factory()
+                val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
+                val token = sharedPref.getString("user_session_token", null)
+                
+                val source = httpDataSource.createDataSource()
+                if (token != null) {
+                    source.setRequestProperty("Authorization", "Bearer $token")
+                }
+                source
+            }
+            return DefaultMediaSourceFactory(context).setDataSourceFactory(dataSourceFactory)
+        }
+
+        fun create(context: android.content.Context? = null): NewsApiService {
+            cachedService?.let { return it }
+
+            val client = if (context != null) getOkHttpClient(context) else okhttp3.OkHttpClient()
 
             val service = Retrofit.Builder()
                 .baseUrl(currentBaseUrl)
-                .client(okHttpClient)
+                .client(client)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
                 .create(NewsApiService::class.java)

@@ -24,6 +24,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.business.gym.R
+import com.business.gym.data.api.NewsApiService
 import com.business.gym.data.model.Track
 import com.business.gym.ui.component.TrackItem
 import com.business.gym.ui.viewmodel.PlaylistViewModel
@@ -59,19 +60,9 @@ fun PlaylistScreen(
     val localTracks by viewModel.localTracks
     val isUploading by viewModel.isUploading
     val jwtToken by authViewModel.jwtToken
-    val serverIp by settingsViewModel.serverIp
     
     var currentTrack by remember { mutableStateOf<Track?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
-
-    fun getFullUrl(rawUrl: String?): String {
-        if (rawUrl.isNullOrBlank()) return ""
-        if (rawUrl.startsWith("http")) return rawUrl
-        val cleanIp = serverIp.removePrefix("http://").removePrefix("https://").removeSuffix("/")
-        val base = "http://$cleanIp"
-        val cleanRaw = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
-        return base + cleanRaw
-    }
 
     // Лаунчер для выбора аудио
     val launcher = rememberLauncherForActivityResult(
@@ -107,13 +98,13 @@ fun PlaylistScreen(
     }
 
     // Synchronize currentTrack and isPlaying with ExoPlayer state
-    LaunchedEffect(exoPlayer, tracks, localTracks, serverIp) {
+    LaunchedEffect(exoPlayer, tracks, localTracks) {
         isPlaying = exoPlayer.isPlaying
         val mediaItem = exoPlayer.currentMediaItem
         if (mediaItem != null) {
             val url = mediaItem.localConfiguration?.uri?.toString() ?: ""
             val allTracks = tracks + localTracks.map { 
-                val fullUrl = getFullUrl(it.url)
+                val fullUrl = NewsApiService.getFullUrl(context, it.url)
                 Track(id = it.id.toString(), url = fullUrl, name = it.name)
             }
             currentTrack = allTracks.find { it.url == url } ?: Track(id = "remote", url = url, name = "Playing...")
@@ -130,7 +121,7 @@ fun PlaylistScreen(
                 if (mediaItem != null) {
                     val url = mediaItem.localConfiguration?.uri?.toString() ?: ""
                     val allTracks = tracks + localTracks.map { 
-                        val fullUrl = getFullUrl(it.url)
+                        val fullUrl = NewsApiService.getFullUrl(context, it.url)
                         Track(id = it.id.toString(), url = fullUrl, name = it.name)
                     }
                     currentTrack = allTracks.find { it.url == url } ?: Track(id = "sync", url = url, name = "Playing...")
@@ -230,7 +221,7 @@ fun PlaylistScreen(
                         )
                     }
                     items(localTracks) { localTrack ->
-                        val fullUrl = getFullUrl(localTrack.url)
+                        val fullUrl = NewsApiService.getFullUrl(context, localTrack.url)
                         val isThisTrackSelected = currentTrack?.url == fullUrl
                         TrackItem(
                             track = Track(id = localTrack.id.toString(), url = fullUrl, name = localTrack.name),

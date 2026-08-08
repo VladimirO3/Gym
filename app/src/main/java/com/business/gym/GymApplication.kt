@@ -1,6 +1,9 @@
 package com.business.gym
 
 import android.app.Application
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import com.business.gym.data.api.NewsApiService
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
@@ -9,7 +12,7 @@ import com.google.firebase.firestore.FirebaseFirestoreSettings
  * Базовый класс приложения. 
  * Используется для глобальной инициализации настроек Firebase до запуска любых экранов.
  */
-class GymApplication : Application() {
+class GymApplication : Application(), ImageLoaderFactory {
     companion object {
         lateinit var instance: GymApplication
             private set
@@ -22,6 +25,13 @@ class GymApplication : Application() {
         // Настройка оффлайн-сохранения (Persistence) должна происходить
         // строго ПРИ ЗАПУСКЕ приложения, до любого обращения к данным.
         configureFirebasePersistence()
+    }
+
+    override fun newImageLoader(): ImageLoader {
+        return ImageLoader.Builder(this)
+            .okHttpClient { NewsApiService.getOkHttpClient(this) }
+            .crossfade(true)
+            .build()
     }
 
     private fun configureFirebasePersistence() {

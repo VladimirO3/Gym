@@ -15,8 +15,11 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
+import com.business.gym.data.api.NewsApiService
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
@@ -28,23 +31,38 @@ fun VideoPlayer(
     muted: Boolean = false,
     looping: Boolean = false,
 ) {
-    if (LocalInspectionMode.current || videoUrl.isBlank()) {
+    val context = LocalContext.current
+    val fullUrl = remember(videoUrl) { NewsApiService.getFullUrl(context, videoUrl) }
+
+    if (LocalInspectionMode.current || fullUrl.isBlank()) {
         Box(
             modifier = modifier.background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
-            Text(if (videoUrl.isBlank()) "No Video URL" else "Video Player Placeholder", color = Color.White)
+            Text(if (fullUrl.isBlank()) "No Video URL" else "Video Player Placeholder", color = Color.White)
         }
         return
     }
+    
+    // Получаем токен из SharedPreferences
+    val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
+    val token = sharedPref.getString("user_session_token", null)
 
-    val context = LocalContext.current
-    val internalPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            repeatMode = if (looping) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
-            volume = if (muted) 0f else 1f
-            playWhenReady = autoPlay
-        }
+    val internalPlayer = remember(token) {
+        // Мы НЕ добавляем Authorization в заголовок для медиа-запросов здесь, 
+        // так как сервер теперь передает токен прямо в URL.
+        val dataSourceFactory = DefaultHttpDataSource.Factory()
+        
+        val mediaSourceFactory = DefaultMediaSourceFactory(context)
+            .setDataSourceFactory(dataSourceFactory)
+
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build().apply {
+                repeatMode = if (looping) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
+                volume = if (muted) 0f else 1f
+                playWhenReady = autoPlay
+            }
     }
     
     // Используем переданный плеер или созданный внутри
@@ -79,11 +97,11 @@ fun VideoPlayer(
     }
 
     // Загрузка контента
-    LaunchedEffect(videoUrl) {
-        Log.d("VideoPlayer", "Loading URL: $videoUrl")
+    LaunchedEffect(fullUrl, activePlayer) {
+        Log.d("VideoPlayer", "Loading URL: $fullUrl")
         errorMessage = null
         try {
-            val mediaItem = MediaItem.fromUri(videoUrl)
+            val mediaItem = MediaItem.fromUri(fullUrl)
             activePlayer.setMediaItem(mediaItem)
             activePlayer.prepare()
             if (autoPlay) activePlayer.play()

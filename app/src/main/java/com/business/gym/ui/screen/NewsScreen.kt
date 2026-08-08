@@ -23,6 +23,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.exoplayer.ExoPlayer
 import com.business.gym.R
 import com.business.gym.data.model.NewsItem
+import com.business.gym.data.api.NewsApiService
 import com.business.gym.ui.component.NewsMediaItem
 import com.business.gym.ui.component.VideoPlayer
 import com.business.gym.ui.viewmodel.AuthViewModel
@@ -59,26 +60,6 @@ fun NewsScreen(
     val newsItems by viewModel.newsItems
     val localNews by viewModel.localNews
     val isUploading by viewModel.isUploading
-    val serverIp by settingsViewModel.serverIp
-
-    fun getFullUrl(rawUrl: String?): String {
-        if (rawUrl.isNullOrBlank()) return ""
-        if (rawUrl.startsWith("http")) return rawUrl
-        
-        // Очищаем IP от лишних протоколов и слешей
-        val cleanIp = serverIp.removePrefix("http://").removePrefix("https://").removeSuffix("/")
-        val base = "http://$cleanIp"
-        
-        // Удаляем /uploads/ если он уже есть в начале rawUrl, чтобы не дублировать, 
-        // но это зависит от того, как настроен ваш сервер. 
-        // Обычно сервер возвращает либо "filename.jpg" либо "/uploads/filename.jpg"
-        
-        val cleanRaw = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
-        val result = base + cleanRaw
-        
-        android.util.Log.d("NewsScreen", "Constructing URL: IP=$serverIp, RAW=$rawUrl -> RESULT=$result")
-        return result
-    }
 
     val configuration = LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp > 600
@@ -360,19 +341,11 @@ fun NewsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Индикатор состояния токена для админа
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(if (jwtToken != null) Color.Green else Color.Red, androidx.compose.foundation.shape.CircleShape)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (jwtToken != null) "Server Connected" else "Server Disconnected",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (jwtToken != null) Color.Green else Color.Red
-                    )
-                }
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(if (jwtToken != null) Color.Green else Color.Red, androidx.compose.foundation.shape.CircleShape)
+                )
 
                 if (isUploading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
@@ -419,7 +392,7 @@ fun NewsScreen(
             if (localNews.isNotEmpty()) {
                 item(span = { GridItemSpan(columns) }) {
                     Text(
-                        "Новости с вашего сервера:", 
+                        "Новости GymABC:",
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.Red,
                         modifier = Modifier.padding(top = 8.dp)
@@ -428,7 +401,7 @@ fun NewsScreen(
                 items(localNews) { localItem ->
                     val newsItem = NewsItem(
                         id = localItem.id,
-                        url = getFullUrl(localItem.mediaUrl),
+                        url = NewsApiService.getFullUrl(context, localItem.mediaUrl),
                         type = localItem.mediaType,
                         title = localItem.title,
                         content = localItem.content,

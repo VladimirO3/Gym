@@ -54,6 +54,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
 import android.widget.Toast
 import com.google.firebase.database.FirebaseDatabase
+import com.business.gym.data.api.NewsApiService
 import kotlinx.coroutines.launch
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -89,6 +90,7 @@ class MainActivity : AppCompatActivity() {
 
             exoPlayer = ExoPlayer.Builder(this)
                 .setAudioAttributes(audioAttributes, true) // true = handleAudioFocus
+                .setMediaSourceFactory(NewsApiService.getMediaSourceFactory(this))
                 .build()
 
             mediaSession = MediaSession.Builder(this, exoPlayer!!).build()
@@ -428,10 +430,20 @@ fun GymAppContent(
                             ) { page ->
                                 val tabKey = if (page < tabs.size) tabs[page].key else ""
                                 when (tabKey) {
-                                    "news" -> NewsScreen(
-                                        isAdmin = isAdmin,
-                                        authViewModel = authViewModel
-                                    )
+                                    "news" -> {
+                                        if (currentUserEmail == null || isGuest) {
+                                            AuthScreen(
+                                                viewModel = authViewModel,
+                                                settingsViewModel = settingsViewModel,
+                                                onAuthSuccess = { onSaveSession(it) }
+                                            )
+                                        } else {
+                                            NewsScreen(
+                                                isAdmin = isAdmin,
+                                                authViewModel = authViewModel
+                                            )
+                                        }
+                                    }
                                     "playlist" -> PlaylistScreen(exoPlayer = exoPlayer, isAdmin = isAdmin)
                                     "chat" -> {
                                         if (currentUserEmail == null) {

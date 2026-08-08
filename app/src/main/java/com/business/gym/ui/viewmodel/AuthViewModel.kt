@@ -192,8 +192,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
-                Log.d("AuthViewModel", "Logging in: $emailValue")
-                val response = localApiService.login(LoginRequest(emailValue, passwordValue))
+                Log.d("AuthViewModel", "Attempting login to: ${NewsApiService.getBaseUrl()}login with email: $emailValue")
+                val response = localApiService.login(emailValue, passwordValue)
+                
+                Log.d("AuthViewModel", "Login successful, token received")
                 _jwtToken.value = response.token
                 _refreshToken.value = response.refreshToken
                 _currentUserEmail.value = emailValue
