@@ -10,6 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.business.gym.data.api.NewsApiService
 import com.business.gym.data.api.LocalUser
+import com.business.gym.data.api.LoginRequest
 import kotlinx.coroutines.launch
 
 /**
@@ -76,7 +77,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         onSuccess()
     }
 
-    // --- Поля для OTP ---
+    // --- Поля для OTP и пароля ---
     private val _otpEmail = mutableStateOf("")
     val otpEmail: State<String> = _otpEmail
 
@@ -89,7 +90,52 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _authMode = mutableStateOf("email") // "email" или "phone"
     val authMode: State<String> = _authMode
 
-    fun onOtpEmailChange(newValue: String) { _otpEmail.value = newValue; _error.value = null }
+    private val _isPasswordMode = mutableStateOf(false)
+    val isPasswordMode: State<Boolean> = _isPasswordMode
+
+    fun togglePasswordMode() { 
+        _isPasswordMode.value = !_isPasswordMode.value
+        _error.value = null 
+    }
+
+    fun onOtpEmailChange(newValue: String) { 
+        _otpEmail.value = newValue
+        _email.value = newValue // Синхронизируем с полем для обычного входа
+        _error.value = null 
+        
+        // Автоматически предлагаем ввод пароля для админа
+        if (isStaticAdmin(newValue)) {
+            _isPasswordMode.value = true
+        }
+    }
+
+    private fun saveCredentials(email: String, pass: String) {
+        val sharedPref = getApplication<Application>().getSharedPreferences("auth_credentials", Context.MODE_PRIVATE)
+        sharedPref.edit().apply {
+            putString("saved_email", email)
+            putString("saved_password", pass)
+            apply()
+        }
+    }
+
+    private fun loadCredentials() {
+        val sharedPref = getApplication<Application>().getSharedPreferences("auth_credentials", Context.MODE_PRIVATE)
+        val savedEmail = sharedPref.getString("saved_email", "") ?: ""
+        val savedPassword = sharedPref.getString("saved_password", "") ?: ""
+        
+        if (savedEmail.isNotBlank()) {
+            _otpEmail.value = savedEmail
+            _email.value = savedEmail
+            _password.value = savedPassword
+            if (isStaticAdmin(savedEmail) || savedPassword.isNotBlank()) {
+                _isPasswordMode.value = true
+            }
+        }
+    }
+
+    init {
+        loadCredentials()
+    }
     fun onOtpPhoneChange(newValue: String) { _otpPhone.value = newValue; _error.value = null }
     fun onOtpCodeChange(newValue: String) { _otpCode.value = newValue; _error.value = null }
     fun setAuthMode(mode: String) { _authMode.value = mode; _error.value = null }
@@ -147,18 +193,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 Log.d("AuthViewModel", "Logging in: $emailValue")
-                val response = localApiService.login(emailValue, passwordValue)
+                val response = localApiService.login(LoginRequest(emailValue, passwordValue))
                 _jwtToken.value = response.token
                 _refreshToken.value = response.refreshToken
                 _currentUserEmail.value = emailValue
                 _currentUid.value = emailValue
                 saveSession(getApplication(), emailValue, null, response.token, response.refreshToken)
+                saveCredentials(emailValue, passwordValue) // Сохраняем логин и пароль при успешном входе
                 _isLoading.value = false
                 onSuccess(emailValue)
             } catch (e: retrofit2.HttpException) {
-                Log.e("AuthViewModel", "Login HTTP error: ${e.code()} ${e.message()}")
+                val errorBody = e.response()?.errorBody()?.string()
+                Log.e("AuthViewModel", "Login HTTP error: ${e.code()} ${e.message()} Body: $errorBody")
                 _isLoading.value = false
-                _error.value = "Ошибка входа: ${e.code()}"
+                _error.value = "Ошибка входа: ${e.code()}. ${errorBody ?: ""}"
             } catch (e: Exception) {
                 val errorMessage = when (e) {
                     is java.net.ConnectException -> "Сервер недоступен (${NewsApiService.getBaseUrl()}). Проверьте IP-адрес (иконка шестеренки)."
@@ -231,6 +279,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 _currentUserEmail.value = email
                 _currentUid.value = email ?: phone ?: "user"
                 saveSession(getApplication(), email, phone, response.token, response.refreshToken)
+                
+                // Если был введен email, сохраняем его (пароль при OTP не сохраняем)
+                if (email != null) {
+                    saveCredentials(email, "")
+                }
+
                 _isLoading.value = false
                 onSuccess(email ?: phone ?: "")
             } catch (e: Exception) {
@@ -308,7 +362,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     // Заглушки и доп. методы
     val verificationId = mutableStateOf<String?>(null)
     val showSetPasswordDialog = mutableStateOf(false)
-    val loginWithPasswordMode = mutableStateOf(false)
     fun dismissSetPasswordDialog() {}
     fun setPasswordForPhoneUser(p: String, s: () -> Unit) {}
     fun signInWithGoogle(t: String, s: (String) -> Unit) {}

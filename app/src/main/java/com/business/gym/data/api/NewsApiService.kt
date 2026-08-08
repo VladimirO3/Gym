@@ -55,6 +55,11 @@ data class LocalUser(
 /**
  * Модель для входа на сервер.
  */
+data class LoginRequest(
+    val email: String,
+    val password: String
+)
+
 data class LoginResponse(
     val token: String,
     val refreshToken: String? = null
@@ -82,11 +87,9 @@ data class CartItemResponse(
 interface NewsApiService {
 
     // --- АВТОРИЗАЦИЯ ---
-    @FormUrlEncoded
     @POST("login")
     suspend fun login(
-        @Field("email") email: String,
-        @Field("password") pass: String
+        @Body body: LoginRequest
     ): LoginResponse
 
     // --- КОРЗИНА ---
