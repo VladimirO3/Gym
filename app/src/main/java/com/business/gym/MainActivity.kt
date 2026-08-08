@@ -108,29 +108,29 @@ class MainActivity : AppCompatActivity() {
             )
             val cartViewModel: CartViewModel = viewModel()
             
+            // Загружаем сессию и настройки СРАЗУ при запуске, не дожидаясь окончания Splash
+            LaunchedEffect(Unit) {
+                authViewModel.loadSession(context)
+            }
+
+            val currentUserEmail by authViewModel.currentUserEmail
+            val currentUid by authViewModel.currentUid
+            val jwtToken by authViewModel.jwtToken
+
+            LaunchedEffect(currentUserEmail, currentUid) {
+                settingsViewModel.loadSettings(context, currentUserEmail, currentUserEmail)
+            }
+
+            LaunchedEffect(jwtToken) {
+                cartViewModel.init(jwtToken)
+            }
+            
             if (showSplash) {
                 SplashScreen(onFinished = { showSplash = false })
             } else if (showExit) {
                 ExitScreen(onFinished = { (context as? android.app.Activity)?.finish() })
             } else {
                 val player = remember { exoPlayer!! }
-                val currentUserEmail by authViewModel.currentUserEmail
-                val currentUid by authViewModel.currentUid
-                val jwtToken by authViewModel.jwtToken
-                
-                LaunchedEffect(Unit) {
-                    authViewModel.loadSession(context)
-                }
-
-                LaunchedEffect(jwtToken) {
-                    cartViewModel.init(jwtToken)
-                }
-                
-                LaunchedEffect(currentUserEmail, currentUid) {
-                    // Мы больше не зависим от UID из Firebase, используем email как ключ настроек
-                    settingsViewModel.loadSettings(context, currentUserEmail, currentUserEmail)
-                }
-
                 val themeMode by settingsViewModel.themeMode
                 val useDarkTheme = when (themeMode) {
                     "light" -> false

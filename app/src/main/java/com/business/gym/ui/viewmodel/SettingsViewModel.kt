@@ -32,6 +32,14 @@ class SettingsViewModel(
 
     private var currentUid: String? = null
 
+    init {
+        // Загружаем глобальный IP сразу при создании ViewModel
+        val globalPref = getApplication<Application>().getSharedPreferences("settings_global", Context.MODE_PRIVATE)
+        val savedIp = globalPref.getString("server_ip", "89.108.70.193:5557") ?: "89.108.70.193:5557"
+        _serverIp.value = savedIp
+        NewsApiService.updateBaseUrl("http://$savedIp/")
+    }
+
     fun loadSettings(context: Context, currentUserEmail: String?, uid: String? = null) {
         currentUid = uid
         val emailKey = currentUserEmail?.replace(".", "_") ?: "guest"

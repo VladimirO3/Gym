@@ -86,7 +86,7 @@ fun CartScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "${totalPrice} ₽", 
+                        text = cartViewModel.formatPrice(totalPrice),
                         style = MaterialTheme.typography.headlineMedium, 
                         color = Color.Red, 
                         fontWeight = FontWeight.Bold
@@ -130,7 +130,14 @@ fun CartItemRow(product: ProductPlaceholder, count: Int, viewModel: CartViewMode
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = product.price, 
+                    text = if (count > 1) {
+                        val priceCleaned = product.price.replace(" ", "").replace("\u00A0", "")
+                        val match = Regex("(\\d+)").find(priceCleaned)
+                        val priceInt = match?.value?.toIntOrNull() ?: 0
+                        "${product.price} x $count = ${viewModel.formatPrice(priceInt * count)}"
+                    } else {
+                        product.price
+                    },
                     color = Color.Red, 
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold

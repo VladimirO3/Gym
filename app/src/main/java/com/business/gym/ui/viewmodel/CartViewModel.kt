@@ -20,8 +20,9 @@ class CartViewModel : ViewModel() {
     private var currentToken: String? = null
 
     fun init(token: String?) {
+        val tokenChanged = currentToken != token
         currentToken = token
-        if (token != null && _cartItems.value.isEmpty()) {
+        if (token != null && (_cartItems.value.isEmpty() || tokenChanged)) {
             loadCartFromServer(token)
         }
     }
@@ -101,8 +102,15 @@ class CartViewModel : ViewModel() {
 
     fun getTotalPrice(): Int {
         return _cartItems.value.sumOf { (product, count) ->
-            val priceInt = product.price.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0
+            // Улучшенный парсинг цены: убираем пробелы и берем первое число
+            val priceCleaned = product.price.replace(" ", "").replace("\u00A0", "")
+            val match = Regex("(\\d+)").find(priceCleaned)
+            val priceInt = match?.value?.toIntOrNull() ?: 0
             priceInt * count
         }
+    }
+
+    fun formatPrice(price: Int): String {
+        return String.format(java.util.Locale("ru", "RU"), "%, d", price).replace(",", " ").trim() + " ₽"
     }
 }
