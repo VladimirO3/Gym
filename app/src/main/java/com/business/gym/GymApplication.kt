@@ -41,6 +41,7 @@ class GymApplication : Application(), ImageLoaderFactory {
                     .maxSizePercent(0.25) // 25% of app memory
                     .build()
             }
+            .respectCacheHeaders(false) // Игнорируем заголовки сервера для агрессивного кэширования
             .crossfade(true)
             .build()
     }

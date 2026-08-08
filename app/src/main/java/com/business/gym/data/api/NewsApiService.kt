@@ -293,7 +293,12 @@ interface NewsApiService {
         fun getOkHttpClient(context: android.content.Context): okhttp3.OkHttpClient {
             cachedClient?.let { return it }
 
+            val dispatcher = okhttp3.Dispatcher().apply {
+                maxRequestsPerHost = 20 // Увеличиваем лимит одновременных запросов к серверу
+            }
+
             val client = okhttp3.OkHttpClient.Builder()
+                .dispatcher(dispatcher)
                 .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)

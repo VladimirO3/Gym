@@ -121,6 +121,9 @@ fun NewsMediaItem(
                                 model = ImageRequest.Builder(LocalContext.current)
                                     .data(item.url)
                                     .crossfade(true)
+                                    .allowHardware(true)
+                                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
                                     .build(),
                                 contentDescription = "News Image",
                                 modifier = Modifier.fillMaxSize(),
