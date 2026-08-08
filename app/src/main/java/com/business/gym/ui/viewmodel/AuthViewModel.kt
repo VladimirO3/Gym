@@ -155,11 +155,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleIsLogin() { 
         _isLogin.value = !_isLogin.value
         _error.value = null 
-        // Reset fields when switching
-        _email.value = ""
+        // Не очищаем email и телефон для удобства
         _password.value = ""
         _confirmPassword.value = ""
-        _regPhone.value = ""
         _privacyAgreed.value = false
     }
 
@@ -322,7 +320,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun signUpWithEmail(onSuccess: (String) -> Unit) {
-        val emailValue = _email.value.trim().lowercase()
+        // Используем otpEmail, так как именно оно привязано к текстовому полю на экране
+        val emailValue = _otpEmail.value.trim().lowercase()
         val phoneValue = _regPhone.value.trim()
         val passwordValue = _password.value
         val confirmValue = _confirmPassword.value
@@ -345,18 +344,27 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 localApiService.register(
                     email = emailValue, 
-                    pass = passwordValue,
+                    pass = passwordValue, 
                     phone = phoneValue,
                     name = emailValue.substringBefore("@"),
                     agreed = _privacyAgreed.value
                 )
                 _isLoading.value = false
                 _isLogin.value = true // Переключаемся на вход
-                _error.value = "Заявка отправлена! Ожидайте подтверждения администратором."
+                _error.value = "Заявка отправлена, ожидайте одобрения"
+                Log.i("AuthViewModel", "Registration successful (201/200) for $emailValue")
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Registration error", e)
+                val errorMsg = when (e) {
+                    is retrofit2.HttpException -> {
+                        val body = e.response()?.errorBody()?.string() ?: ""
+                        "Ошибка сервера (${e.code()}): $body"
+                    }
+                    is java.net.ConnectException -> "Не удалось подключиться к серверу"
+                    else -> e.localizedMessage ?: "Неизвестная ошибка"
+                }
+                Log.e("AuthViewModel", "Registration error: $errorMsg", e)
                 _isLoading.value = false
-                _error.value = "Ошибка регистрации: ${e.localizedMessage}"
+                _error.value = "Ошибка регистрации: $errorMsg"
             }
         }
     }

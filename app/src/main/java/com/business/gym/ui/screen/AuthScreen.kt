@@ -404,7 +404,11 @@ fun AuthScreen(
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    enabled = isLogin || privacyAgreed, // Кнопка регистрации активна только при согласии
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Red,
+                        disabledContainerColor = Color.Gray.copy(alpha = 0.5f)
+                    )
                 ) {
                     Text(
                         if (isLogin) stringResource(R.string.auth_login_password) else stringResource(R.string.auth_register).uppercase(),
