@@ -23,4 +23,10 @@ interface ProfileDao {
 
     @Query("UPDATE user_profile SET privacyAgreed = :agreed WHERE uid = :uid")
     suspend fun updatePrivacy(uid: String, agreed: Boolean)
+
+    @Query("UPDATE user_profile SET name = :name, age = :age WHERE uid = :uid")
+    suspend fun updateProfileInfo(uid: String, name: String, age: Int?)
+
+    @Query("UPDATE user_profile SET avatarUrl = :url WHERE uid = :uid")
+    suspend fun updateAvatarUrl(uid: String, url: String?)
 }

@@ -58,7 +58,9 @@ data class LocalChatMessage(
 data class LocalUser(
     val uid: String = "",
     val email: String = "",
-    val name: String = ""
+    val name: String = "",
+    val age: Int? = null,
+    @SerializedName("avatar_url", alternate = ["avatarUrl"]) val avatarUrl: String? = null
 )
 
 /**
@@ -120,7 +122,9 @@ interface NewsApiService {
     suspend fun register(
         @Field("email") email: String,
         @Field("password") pass: String,
-        @Field("name") name: String
+        @Field("phone") phone: String,
+        @Field("name") name: String,
+        @Field("privacy_agreed") agreed: Boolean
     ): okhttp3.ResponseBody
 
     @FormUrlEncoded
@@ -233,6 +237,22 @@ interface NewsApiService {
     suspend fun getUnreadCount(
         @Header("Authorization") token: String
     ): Map<String, Int>
+
+    // --- ПРОФИЛЬ ---
+    @Multipart
+    @POST("profile/avatar")
+    suspend fun uploadAvatar(
+        @Header("Authorization") token: String,
+        @Part file: MultipartBody.Part
+    ): okhttp3.ResponseBody
+
+    @FormUrlEncoded
+    @POST("profile/update")
+    suspend fun updateProfile(
+        @Header("Authorization") token: String,
+        @Field("name") name: String,
+        @Field("age") age: Int?
+    ): okhttp3.ResponseBody
 
     companion object {
         // Базовый адрес по умолчанию (VPS)

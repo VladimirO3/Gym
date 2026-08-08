@@ -31,6 +31,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLogin = mutableStateOf(true)
     val isLogin: State<Boolean> = _isLogin
 
+    private val _regPhone = mutableStateOf("")
+    val regPhone: State<String> = _regPhone
+
+    private val _privacyAgreed = mutableStateOf(false)
+    val privacyAgreed: State<Boolean> = _privacyAgreed
+
     private val _error = mutableStateOf<String?>(null)
     val error: State<String?> = _error
 
@@ -143,8 +149,19 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun onEmailChange(newValue: String) { _email.value = newValue; _error.value = null }
     fun onPasswordChange(newValue: String) { _password.value = newValue; _error.value = null }
     fun onConfirmPasswordChange(newValue: String) { _confirmPassword.value = newValue; _error.value = null }
+    fun onRegPhoneChange(newValue: String) { _regPhone.value = newValue; _error.value = null }
+    fun onPrivacyAgreementChange(agreed: Boolean) { _privacyAgreed.value = agreed; _error.value = null }
     
-    fun toggleIsLogin() { _isLogin.value = !_isLogin.value; _error.value = null }
+    fun toggleIsLogin() { 
+        _isLogin.value = !_isLogin.value
+        _error.value = null 
+        // Reset fields when switching
+        _email.value = ""
+        _password.value = ""
+        _confirmPassword.value = ""
+        _regPhone.value = ""
+        _privacyAgreed.value = false
+    }
 
     fun loadSession(context: Context) {
         val sharedPref = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
@@ -305,26 +322,39 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun signUpWithEmail(onSuccess: (String) -> Unit) {
-        if (_email.value.isBlank() || _password.value.isBlank() || _confirmPassword.value.isBlank()) {
-            _error.value = "Заполните все поля"
+        val emailValue = _email.value.trim().lowercase()
+        val phoneValue = _regPhone.value.trim()
+        val passwordValue = _password.value
+        val confirmValue = _confirmPassword.value
+
+        if (emailValue.isBlank() || phoneValue.isBlank() || passwordValue.isBlank() || confirmValue.isBlank()) {
+            _error.value = "Заполните все обязательные поля"
             return
         }
-        if (_password.value != _confirmPassword.value) {
+        if (passwordValue != confirmValue) {
             _error.value = "Пароли не совпадают"
+            return
+        }
+        if (!_privacyAgreed.value) {
+            _error.value = "Необходимо согласиться с политикой конфиденциальности"
             return
         }
 
         _isLoading.value = true
-        val emailValue = _email.value.trim().lowercase()
-        val passwordValue = _password.value
-
         viewModelScope.launch {
             try {
-                localApiService.register(emailValue, passwordValue, emailValue.substringBefore("@"))
+                localApiService.register(
+                    email = emailValue, 
+                    pass = passwordValue,
+                    phone = phoneValue,
+                    name = emailValue.substringBefore("@"),
+                    agreed = _privacyAgreed.value
+                )
                 _isLoading.value = false
                 _isLogin.value = true // Переключаемся на вход
                 _error.value = "Заявка отправлена! Ожидайте подтверждения администратором."
             } catch (e: Exception) {
+                Log.e("AuthViewModel", "Registration error", e)
                 _isLoading.value = false
                 _error.value = "Ошибка регистрации: ${e.localizedMessage}"
             }

@@ -22,4 +22,12 @@ class ProfileRepository(private val profileDao: ProfileDao) {
     suspend fun updatePrivacy(uid: String, agreed: Boolean) {
         profileDao.updatePrivacy(uid, agreed)
     }
+
+    suspend fun updateProfileInfo(uid: String, name: String, age: Int?) {
+        profileDao.updateProfileInfo(uid, name, age)
+    }
+
+    suspend fun updateAvatarUrl(uid: String, url: String?) {
+        profileDao.updateAvatarUrl(uid, url)
+    }
 }

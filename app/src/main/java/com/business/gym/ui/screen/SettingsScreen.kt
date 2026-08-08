@@ -19,6 +19,17 @@ import com.business.gym.ui.viewmodel.SettingsViewModel
 import com.business.gym.ui.viewmodel.AuthViewModel
 
 import androidx.compose.ui.graphics.Color
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import coil.compose.AsyncImage
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import com.business.gym.data.api.NewsApiService
 
 @Composable
 fun SettingsScreen(
@@ -37,6 +48,26 @@ fun SettingsScreen(
     val isAdmin = remember(currentUserEmail) { authViewModel.isAdmin() }
     val serverIp by viewModel.serverIp
     var serverIpInput by remember { mutableStateOf(serverIp) }
+    
+    val userName by viewModel.userName
+    val userAge by viewModel.userAge
+    val avatarUrl by viewModel.avatarUrl
+    val isUpdating by viewModel.isUpdatingProfile
+    val jwtToken by authViewModel.jwtToken
+
+    var nameInput by remember { mutableStateOf(userName) }
+    var ageInput by remember { mutableStateOf(userAge?.toString() ?: "") }
+
+    LaunchedEffect(userName, userAge) {
+        nameInput = userName
+        ageInput = userAge?.toString() ?: ""
+    }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.uploadAvatar(context, it, jwtToken) }
+    }
     
     // Синхронизируем ввод, когда меняется значение в ViewModel (например, при загрузке)
     LaunchedEffect(serverIp) {
@@ -59,6 +90,81 @@ fun SettingsScreen(
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
+
+        // Блок профиля
+        Text(
+            text = "Профиль",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.Red,
+            modifier = contentModifier
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Card(
+            modifier = contentModifier,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                // Аватар
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape)
+                        .background(Color.Gray)
+                        .clickable { photoPickerLauncher.launch("image/*") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (avatarUrl != null) {
+                        AsyncImage(
+                            model = NewsApiService.getFullUrl(context, avatarUrl),
+                            contentDescription = "Avatar",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(50.dp), tint = Color.White)
+                    }
+                    // Индикатор загрузки на аватаре
+                    if (isUpdating) {
+                        CircularProgressIndicator(color = Color.Red, modifier = Modifier.size(100.dp))
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                OutlinedTextField(
+                    value = nameInput,
+                    onValueChange = { nameInput = it },
+                    label = { Text("Имя") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedTextField(
+                    value = ageInput,
+                    onValueChange = { if (it.all { char -> char.isDigit() }) ageInput = it },
+                    label = { Text("Возраст") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = { viewModel.updateProfile(context, nameInput, ageInput.toIntOrNull(), jwtToken) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                    enabled = !isUpdating
+                ) {
+                    Text("Сохранить профиль", color = Color.White)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
         
         Text(
             text = stringResource(R.string.settings_theme_mode), 

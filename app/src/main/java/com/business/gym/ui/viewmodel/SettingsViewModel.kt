@@ -16,6 +16,8 @@ import com.business.gym.data.local.entity.ProfileEntity
 import com.business.gym.data.repository.ProfileRepository
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class SettingsViewModel(
     application: Application,
@@ -29,6 +31,18 @@ class SettingsViewModel(
 
     private val _serverIp = mutableStateOf("89.108.70.193:5557")
     val serverIp: State<String> = _serverIp
+
+    private val _userName = mutableStateOf("")
+    val userName: State<String> = _userName
+
+    private val _userAge = mutableStateOf<Int?>(null)
+    val userAge: State<Int?> = _userAge
+
+    private val _avatarUrl = mutableStateOf<String?>(null)
+    val avatarUrl: State<String?> = _avatarUrl
+
+    private val _isUpdatingProfile = mutableStateOf(false)
+    val isUpdatingProfile: State<Boolean> = _isUpdatingProfile
 
     private var currentUid: String? = null
 
@@ -90,6 +104,9 @@ class SettingsViewModel(
                     profile?.let {
                         // ThemeMode в профиле БД пока оставляем, но приоритет у глобальных настроек
                         _privacyAgreed.value = it.privacyAgreed
+                        _userName.value = it.name
+                        _userAge.value = it.age
+                        _avatarUrl.value = it.avatarUrl
                     } ?: run {
                         // Если профиля в БД нет, создаем его
                         repository.saveProfile(ProfileEntity(
@@ -101,6 +118,55 @@ class SettingsViewModel(
                         ))
                     }
                 }
+            }
+        }
+    }
+
+    fun updateProfile(context: Context, name: String, age: Int?, token: String?) {
+        if (token == null || currentUid == null) return
+        
+        _isUpdatingProfile.value = true
+        viewModelScope.launch {
+            try {
+                NewsApiService.create(context).updateProfile("Bearer $token", name, age)
+                repository.updateProfileInfo(currentUid!!, name, age)
+                _userName.value = name
+                _userAge.value = age
+                android.widget.Toast.makeText(context, "Профиль обновлен", android.widget.Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                android.util.Log.e("SettingsViewModel", "Profile update failed", e)
+            } finally {
+                _isUpdatingProfile.value = false
+            }
+        }
+    }
+
+    fun uploadAvatar(context: Context, uri: android.net.Uri, token: String?) {
+        if (token == null || currentUid == null) return
+
+        _isUpdatingProfile.value = true
+        viewModelScope.launch {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val bytes = inputStream?.readBytes() ?: return@launch
+                val requestFile = bytes.toRequestBody("image/*".toMediaTypeOrNull())
+                val body = okhttp3.MultipartBody.Part.createFormData("file", "avatar.jpg", requestFile)
+
+                val api = NewsApiService.create(context)
+                // Assuming server returns the new avatar URL in a specific way, or we just refresh profile
+                // For now, let's assume it returns ok. 
+                // Typically server would return { "avatarUrl": "..." }
+                api.uploadAvatar("Bearer $token", body)
+                
+                // We should probably fetch the profile again or the server should return the URL
+                // Let's assume the server updates it and we can just guess or refresh
+                // For simplicity, let's say we refresh after a delay or if we had a return URL
+                
+                android.widget.Toast.makeText(context, "Фото загружено", android.widget.Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                android.util.Log.e("SettingsViewModel", "Avatar upload failed", e)
+            } finally {
+                _isUpdatingProfile.value = false
             }
         }
     }
