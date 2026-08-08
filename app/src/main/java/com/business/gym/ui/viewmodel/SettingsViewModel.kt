@@ -27,7 +27,7 @@ class SettingsViewModel(
     private val _privacyAgreed = mutableStateOf(false)
     val privacyAgreed: State<Boolean> = _privacyAgreed
 
-    private val _serverIp = mutableStateOf("194.87.248.47:5557")
+    private val _serverIp = mutableStateOf("89.108.70.193:5557")
     val serverIp: State<String> = _serverIp
 
     private var currentUid: String? = null
@@ -40,7 +40,7 @@ class SettingsViewModel(
         // Сначала грузим из SharedPreferences для мгновенного отклика
         _themeMode.value = sharedPref.getString("theme_mode", "system") ?: "system"
         _privacyAgreed.value = sharedPref.getBoolean("privacy_agreed", false)
-        _serverIp.value = sharedPref.getString("server_ip", "194.87.248.47:5557") ?: "194.87.248.47:5557"
+        _serverIp.value = sharedPref.getString("server_ip", "89.108.70.193:5557") ?: "89.108.70.193:5557"
         
         // Обновляем базовый URL в API сервисе
         NewsApiService.updateBaseUrl("http://${_serverIp.value}/")

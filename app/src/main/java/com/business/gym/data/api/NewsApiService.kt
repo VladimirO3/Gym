@@ -222,7 +222,7 @@ interface NewsApiService {
 
     companion object {
         // Базовый адрес по умолчанию (VPS)
-        private var currentBaseUrl = "http://194.87.248.47:5557/"
+        private var currentBaseUrl = "http://89.108.70.193:5557/"
         private var cachedService: NewsApiService? = null
 
         fun getBaseUrl(): String = currentBaseUrl
