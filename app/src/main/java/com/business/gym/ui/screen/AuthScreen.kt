@@ -88,7 +88,7 @@ fun AuthScreen(
             Spacer(modifier = Modifier.height(48.dp))
             
             Text(
-                text = "Gym App",
+                text = "GYM ABS",
                 style = MaterialTheme.typography.displaySmall,
                 color = Color.Red,
                 fontWeight = FontWeight.Bold
