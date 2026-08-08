@@ -25,10 +25,13 @@ import coil.compose.AsyncImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import com.business.gym.data.api.NewsApiService
 
 @Composable
@@ -57,10 +60,15 @@ fun SettingsScreen(
 
     var nameInput by remember { mutableStateOf(userName) }
     var ageInput by remember { mutableStateOf(userAge?.toString() ?: "") }
+    var isEditMode by remember { mutableStateOf(false) }
 
     LaunchedEffect(userName, userAge) {
         nameInput = userName
         ageInput = userAge?.toString() ?: ""
+        // Если данные загрузились и они не пустые, выключаем режим редактирования
+        if (userName.isNotBlank()) {
+            isEditMode = false
+        }
     }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -93,12 +101,22 @@ fun SettingsScreen(
 
         if (currentUserEmail != null) {
             // Блок профиля
-            Text(
-                text = "Профиль",
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.Red,
-                modifier = contentModifier
-            )
+            Row(
+                modifier = contentModifier,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Профиль",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.Red
+                )
+                if (!isEditMode && userName.isNotBlank()) {
+                    TextButton(onClick = { isEditMode = true }) {
+                        Text("Редактировать", color = Color.Gray, fontSize = 12.sp)
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             
             Card(
@@ -106,13 +124,13 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
             ) {
                 Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    // Аватар
+                    // Аватар (всегда отображаем, кликабелен только в режиме редактирования)
                     Box(
                         modifier = Modifier
                             .size(100.dp)
                             .clip(CircleShape)
                             .background(Color.Gray)
-                            .clickable { photoPickerLauncher.launch("image/*") },
+                            .then(if (isEditMode || userName.isBlank()) Modifier.clickable { photoPickerLauncher.launch("image/*") } else Modifier),
                         contentAlignment = Alignment.Center
                     ) {
                         if (avatarUrl != null) {
@@ -125,6 +143,16 @@ fun SettingsScreen(
                         } else {
                             Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(50.dp), tint = Color.White)
                         }
+                        
+                        if ((isEditMode || userName.isBlank()) && !isUpdating) {
+                            Box(
+                                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.PhotoCamera, null, tint = Color.White.copy(alpha = 0.7f))
+                            }
+                        }
+
                         // Индикатор загрузки на аватаре
                         if (isUpdating) {
                             CircularProgressIndicator(color = Color.Red, modifier = Modifier.size(100.dp))
@@ -132,35 +160,73 @@ fun SettingsScreen(
                     }
                     
                     Spacer(modifier = Modifier.height(16.dp))
-                    
-                    OutlinedTextField(
-                        value = nameInput,
-                        onValueChange = { nameInput = it },
-                        label = { Text("Имя") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    OutlinedTextField(
-                        value = ageInput,
-                        onValueChange = { if (it.all { char -> char.isDigit() }) ageInput = it },
-                        label = { Text("Возраст") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Button(
-                        onClick = { viewModel.updateProfile(context, nameInput, ageInput.toIntOrNull(), jwtToken) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                        enabled = !isUpdating
-                    ) {
-                        Text("Сохранить профиль", color = Color.White)
+
+                    if (!isEditMode && userName.isNotBlank()) {
+                        // РЕЖИМ ПРОСМОТРА
+                        Text(
+                            text = userName,
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (userAge != null) {
+                            Text(
+                                text = "Возраст: $userAge",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.Gray
+                            )
+                        }
+                    } else {
+                        // РЕЖИМ РЕДАКТИРОВАНИЯ
+                        OutlinedTextField(
+                            value = nameInput,
+                            onValueChange = { nameInput = it },
+                            label = { Text("Имя") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        OutlinedTextField(
+                            value = ageInput,
+                            onValueChange = { if (it.all { char -> char.isDigit() }) ageInput = it },
+                            label = { Text("Возраст") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (userName.isNotBlank()) {
+                                OutlinedButton(
+                                    onClick = { 
+                                        isEditMode = false
+                                        nameInput = userName
+                                        ageInput = userAge?.toString() ?: ""
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Отмена")
+                                }
+                            }
+                            
+                            Button(
+                                onClick = { 
+                                    viewModel.updateProfile(context, nameInput, ageInput.toIntOrNull(), jwtToken)
+                                    isEditMode = false
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                enabled = !isUpdating && nameInput.isNotBlank(),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Сохранить", color = Color.White)
+                            }
+                        }
                     }
                 }
             }
