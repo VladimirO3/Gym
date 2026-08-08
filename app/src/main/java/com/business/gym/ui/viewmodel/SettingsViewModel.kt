@@ -23,6 +23,11 @@ class SettingsViewModel(
     application: Application,
     private val repository: ProfileRepository
 ) : AndroidViewModel(application) {
+    companion object {
+        private const val ADMIN_EMAIL = "verso0100@gmail.com"
+        private const val GUEST_EMAIL = "guest@gym.app"
+    }
+
     private val _themeMode = mutableStateOf("system")
     val themeMode: State<String> = _themeMode
     
@@ -45,6 +50,12 @@ class SettingsViewModel(
     val isUpdatingProfile: State<Boolean> = _isUpdatingProfile
 
     private var currentUid: String? = null
+
+    private fun isRegularAuthorizedUser(email: String?, uid: String?): Boolean {
+        if (email.isNullOrBlank() || uid.isNullOrBlank()) return false
+        val normalized = email.trim().lowercase()
+        return normalized != ADMIN_EMAIL.lowercase() && normalized != GUEST_EMAIL.lowercase()
+    }
 
     init {
         // Загружаем глобальные настройки сразу при создании ViewModel
@@ -79,7 +90,8 @@ class SettingsViewModel(
     }
 
     fun loadSettings(context: Context, currentUserEmail: String?, uid: String? = null) {
-        currentUid = uid
+        val canUseProfile = isRegularAuthorizedUser(currentUserEmail, uid)
+        currentUid = if (canUseProfile) uid else null
         val emailKey = currentUserEmail?.replace(".", "_") ?: "guest"
         val sharedPref = context.getSharedPreferences("settings_$emailKey", Context.MODE_PRIVATE)
         val globalPref = context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
@@ -97,7 +109,14 @@ class SettingsViewModel(
         // Обновляем базовый URL в API сервисе
         NewsApiService.updateBaseUrl("http://${_serverIp.value}/")
         
-        // Затем пробуем синхронизироваться с SQLite если есть UID (для личного профиля)
+        if (!canUseProfile) {
+            _userName.value = ""
+            _userAge.value = null
+            _avatarUrl.value = null
+            return
+        }
+
+        // Затем пробуем синхронизироваться с SQLite для личного профиля
         uid?.let { id ->
             viewModelScope.launch {
                 repository.getProfile(id).collect { profile ->

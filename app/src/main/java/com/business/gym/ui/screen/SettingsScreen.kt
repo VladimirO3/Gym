@@ -49,6 +49,7 @@ fun SettingsScreen(
     
     val themeMode by viewModel.themeMode
     val isAdmin = remember(currentUserEmail) { authViewModel.isAdmin() }
+    val isGuest by authViewModel.isGuest
     val serverIp by viewModel.serverIp
     var serverIpInput by remember { mutableStateOf(serverIp) }
     
@@ -61,6 +62,7 @@ fun SettingsScreen(
     var nameInput by remember { mutableStateOf(userName) }
     var ageInput by remember { mutableStateOf(userAge?.toString() ?: "") }
     var isEditMode by remember { mutableStateOf(false) }
+    val canEditProfile = currentUserEmail != null && !isAdmin && !isGuest
 
     LaunchedEffect(userName, userAge) {
         nameInput = userName
@@ -99,7 +101,7 @@ fun SettingsScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (currentUserEmail != null) {
+        if (canEditProfile) {
             // Блок профиля
             Row(
                 modifier = contentModifier,
