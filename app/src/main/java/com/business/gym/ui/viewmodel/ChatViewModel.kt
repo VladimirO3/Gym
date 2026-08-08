@@ -34,6 +34,13 @@ class ChatViewModel(
     
     private var isFirstMessagesLoad = true
 
+    private fun decodeMessageForUi(raw: String): String {
+        return when {
+            raw.startsWith("enc:v1:") -> "🔒 Зашифрованное сообщение"
+            else -> try { EncryptionUtils.decrypt(raw) } catch (_: Exception) { raw }
+        }
+    }
+
     // --- Состояния UI ---
     
     private val _users = mutableStateOf(listOf<UserProfile>())
@@ -89,7 +96,7 @@ class ChatViewModel(
                     _messages.value = localMsgs.map {
                         ChatMessage(
                             id = it.id.toString(),
-                            text = try { EncryptionUtils.decrypt(it.text) } catch (e: Exception) { it.text },
+                            text = decodeMessageForUi(it.text),
                             senderId = it.senderId,
                             senderName = it.senderName,
                             timestamp = Timestamp(it.timestamp / 1000, 0),
@@ -124,11 +131,7 @@ class ChatViewModel(
                         .getString("user_session_email", null)
 
                     if (lastMsg.senderId != currentEmail) {
-                        val decryptedText = try { 
-                            EncryptionUtils.decrypt(lastMsg.text) 
-                        } catch (e: Exception) { 
-                            lastMsg.text 
-                        }
+                        val decryptedText = decodeMessageForUi(lastMsg.text)
                         NotificationHelper.showNotification(
                             getApplication(), 
                             lastMsg.senderName, 
@@ -159,8 +162,7 @@ class ChatViewModel(
             return
         }
         viewModelScope.launch {
-            val encrypted = EncryptionUtils.encrypt(text)
-            val success = repository.sendMessage(token, peerUid, encrypted)
+            val success = repository.sendMessage(token, peerUid, text)
             if (!success) {
                 android.widget.Toast.makeText(context, "Не удалось отправить сообщение. Проверьте подключение к серверу.", android.widget.Toast.LENGTH_LONG).show()
             }

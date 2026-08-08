@@ -21,10 +21,11 @@ class TrackRepository(
         entities.map { Track(id = it.id, name = it.name, url = it.url) }
     }
 
-    suspend fun refreshTracks() {
+    suspend fun refreshTracks(token: String?) {
+        if (token.isNullOrBlank() || token == "guest_token") return
         try {
             android.util.Log.d("TrackRepository", "Refreshing tracks from local server...")
-            val localTracks = apiService.getLocalTracks()
+            val localTracks = apiService.getLocalTracks("Bearer $token")
             android.util.Log.d("TrackRepository", "Received ${localTracks.size} tracks from server")
             val entities = localTracks.map { 
                 TrackEntity(id = it.id.toString(), name = it.name, url = it.url) 

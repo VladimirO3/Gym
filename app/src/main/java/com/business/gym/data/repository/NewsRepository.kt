@@ -32,8 +32,9 @@ class NewsRepository(
     }
 
     suspend fun refreshNews(token: String?) {
+        if (token.isNullOrBlank() || token == "guest_token") return
         try {
-            val news = apiService.getLocalNews()
+            val news = apiService.getLocalNews("Bearer $token")
             android.util.Log.d("NewsRepository", "Refreshing news, count: ${news.size}")
             // ТАК КАК В NEWS_ENTITY НЕТ РЕАКЦИЙ, МЫ ИХ НЕ СОХРАНЯЕМ В БД
             // В реальном приложении нужно добавить колонки в Room

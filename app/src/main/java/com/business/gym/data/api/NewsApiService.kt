@@ -164,7 +164,9 @@ interface NewsApiService {
 
     // --- НОВОСТИ ---
     @GET("news")
-    suspend fun getLocalNews(): List<LocalNews>
+    suspend fun getLocalNews(
+        @Header("Authorization") token: String
+    ): List<LocalNews>
 
     @Multipart
     @POST("admin/news")
@@ -192,7 +194,9 @@ interface NewsApiService {
 
     // --- МУЗЫКА ---
     @GET("tracks")
-    suspend fun getLocalTracks(): List<LocalTrack>
+    suspend fun getLocalTracks(
+        @Header("Authorization") token: String
+    ): List<LocalTrack>
 
     @Multipart
     @POST("admin/tracks")
@@ -229,8 +233,8 @@ interface NewsApiService {
     @POST("chat/send")
     suspend fun sendChatMessage(
         @Header("Authorization") token: String,
-        @Field("receiverId") receiverId: String,
-        @Field("message") message: String
+        @Field("peerUid") receiverId: String,
+        @Field("text") message: String
     ): Map<String, String>
 
     @GET("chat/unread-count")

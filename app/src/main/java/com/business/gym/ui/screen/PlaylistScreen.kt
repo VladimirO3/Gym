@@ -60,6 +60,10 @@ fun PlaylistScreen(
     val localTracks by viewModel.localTracks
     val isUploading by viewModel.isUploading
     val jwtToken by authViewModel.jwtToken
+
+    LaunchedEffect(jwtToken) {
+        viewModel.fetchLocalTracks(jwtToken)
+    }
     
     var currentTrack by remember { mutableStateOf<Track?>(null) }
     var isPlaying by remember { mutableStateOf(false) }

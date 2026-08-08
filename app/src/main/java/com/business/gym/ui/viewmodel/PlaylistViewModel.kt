@@ -50,7 +50,6 @@ class PlaylistViewModel(
     // Подписка на локальные треки из SQLite
     init {
         fetchTracks()
-        fetchLocalTracks()
         
         viewModelScope.launch {
             repository.allTracks.collect { tracks ->
@@ -63,9 +62,9 @@ class PlaylistViewModel(
         }
     }
 
-    private fun fetchLocalTracks() {
+    fun fetchLocalTracks(token: String?) {
         viewModelScope.launch {
-            repository.refreshTracks()
+            repository.refreshTracks(token)
         }
     }
 
@@ -112,7 +111,7 @@ class PlaylistViewModel(
                 kotlinx.coroutines.delay(500)
                 
                 Toast.makeText(context, "Трек добавлен!", Toast.LENGTH_SHORT).show()
-                repository.refreshTracks()
+                repository.refreshTracks(token)
             } catch (e: Exception) {
                 Log.e("PlaylistViewModel", "CRITICAL: Local upload failed", e)
                 Toast.makeText(context, "Ошибка сервера: ${e.message}", Toast.LENGTH_LONG).show()
