@@ -217,26 +217,24 @@ fun GymAppContent(
     isDarkTheme: Boolean,
     authViewModel: AuthViewModel
 ) {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val isGuest = authViewModel.isGuest.value
     
     // Список вкладок (Заголовок, Иконка, Ключ)
-    val tabs = remember(isGuest) {
-        val list = mutableListOf<GymTab>()
-        list.add(GymTab("Новости", Icons.Default.Newspaper, "news"))
-        list.add(GymTab("Плейлист", Icons.Default.PlayArrow, "playlist"))
-        
-        if (!isGuest) {
-            list.add(GymTab("Чат", Icons.AutoMirrored.Filled.Send, "chat"))
-            list.add(GymTab("Корзина", Icons.Default.ShoppingCart, "cart"))
-        }
-        
-        list.add(GymTab("Настройки", Icons.Default.Settings, "settings"))
-        list.add(GymTab("Магазин", Icons.Default.Store, "shop"))
-        list.add(GymTab("Право", Icons.Default.Gavel, "privacy"))
-        list.add(GymTab("О нас", Icons.Default.Add, "about"))
-        list
+    val tabs = mutableListOf<GymTab>()
+    tabs.add(GymTab(stringResource(R.string.tab_news), Icons.Default.Newspaper, "news"))
+    tabs.add(GymTab(stringResource(R.string.tab_playlist), Icons.Default.PlayArrow, "playlist"))
+    
+    if (!isGuest) {
+        tabs.add(GymTab(stringResource(R.string.tab_chat), Icons.AutoMirrored.Filled.Send, "chat"))
+        tabs.add(GymTab(stringResource(R.string.tab_shop), Icons.Default.ShoppingCart, "cart"))
     }
+    
+    tabs.add(GymTab(stringResource(R.string.tab_settings), Icons.Default.AccountCircle, "settings"))
+    tabs.add(GymTab(stringResource(R.string.tab_shop), Icons.Default.Store, "shop"))
+    tabs.add(GymTab(stringResource(R.string.tab_privacy), Icons.Default.Gavel, "privacy"))
+    tabs.add(GymTab(stringResource(R.string.tab_about), Icons.Default.Add, "about"))
 
     // Состояние пайджера для свайпов
     val pagerState = rememberPagerState(pageCount = { tabs.size })
@@ -395,16 +393,6 @@ fun GymAppContent(
                                             text = { Text(stringResource(R.string.auth_login_reg), fontSize = 10.sp, maxLines = 1) },
                                             icon = { Icon(Icons.Default.AccountCircle, null, modifier = Modifier.size(20.dp)) },
                                             selectedContentColor = Color.Red,
-                                            unselectedContentColor = Color.Gray
-                                        )
-                                    } else {
-                                        Tab(
-                                            selected = false,
-                                            onClick = {
-                                                onSignOut()
-                                            },
-                                            text = { Text(stringResource(R.string.auth_logout), fontSize = 10.sp) },
-                                            icon = { Icon(Icons.AutoMirrored.Filled.Logout, null, modifier = Modifier.size(20.dp)) },
                                             unselectedContentColor = Color.Gray
                                         )
                                     }

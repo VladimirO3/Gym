@@ -27,7 +27,7 @@ class ChatRepository(
 
     suspend fun refreshUsers(token: String): Boolean {
         return try {
-            val users = apiService.getChatUsers("Bearer $token")
+            val users = apiService.getChatUsers()
             val entities = users.map { 
                 UserEntity(uid = it.uid, email = it.email, name = it.name) 
             }
@@ -57,7 +57,7 @@ class ChatRepository(
 
     suspend fun refreshMessages(token: String, peerUid: String): Boolean {
         return try {
-            val messages = apiService.getChatMessages("Bearer $token", peerUid)
+            val messages = apiService.getChatMessages(peerUid)
             val entities = messages.map { 
                 ChatMessageEntity(
                     id = it.id, 
@@ -80,7 +80,7 @@ class ChatRepository(
 
     suspend fun sendMessage(token: String, receiverId: String, message: String): Boolean {
         return try {
-            apiService.sendChatMessage("Bearer $token", receiverId, message)
+            apiService.sendChatMessage(receiverId, message)
             val refreshed = refreshMessages(token, receiverId)
             if (!refreshed) {
                 Log.w(TAG, "Message sent but refresh failed for peer=$receiverId")

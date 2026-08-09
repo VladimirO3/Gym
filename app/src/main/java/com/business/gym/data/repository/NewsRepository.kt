@@ -26,7 +26,13 @@ class NewsRepository(
                 mediaUrl = it.mediaUrl, 
                 mediaType = it.mediaType,
                 createdAt = it.createdAt,
-                reactions = emptyMap() // Пока из БД не тянем
+                reactions = mapOf(
+                    "fire" to it.fireCount,
+                    "heart" to it.heartCount,
+                    "muscle" to it.muscleCount,
+                    "thumb" to it.thumbCount,
+                    "wow" to it.wowCount
+                )
             ) 
         }
     }
@@ -34,10 +40,9 @@ class NewsRepository(
     suspend fun refreshNews(token: String?) {
         if (token.isNullOrBlank() || token == "guest_token") return
         try {
-            val news = apiService.getLocalNews("Bearer $token")
+            val news = apiService.getLocalNews()
             android.util.Log.d("NewsRepository", "Refreshing news, count: ${news.size}")
-            // ТАК КАК В NEWS_ENTITY НЕТ РЕАКЦИЙ, МЫ ИХ НЕ СОХРАНЯЕМ В БД
-            // В реальном приложении нужно добавить колонки в Room
+            
             val entities = news.map { 
                 NewsEntity(
                     id = it.id, 
@@ -45,7 +50,12 @@ class NewsRepository(
                     content = it.content, 
                     mediaUrl = it.mediaUrl, 
                     mediaType = it.mediaType,
-                    createdAt = it.createdAt
+                    createdAt = it.createdAt,
+                    fireCount = it.reactions["fire"] ?: 0,
+                    heartCount = it.reactions["heart"] ?: 0,
+                    muscleCount = it.reactions["muscle"] ?: 0,
+                    thumbCount = it.reactions["thumb"] ?: 0,
+                    wowCount = it.reactions["wow"] ?: 0
                 )
             }
             newsDao.deleteAll()
@@ -62,13 +72,11 @@ class NewsRepository(
         type: String,
         filePart: MultipartBody.Part? = null
     ): okhttp3.ResponseBody {
-        val authHeader = "Bearer $token"
         val titleBody = title.toRequestBody("text/plain".toMediaTypeOrNull())
         val contentBody = content.toRequestBody("text/plain".toMediaTypeOrNull())
         val typeBody = type.toRequestBody("text/plain".toMediaTypeOrNull())
         
         return apiService.postLocalNews(
-            authHeader, 
             titleBody, 
             contentBody, 
             typeBody, 
@@ -77,6 +85,6 @@ class NewsRepository(
     }
 
     suspend fun postReaction(token: String, id: String, type: String) {
-        apiService.postReaction("Bearer $token", id, type)
+        apiService.postReaction(id, type)
     }
 }

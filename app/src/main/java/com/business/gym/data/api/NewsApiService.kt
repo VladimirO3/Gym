@@ -107,13 +107,10 @@ interface NewsApiService {
 
     // --- КОРЗИНА ---
     @GET("cart")
-    suspend fun getCart(
-        @Header("Authorization") token: String
-    ): List<CartItemResponse>
+    suspend fun getCart(): List<CartItemResponse>
 
     @POST("cart")
     suspend fun saveCart(
-        @Header("Authorization") token: String,
         @Body items: List<CartItemRequest>
     ): okhttp3.ResponseBody
 
@@ -150,28 +147,22 @@ interface NewsApiService {
 
     // --- АДМИН-ПАНЕЛЬ (Управление пользователями) ---
     @GET("admin/pending-users")
-    suspend fun getPendingUsers(
-        @Header("Authorization") token: String
-    ): List<LocalUser>
+    suspend fun getPendingUsers(): List<LocalUser>
 
     @FormUrlEncoded
     @POST("admin/approve-user")
     suspend fun approveUser(
-        @Header("Authorization") token: String,
         @Field("uid") userUid: String? = null,
         @Field("email") email: String? = null
     ): okhttp3.ResponseBody
 
     // --- НОВОСТИ ---
     @GET("news")
-    suspend fun getLocalNews(
-        @Header("Authorization") token: String
-    ): List<LocalNews>
+    suspend fun getLocalNews(): List<LocalNews>
 
     @Multipart
     @POST("admin/news")
     suspend fun postLocalNews(
-        @Header("Authorization") token: String,
         @Part("title") title: RequestBody,
         @Part("content") content: RequestBody,
         @Part("type") type: RequestBody,
@@ -180,35 +171,29 @@ interface NewsApiService {
 
     @DELETE("admin/news/{id}")
     suspend fun deleteLocalNews(
-        @Header("Authorization") token: String,
         @Path("id") id: String
     ): okhttp3.ResponseBody
 
     @FormUrlEncoded
     @POST("news/{id}/react")
     suspend fun postReaction(
-        @Header("Authorization") token: String,
         @Path("id") id: String,
         @Field("type") type: String
     ): okhttp3.ResponseBody
 
     // --- МУЗЫКА ---
     @GET("tracks")
-    suspend fun getLocalTracks(
-        @Header("Authorization") token: String
-    ): List<LocalTrack>
+    suspend fun getLocalTracks(): List<LocalTrack>
 
     @Multipart
     @POST("admin/tracks")
     suspend fun postLocalTrack(
-        @Header("Authorization") token: String,
         @Part("name") name: RequestBody,
         @Part file: MultipartBody.Part
     ): okhttp3.ResponseBody
 
     @DELETE("admin/tracks/{id}")
     suspend fun deleteLocalTrack(
-        @Header("Authorization") token: String,
         @Path("id") id: String
     ): okhttp3.ResponseBody
 
@@ -216,14 +201,11 @@ interface NewsApiService {
 
     // Получение списка доступных собеседников
     @GET("chat/users")
-    suspend fun getChatUsers(
-        @Header("Authorization") token: String
-    ): List<LocalUser>
+    suspend fun getChatUsers(): List<LocalUser>
 
     // Получение истории сообщений с конкретным пользователем
     @GET("chat/messages/{peerUid}")
     suspend fun getChatMessages(
-        @Header("Authorization") token: String,
         @Path("peerUid") peerUid: String,
         @Query("offset") offset: Int = 0
     ): List<LocalChatMessage>
@@ -232,28 +214,23 @@ interface NewsApiService {
     @FormUrlEncoded
     @POST("chat/send")
     suspend fun sendChatMessage(
-        @Header("Authorization") token: String,
         @Field("peerUid") receiverId: String,
         @Field("text") message: String
     ): Map<String, String>
 
     @GET("chat/unread-count")
-    suspend fun getUnreadCount(
-        @Header("Authorization") token: String
-    ): Map<String, Int>
+    suspend fun getUnreadCount(): Map<String, Int>
 
     // --- ПРОФИЛЬ ---
     @Multipart
     @POST("profile/avatar")
     suspend fun uploadAvatar(
-        @Header("Authorization") token: String,
         @Part file: MultipartBody.Part
     ): okhttp3.ResponseBody
 
     @FormUrlEncoded
     @POST("profile/update")
     suspend fun updateProfile(
-        @Header("Authorization") token: String,
         @Field("name") name: String,
         @Field("age") age: Int?
     ): okhttp3.ResponseBody

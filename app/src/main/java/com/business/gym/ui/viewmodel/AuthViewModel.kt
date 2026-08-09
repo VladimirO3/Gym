@@ -141,6 +141,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         loadCredentials()
+        loadSession(getApplication())
     }
     fun onOtpPhoneChange(newValue: String) { _otpPhone.value = newValue; _error.value = null }
     fun onOtpCodeChange(newValue: String) { _otpCode.value = newValue; _error.value = null }
@@ -370,10 +371,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun fetchPendingUsers() {
-        val token = _jwtToken.value ?: return
         viewModelScope.launch {
             try {
-                _pendingUsers.value = localApiService.getPendingUsers("Bearer $token")
+                _pendingUsers.value = localApiService.getPendingUsers()
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Failed to fetch pending users", e)
             }
@@ -381,10 +381,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun approveUser(userUid: String) {
-        val token = _jwtToken.value ?: return
         viewModelScope.launch {
             try {
-                localApiService.approveUser("Bearer $token", userUid)
+                localApiService.approveUser(userUid = userUid)
                 fetchPendingUsers() // Обновляем список
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Failed to approve user", e)

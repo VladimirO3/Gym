@@ -213,7 +213,7 @@ class NewsViewModel(
         if (token == null) return
         viewModelScope.launch {
             try {
-                localApiService.deleteLocalNews("Bearer $token", id)
+                localApiService.deleteLocalNews(id)
                 repository.refreshNews(token)
             } catch (e: Exception) {
                 Log.e("NewsViewModel", "Failed to delete local news", e)

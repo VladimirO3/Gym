@@ -147,7 +147,7 @@ class SettingsViewModel(
         _isUpdatingProfile.value = true
         viewModelScope.launch {
             try {
-                NewsApiService.create(context).updateProfile("Bearer $token", name, age)
+                NewsApiService.create(context).updateProfile(name, age)
                 repository.updateProfileInfo(currentUid!!, name, age)
                 _userName.value = name
                 _userAge.value = age
@@ -175,7 +175,7 @@ class SettingsViewModel(
                 // Assuming server returns the new avatar URL in a specific way, or we just refresh profile
                 // For now, let's assume it returns ok. 
                 // Typically server would return { "avatarUrl": "..." }
-                api.uploadAvatar("Bearer $token", body)
+                api.uploadAvatar(body)
                 
                 // We should probably fetch the profile again or the server should return the URL
                 // Let's assume the server updates it and we can just guess or refresh

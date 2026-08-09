@@ -10,5 +10,11 @@ data class NewsEntity(
     val content: String,
     val mediaUrl: String,
     val mediaType: String = "image",
-    val createdAt: String = ""
+    val createdAt: String = "",
+    // Реакции
+    val fireCount: Int = 0,
+    val heartCount: Int = 0,
+    val muscleCount: Int = 0,
+    val thumbCount: Int = 0,
+    val wowCount: Int = 0
 )

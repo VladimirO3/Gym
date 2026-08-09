@@ -3,7 +3,7 @@
     <string name="tab_news">Новости</string>
     <string name="tab_playlist">Плейлист</string>
     <string name="tab_chat">Чат</string>
-    <string name="tab_settings">Настройки</string>
+    <string name="tab_settings">Профиль</string>
     <string name="tab_about">О нас</string>
     <string name="tab_shop">Магазин</string>
     <string name="tab_privacy">Право</string>
@@ -24,7 +24,7 @@
     <string name="news_from_gallery">Из галереи</string>
     <string name="news_camera">Камера</string>
 
-    <string name="settings_title">Настройки</string>
+    <string name="settings_title">Профиль и приложение</string>
     <string name="settings_dark_theme">Темная тема</string>
     <string name="settings_language">Язык</string>
     <string name="language_english">Английский</string>

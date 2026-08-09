@@ -25,7 +25,7 @@ class TrackRepository(
         if (token.isNullOrBlank() || token == "guest_token") return
         try {
             android.util.Log.d("TrackRepository", "Refreshing tracks from local server...")
-            val localTracks = apiService.getLocalTracks("Bearer $token")
+            val localTracks = apiService.getLocalTracks()
             android.util.Log.d("TrackRepository", "Received ${localTracks.size} tracks from server")
             val entities = localTracks.map { 
                 TrackEntity(id = it.id.toString(), name = it.name, url = it.url) 
@@ -41,13 +41,12 @@ class TrackRepository(
         try {
             if (token != null) {
                 // Выполняем запрос к API
-                apiService.deleteLocalTrack("Bearer $token", id)
+                apiService.deleteLocalTrack(id)
                 android.util.Log.d("TrackRepository", "Track $id deleted from server")
             }
         } catch (e: Exception) {
             android.util.Log.e("TrackRepository", "Server deletion failed for track $id", e)
             // Мы продолжаем выполнение, чтобы удалить из локальной БД в любом случае
-            // или вы можете убрать это, если хотите удалять только при успехе сервера
         }
         
         // Удаляем из локальной БД, чтобы UI обновился мгновенно
@@ -60,6 +59,6 @@ class TrackRepository(
         filePart: MultipartBody.Part
     ): okhttp3.ResponseBody {
         val nameBody = name.toRequestBody("text/plain".toMediaTypeOrNull())
-        return apiService.postLocalTrack("Bearer $token", nameBody, filePart)
+        return apiService.postLocalTrack(nameBody, filePart)
     }
 }

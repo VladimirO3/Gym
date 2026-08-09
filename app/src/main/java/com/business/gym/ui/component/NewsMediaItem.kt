@@ -154,27 +154,55 @@ fun NewsMediaItem(
 
                     // Реакции
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        reactionList.forEach { (emoji, key) ->
-                            val count = item.reactions[key] ?: 0
-                            
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .background(Color.Transparent)
-                                    .clickable { onReact(key) }
-                                    .padding(vertical = 4.dp)
-                            ) {
-                                Text(text = emoji, fontSize = 18.sp)
-                                if (count > 0) {
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = count.toString(),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.Red,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                        val totalReactions = item.reactions.values.sum()
+                        
+                        var showReactionPicker by remember { mutableStateOf(false) }
+
+                        // Иконка "Всего" с цифрой
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .background(Color.Transparent)
+                                .clickable { showReactionPicker = true }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Text(text = "🔥", fontSize = 18.sp)
+                            if (totalReactions > 0) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = totalReactions.toString(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.Red,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Мини-диалог выбора реакции
+                        if (showReactionPicker) {
+                            androidx.compose.ui.window.Dialog(onDismissRequest = { showReactionPicker = false }) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color.DarkGray),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        reactionList.forEach { (emoji, key) ->
+                                            Text(
+                                                text = emoji,
+                                                fontSize = 24.sp,
+                                                modifier = Modifier.clickable {
+                                                    onReact(key)
+                                                    showReactionPicker = false
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

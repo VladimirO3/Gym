@@ -31,7 +31,7 @@ class CartViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val api = NewsApiService.create()
-                val response = api.getCart("Bearer $token")
+                val response = api.getCart()
                 _cartItems.value = response.map {
                     Pair(
                         ProductPlaceholder(it.productId, it.name, it.price, it.description),
@@ -57,7 +57,7 @@ class CartViewModel : ViewModel() {
                 val request = _cartItems.value.map { (product, count) ->
                     CartItemRequest(product.id, count)
                 }
-                api.saveCart("Bearer $token", request)
+                api.saveCart(request)
                 Log.i("CartViewModel", "Cart synced with server")
             } catch (e: Exception) {
                 Log.e("CartViewModel", "Failed to sync cart", e)

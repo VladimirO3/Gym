@@ -27,6 +27,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.ui.draw.clip
@@ -50,8 +51,6 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode
     val isAdmin = remember(currentUserEmail) { authViewModel.isAdmin() }
     val isGuest by authViewModel.isGuest
-    val serverIp by viewModel.serverIp
-    var serverIpInput by remember { mutableStateOf(serverIp) }
     
     val userName by viewModel.userName
     val userAge by viewModel.userAge
@@ -78,11 +77,6 @@ fun SettingsScreen(
     ) { uri ->
         uri?.let { viewModel.uploadAvatar(context, it, jwtToken) }
     }
-    
-    // Синхронизируем ввод, когда меняется значение в ViewModel (например, при загрузке)
-    LaunchedEffect(serverIp) {
-        serverIpInput = serverIp
-    }
 
     Column(
         modifier = modifier
@@ -91,15 +85,27 @@ fun SettingsScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = stringResource(R.string.settings_title),
-            style = MaterialTheme.typography.headlineMedium,
-            color = Color.Red,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-            modifier = contentModifier,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        // ЗАГОЛОВОК С ИНДИКАТОРОМ
+        Box(modifier = contentModifier.fillMaxWidth()) {
+            // Индикатор состояния сервера (слева)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .size(10.dp)
+                    .background(if (jwtToken != null) Color.Green else Color.Red, androidx.compose.foundation.shape.CircleShape)
+            )
+
+            Text(
+                text = stringResource(R.string.tab_settings),
+                style = MaterialTheme.typography.headlineMedium,
+                color = Color.Red,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.Center),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
 
         if (canEditProfile) {
             // Блок профиля
@@ -232,7 +238,7 @@ fun SettingsScreen(
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
         }
         
@@ -269,35 +275,19 @@ fun SettingsScreen(
             LanguageOption("ru", currentLocale, stringResource(R.string.language_russian)) { viewModel.setLanguage(context, currentUserEmail, it) }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
-        Text(
-            text = stringResource(R.string.auth_server_settings), 
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.Red,
-            modifier = contentModifier
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = serverIpInput,
-            onValueChange = { serverIpInput = it },
-            label = { Text(stringResource(R.string.auth_ip_label)) },
-            modifier = contentModifier,
-            placeholder = { Text("10.0.2.2:5557") },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color.Red,
-                focusedLabelColor = Color.Red
-            )
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(
-            onClick = { 
-                viewModel.setServerIp(context, currentUserEmail, serverIpInput)
-                android.widget.Toast.makeText(context, "IP-адрес обновлен", android.widget.Toast.LENGTH_SHORT).show()
-            },
-            modifier = contentModifier,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
-        ) {
-            Text(stringResource(R.string.btn_save), color = Color.White)
+        // Кнопка Выйти (теперь видна всем)
+        if (currentUserEmail != null) {
+            Spacer(modifier = Modifier.height(32.dp))
+            Button(
+                onClick = onLogout,
+                modifier = contentModifier.height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Logout, null, tint = Color.White)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.auth_logout), color = Color.White)
+            }
         }
 
         if (isAdmin) {
@@ -356,17 +346,9 @@ fun SettingsScreen(
                 text = "Logged in as: $currentUserEmail", 
                 style = MaterialTheme.typography.bodyMedium, 
                 color = Color.Gray,
-                modifier = contentModifier
+                modifier = contentModifier,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = onLogout,
-                modifier = contentModifier.height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-            ) {
-                Text(stringResource(R.string.auth_logout), color = Color.White)
-            }
         }
     }
 }
