@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -54,6 +55,7 @@ fun ShopScreen(
 
     val configuration = LocalConfiguration.current
     val columns = if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) 3 else 2
+    val context = LocalContext.current
     
     val cartItems by cartViewModel.cartItems
     val totalItemsInCart = cartItems.sumOf { it.second }
@@ -117,11 +119,11 @@ fun ShopScreen(
                 ShopProductCard(
                     product = product,
                     countInCart = countInCart,
-                    onAddToCart = { cartViewModel.addToCart(product) },
-                    onRemoveFromCart = { cartViewModel.removeFromCart(product) },
+                    onAddToCart = { cartViewModel.addToCart(context, product) },
+                    onRemoveFromCart = { cartViewModel.removeFromCart(context, product) },
                     onBuyNow = {
                         if (countInCart == 0) {
-                            cartViewModel.addToCart(product)
+                            cartViewModel.addToCart(context, product)
                         }
                         onGoToCart()
                     }

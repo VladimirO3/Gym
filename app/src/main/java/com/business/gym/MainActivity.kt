@@ -122,7 +122,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             LaunchedEffect(jwtToken) {
-                cartViewModel.init(jwtToken)
+                cartViewModel.init(context, jwtToken)
             }
             
             if (showSplash) {
@@ -183,7 +183,7 @@ fun GymApp(
         onSignOut = {
             authViewModel.signOut()
             authViewModel.clearSession(context)
-            cartViewModel.clearCart(sync = false)
+            cartViewModel.clearCart(context, sync = false)
         },
         onSaveSession = { identifier ->
             // Сессия уже сохранена внутри ViewModel.verifyOtp, 

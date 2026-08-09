@@ -19,18 +19,21 @@ class CartViewModel : ViewModel() {
     private var syncJob: Job? = null
     private var currentToken: String? = null
 
-    fun init(token: String?) {
+    fun init(context: android.content.Context, token: String?) {
         val tokenChanged = currentToken != token
         currentToken = token
-        if (token != null && (_cartItems.value.isEmpty() || tokenChanged)) {
-            loadCartFromServer(token)
+        
+        // Если токен появился или изменился, принудительно загружаем данные с сервера
+        if (token != null && token != "guest_token" && (tokenChanged || _cartItems.value.isEmpty())) {
+            loadCartFromServer(context, token)
         }
     }
 
-    private fun loadCartFromServer(token: String) {
+    private fun loadCartFromServer(context: android.content.Context, token: String) {
         viewModelScope.launch {
             try {
-                val api = NewsApiService.create()
+                // Передаем контекст для работы перехватчика (интерцептора) с токеном
+                val api = NewsApiService.create(context)
                 val response = api.getCart()
                 _cartItems.value = response.map {
                     Pair(
@@ -38,34 +41,35 @@ class CartViewModel : ViewModel() {
                         it.quantity
                     )
                 }
-                Log.i("CartViewModel", "Cart loaded from server: ${response.size} items")
+                Log.i("CartViewModel", "Cart loaded from server for token: ${token.take(10)}... Size: ${response.size}")
             } catch (e: Exception) {
-                Log.e("CartViewModel", "Failed to load cart", e)
+                Log.e("CartViewModel", "Failed to load cart from server", e)
             }
         }
     }
 
-    private fun syncCartWithServer() {
-        val token = currentToken ?: return
+    private fun syncCartWithServer(context: android.content.Context) {
+        val token = currentToken
+        if (token == null || token == "guest_token") return
         
         // Отменяем предыдущую попытку синхронизации (debounce)
         syncJob?.cancel()
         syncJob = viewModelScope.launch {
-            delay(1000) // Ждем 1 секунду перед отправкой, вдруг пользователь нажмет еще раз
+            delay(1000) // Ждем 1 секунду перед отправкой
             try {
-                val api = NewsApiService.create()
+                val api = NewsApiService.create(context)
                 val request = _cartItems.value.map { (product, count) ->
                     CartItemRequest(product.id, count)
                 }
                 api.saveCart(request)
-                Log.i("CartViewModel", "Cart synced with server")
+                Log.i("CartViewModel", "Cart synced with server. Items count: ${request.size}")
             } catch (e: Exception) {
-                Log.e("CartViewModel", "Failed to sync cart", e)
+                Log.e("CartViewModel", "Failed to sync cart with server", e)
             }
         }
     }
 
-    fun addToCart(product: ProductPlaceholder) {
+    fun addToCart(context: android.content.Context, product: ProductPlaceholder) {
         val currentItems = _cartItems.value.toMutableList()
         val existingItemIndex = currentItems.indexOfFirst { it.first.id == product.id }
         
@@ -76,10 +80,10 @@ class CartViewModel : ViewModel() {
             currentItems.add(Pair(product, 1))
         }
         _cartItems.value = currentItems
-        syncCartWithServer()
+        syncCartWithServer(context)
     }
 
-    fun removeFromCart(product: ProductPlaceholder) {
+    fun removeFromCart(context: android.content.Context, product: ProductPlaceholder) {
         val currentItems = _cartItems.value.toMutableList()
         val existingItemIndex = currentItems.indexOfFirst { it.first.id == product.id }
         
@@ -92,12 +96,12 @@ class CartViewModel : ViewModel() {
             }
         }
         _cartItems.value = currentItems
-        syncCartWithServer()
+        syncCartWithServer(context)
     }
 
-    fun clearCart(sync: Boolean = true) {
+    fun clearCart(context: android.content.Context, sync: Boolean = true) {
         _cartItems.value = emptyList()
-        if (sync) syncCartWithServer()
+        if (sync) syncCartWithServer(context)
     }
 
     fun getTotalPrice(): Int {

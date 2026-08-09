@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,6 +30,7 @@ fun CartScreen(
 ) {
     val items = cartViewModel.cartItems.value
     val totalPrice = cartViewModel.getTotalPrice()
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -66,7 +68,7 @@ fun CartScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(items) { (product, count) ->
-                    CartItemRow(product, count, cartViewModel)
+                    CartItemRow(product, count, cartViewModel, context)
                 }
             }
 
@@ -114,7 +116,7 @@ fun CartScreen(
 }
 
 @Composable
-fun CartItemRow(product: ProductPlaceholder, count: Int, viewModel: CartViewModel) {
+fun CartItemRow(product: ProductPlaceholder, count: Int, viewModel: CartViewModel, context: android.content.Context) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
@@ -147,7 +149,7 @@ fun CartItemRow(product: ProductPlaceholder, count: Int, viewModel: CartViewMode
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { viewModel.removeFromCart(product) }) {
+                IconButton(onClick = { viewModel.removeFromCart(context, product) }) {
                     Icon(
                         imageVector = Icons.Default.Remove, 
                         contentDescription = null, 
@@ -160,7 +162,7 @@ fun CartItemRow(product: ProductPlaceholder, count: Int, viewModel: CartViewMode
                     modifier = Modifier.padding(horizontal = 8.dp),
                     fontWeight = FontWeight.Bold
                 )
-                IconButton(onClick = { viewModel.addToCart(product) }) {
+                IconButton(onClick = { viewModel.addToCart(context, product) }) {
                     Icon(
                         imageVector = Icons.Default.Add, 
                         contentDescription = null, 
