@@ -260,7 +260,7 @@ interface NewsApiService {
 
     companion object {
         // Базовый адрес по умолчанию (VPS)
-        private var currentBaseUrl = "http://89.108.70.193:5557/"
+        private var currentBaseUrl = "http://5.35.98.149:5557/"
         private var cachedService: NewsApiService? = null
 
         fun getBaseUrl(): String = currentBaseUrl
@@ -290,7 +290,7 @@ interface NewsApiService {
             if (rawUrl.startsWith("http")) return rawUrl
             
             val settingsPref = context.getSharedPreferences("settings_global", android.content.Context.MODE_PRIVATE)
-            val serverIp = settingsPref.getString("server_ip", "89.108.70.193:5557") ?: "89.108.70.193:5557"
+            val serverIp = settingsPref.getString("server_ip", "5.35.98.149:5557") ?: "5.35.98.149:5557"
             val cleanIp = serverIp.removePrefix("http://").removePrefix("https://").removeSuffix("/")
             
             val base = "http://$cleanIp"

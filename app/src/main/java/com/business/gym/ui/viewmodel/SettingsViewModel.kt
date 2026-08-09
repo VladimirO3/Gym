@@ -34,7 +34,7 @@ class SettingsViewModel(
     private val _privacyAgreed = mutableStateOf(false)
     val privacyAgreed: State<Boolean> = _privacyAgreed
 
-    private val _serverIp = mutableStateOf("89.108.70.193:5557")
+    private val _serverIp = mutableStateOf("5.35.98.149:5557")
     val serverIp: State<String> = _serverIp
 
     private val _userName = mutableStateOf("")
@@ -62,7 +62,7 @@ class SettingsViewModel(
         val globalPref = getApplication<Application>().getSharedPreferences("settings_global", Context.MODE_PRIVATE)
         
         // 1. IP Сервера
-        val savedIp = globalPref.getString("server_ip", "89.108.70.193:5557") ?: "89.108.70.193:5557"
+        val savedIp = globalPref.getString("server_ip", "5.35.98.149:5557") ?: "5.35.98.149:5557"
         _serverIp.value = savedIp
         NewsApiService.updateBaseUrl("http://$savedIp/")
         
@@ -103,7 +103,7 @@ class SettingsViewModel(
 
         // Privacy и IP (IP дублируется в глобальных)
         _privacyAgreed.value = sharedPref.getBoolean("privacy_agreed", false)
-        val defaultIp = globalPref.getString("server_ip", "89.108.70.193:5557") ?: "89.108.70.193:5557"
+        val defaultIp = globalPref.getString("server_ip", "5.35.98.149:5557") ?: "5.35.98.149:5557"
         _serverIp.value = sharedPref.getString("server_ip", defaultIp) ?: defaultIp
         
         // Обновляем базовый URL в API сервисе
