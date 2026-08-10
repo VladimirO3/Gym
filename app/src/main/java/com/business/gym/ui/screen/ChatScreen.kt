@@ -73,7 +73,9 @@ fun ChatScreen(
                         users = viewModel.users.value.filter { it.uid != currentUid },
                         onUserSelected = { viewModel.selectUser(it, currentUid, jwtToken) },
                         selectedUser = selectedUser,
-                        notifiedCounts = notifiedCounts
+                        notifiedCounts = notifiedCounts,
+                        isAdmin = isAdmin,
+                        onDeleteUser = { viewModel.deleteUser(it) }
                     )
                 }
                 VerticalDivider(color = Color.DarkGray)
@@ -107,7 +109,9 @@ fun ChatScreen(
                     users = viewModel.users.value.filter { it.uid != currentUid },
                     onUserSelected = { viewModel.selectUser(it, currentUid, jwtToken) },
                     modifier = modifier,
-                    notifiedCounts = notifiedCounts
+                    notifiedCounts = notifiedCounts,
+                    isAdmin = isAdmin,
+                    onDeleteUser = { viewModel.deleteUser(it) }
                 )
             } else {
                 ConversationScreen(
@@ -133,8 +137,33 @@ fun UserListScreen(
     onUserSelected: (UserProfile) -> Unit,
     modifier: Modifier = Modifier,
     selectedUser: UserProfile? = null,
-    notifiedCounts: Map<String, Int> = emptyMap()
+    notifiedCounts: Map<String, Int> = emptyMap(),
+    isAdmin: Boolean = false,
+    onDeleteUser: (String) -> Unit = {}
 ) {
+    var userToDelete by remember { mutableStateOf<UserProfile?>(null) }
+
+    if (userToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { userToDelete = null },
+            title = { Text("Удалить пользователя?") },
+            text = { Text("Это действие удалит пользователя ${userToDelete?.name} и всю его переписку из базы данных.") },
+            confirmButton = {
+                TextButton(onClick = { 
+                    userToDelete?.let { onDeleteUser(it.uid) }
+                    userToDelete = null 
+                }) {
+                    Text("Удалить", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { userToDelete = null }) {
+                    Text("Отмена")
+                }
+            }
+        )
+    }
+
     Column(modifier = modifier.padding(16.dp)) {
         Text(
             text = stringResource(R.string.chat_all_users),
@@ -216,6 +245,13 @@ fun UserListScreen(
                                     contentColor = Color.White
                                 ) {
                                     Text(if (unreadCount > 99) "99+" else "$unreadCount")
+                                }
+                            }
+
+                            // Кнопка удаления для админа (нельзя удалить другого админа)
+                            if (isAdmin && !isUserAdmin) {
+                                IconButton(onClick = { userToDelete = user }) {
+                                    Icon(Icons.Default.Delete, "Delete User", tint = Color.Gray.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                                 }
                             }
                         }

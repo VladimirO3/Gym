@@ -256,6 +256,23 @@ class ChatViewModel(
         }
     }
 
+    /**
+     * Административная функция: Удаление пользователя из системы.
+     */
+    fun deleteUser(uid: String) {
+        viewModelScope.launch {
+            val success = repository.deleteUser(uid)
+            if (success) {
+                // Если мы сейчас в чате с удаленным пользователем, выходим
+                if (_selectedUser.value?.uid == uid) {
+                    _selectedUser.value = null
+                    _messages.value = emptyList()
+                    stopPolling()
+                }
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         stopPolling()

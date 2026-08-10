@@ -111,4 +111,17 @@ class ChatRepository(
             false
         }
     }
+
+    suspend fun deleteUser(uid: String): Boolean {
+        return try {
+            apiService.deleteUser(uid)
+            // Также удаляем из локальной БД
+            chatDao.deleteUserByUid(uid)
+            chatDao.deleteMessagesForPeer(uid)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete user $uid", e)
+            false
+        }
+    }
 }
