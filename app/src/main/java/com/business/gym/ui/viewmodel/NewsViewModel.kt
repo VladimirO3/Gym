@@ -25,31 +25,42 @@ import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.File
 import java.util.UUID
 
+/**
+ * ViewModel для управления лентой новостей.
+ * Работает как с Firebase (облако), так и с личным VPS сервером (локальные новости).
+ */
 class NewsViewModel(
     application: Application,
     private val repository: NewsRepository
 ) : AndroidViewModel(application) {
+    // Ссылка на Firebase Realtime Database для облачных новостей
     private val database = FirebaseDatabase.getInstance().getReference("news_items")
+    // Ссылка на Firebase Storage для медиафайлов облачных новостей
     private val storage = FirebaseStorage.getInstance().getReference("news_media")
+    
+    // API сервис для работы с VPS
     private val localApiService get() = NewsApiService.create(getApplication())
 
+    // Список новостей из Firebase
     private val _newsItems = mutableStateOf(listOf<NewsItem>())
     val newsItems: State<List<NewsItem>> = _newsItems
 
+    // Список новостей из локальной БД (VPS синхронизация)
     private val _localNews = mutableStateOf(listOf<LocalNews>())
     val localNews: State<List<LocalNews>> = _localNews
 
+    // Состояние процесса загрузки/публикации
     private val _isUploading = mutableStateOf(false)
     val isUploading: State<Boolean> = _isUploading
 
     init {
+        // Загрузка новостей из Firebase при старте
         fetchNews()
         
+        // Подписка на локальный кэш новостей (Room)
         viewModelScope.launch {
             repository.allNews.collect { news ->
                 _localNews.value = news
@@ -57,17 +68,22 @@ class NewsViewModel(
         }
     }
 
+    /**
+     * Загружает/обновляет новости с VPS сервера.
+     */
     fun fetchLocalNews(token: String?) {
         viewModelScope.launch {
             try {
                 repository.refreshNews(token)
             } catch (e: Exception) {
                 Log.e("NewsViewModel", "Failed to fetch local news", e)
-                // Можно добавить уведомление пользователя через State, если нужно
             }
         }
     }
 
+    /**
+     * Публикация новой новости на VPS сервер (с поддержкой фото/видео).
+     */
     fun uploadToLocalServer(
         context: Context, 
         uri: Uri?, 
@@ -76,15 +92,17 @@ class NewsViewModel(
         token: String,
         onSuccess: () -> Unit
     ) {
-        Log.d("NewsViewModel", "Starting uploadToLocalServer. Title: $title, Content: $content, HasUri: ${uri != null}")
+        Log.d("NewsViewModel", "Starting uploadToLocalServer. Title: $title")
         _isUploading.value = true
         viewModelScope.launch {
             try {
+                // Определяем тип контента
                 val typeValue = if (uri != null) {
                     val mimeType = context.contentResolver.getType(uri) ?: ""
                     if (mimeType.contains("video")) "video" else "image"
                 } else "text"
 
+                // Формируем Multipart тело файла
                 var filePart: MultipartBody.Part? = null
                 if (uri != null) {
                     val contentResolver = context.contentResolver
@@ -99,13 +117,13 @@ class NewsViewModel(
                         inputStream.close()
                     }
                 } else {
-                    // Если фото/видео нет, отправляем пустой файл-заглушку, чтобы сервер не выдавал 400
+                    // Пустая заглушка для текстовых новостей, если сервер ожидает файл
                     val requestFile = "".toRequestBody("text/plain".toMediaTypeOrNull())
                     filePart = MultipartBody.Part.createFormData("file", "", requestFile)
                 }
 
-                Log.d("NewsViewModel", "Sending POST to local server with type: $typeValue")
-                val result = repository.uploadNews(
+                // Запрос к репозиторию для отправки на сервер
+                repository.uploadNews(
                     token = token,
                     title = title,
                     content = content,
@@ -113,29 +131,23 @@ class NewsViewModel(
                     filePart = filePart
                 )
                 
-                Log.d("NewsViewModel", "Server response: $result")
-                
                 // Сразу обновляем список новостей
                 repository.refreshNews(token)
                 
-                Log.d("NewsViewModel", "News successfully posted and refreshed")
                 Toast.makeText(context, "Новость успешно добавлена!", Toast.LENGTH_SHORT).show()
                 onSuccess()
             } catch (e: Exception) {
-                Log.e("NewsViewModel", "CRITICAL: Local upload failed", e)
-                val errorMsg = when (e) {
-                    is retrofit2.HttpException -> "Ошибка сервера ${e.code()}: ${e.message()}"
-                    is java.net.ConnectException -> "Не удалось подключиться к серверу (ConnectException)"
-                    is java.net.SocketTimeoutException -> "Время ожидания истекло. Проверьте IP сервера в настройках."
-                    else -> e.localizedMessage ?: "Неизвестная ошибка"
-                }
-                Toast.makeText(context, "Ошибка загрузки: $errorMsg", Toast.LENGTH_LONG).show()
+                Log.e("NewsViewModel", "Local upload failed", e)
+                Toast.makeText(context, "Ошибка загрузки на сервер", Toast.LENGTH_LONG).show()
             } finally {
                 _isUploading.value = false
             }
         }
     }
 
+    /**
+     * Внутренний метод для получения новостей из Firebase в реальном времени.
+     */
     private fun fetchNews() {
         database.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -148,12 +160,18 @@ class NewsViewModel(
         })
     }
 
+    /**
+     * Добавление новости по прямой ссылке (в Firebase).
+     */
     fun addByUrl(url: String, type: String, title: String = "", content: String = "") {
         val id = database.push().key ?: UUID.randomUUID().toString()
         val newItem = NewsItem(id, url, type, title, content, System.currentTimeMillis())
         database.child(id).setValue(newItem)
     }
 
+    /**
+     * Загрузка медиа в Firebase Storage.
+     */
     fun uploadMedia(context: Context, uri: Uri) {
         _isUploading.value = true
         val type = context.contentResolver.getType(uri)?.let { 
@@ -185,6 +203,9 @@ class NewsViewModel(
             }
     }
 
+    /**
+     * Вспомогательный метод для получения имени файла из Uri.
+     */
     private fun getFileName(context: Context, uri: Uri): String? {
         var result: String? = null
         if (uri.scheme == "content") {
@@ -198,17 +219,23 @@ class NewsViewModel(
         return result ?: uri.path?.substringAfterLast('/')
     }
 
+    /**
+     * Удаление новости из Firebase.
+     */
     fun deleteNewsItem(item: NewsItem) {
         database.child(item.id).removeValue()
         if (item.url.contains("firebasestorage.googleapis.com")) {
             try {
                 FirebaseStorage.getInstance().getReferenceFromUrl(item.url).delete()
             } catch (e: Exception) {
-                Log.e("NewsViewModel", "Error deleting media", e)
+                Log.e("NewsViewModel", "Error deleting media from storage", e)
             }
         }
     }
 
+    /**
+     * Удаление новости с VPS сервера.
+     */
     fun deleteLocalNewsItem(id: String, token: String?) {
         if (token == null) return
         viewModelScope.launch {
@@ -221,19 +248,24 @@ class NewsViewModel(
         }
     }
 
+    /**
+     * Отправка реакции (лайка) на новость.
+     */
     fun reactToNews(id: String, type: String, token: String?) {
         if (token == null || token == "guest_token") return
         viewModelScope.launch {
             try {
                 repository.postReaction(token, id, type)
                 repository.refreshNews(token)
-                Log.d("NewsViewModel", "Reaction $type posted for $id")
             } catch (e: Exception) {
                 Log.e("NewsViewModel", "Failed to post reaction", e)
             }
         }
     }
 
+    /**
+     * Фабрика для NewsViewModel.
+     */
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(NewsViewModel::class.java)) {

@@ -12,13 +12,21 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/**
+ * ViewModel для управления корзиной покупок.
+ * Обеспечивает синхронизацию списка выбранных товаров с VPS сервером.
+ */
 class CartViewModel : ViewModel() {
+    // Список товаров в корзине: Пара (Товар, Количество)
     private val _cartItems = mutableStateOf<List<Pair<ProductPlaceholder, Int>>>(emptyList())
     val cartItems: State<List<Pair<ProductPlaceholder, Int>>> = _cartItems
 
     private var syncJob: Job? = null
     private var currentToken: String? = null
 
+    /**
+     * Инициализация корзины. Загружает данные с сервера, если токен изменился или корзина пуста.
+     */
     fun init(context: android.content.Context, token: String?) {
         val tokenChanged = currentToken != token
         currentToken = token
@@ -29,10 +37,13 @@ class CartViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Получает актуальное состояние корзины из API.
+     */
     private fun loadCartFromServer(context: android.content.Context, token: String) {
         viewModelScope.launch {
             try {
-                // Передаем контекст для работы перехватчика (интерцептора) с токеном
+                // Используем API сервис с контекстом для автоматической подстановки токена
                 val api = NewsApiService.create(context)
                 val response = api.getCart()
                 _cartItems.value = response.map {
@@ -48,14 +59,18 @@ class CartViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Синхронизирует текущее локальное состояние корзины с сервером.
+     * Использует задержку (debounce) для предотвращения слишком частых запросов при быстром изменении количества.
+     */
     private fun syncCartWithServer(context: android.content.Context) {
         val token = currentToken
         if (token == null || token == "guest_token") return
         
-        // Отменяем предыдущую попытку синхронизации (debounce)
+        // Отменяем предыдущую попытку синхронизации, если пользователь нажал кнопку еще раз
         syncJob?.cancel()
         syncJob = viewModelScope.launch {
-            delay(1000) // Ждем 1 секунду перед отправкой
+            delay(1000) // Ждем 1 секунду "спокойствия" перед отправкой
             try {
                 val api = NewsApiService.create(context)
                 val request = _cartItems.value.map { (product, count) ->
@@ -69,6 +84,9 @@ class CartViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Добавляет товар в корзину или увеличивает его количество.
+     */
     fun addToCart(context: android.content.Context, product: ProductPlaceholder) {
         val currentItems = _cartItems.value.toMutableList()
         val existingItemIndex = currentItems.indexOfFirst { it.first.id == product.id }
@@ -83,6 +101,9 @@ class CartViewModel : ViewModel() {
         syncCartWithServer(context)
     }
 
+    /**
+     * Уменьшает количество товара или удаляет его, если количество стало равным 0.
+     */
     fun removeFromCart(context: android.content.Context, product: ProductPlaceholder) {
         val currentItems = _cartItems.value.toMutableList()
         val existingItemIndex = currentItems.indexOfFirst { it.first.id == product.id }
@@ -99,14 +120,21 @@ class CartViewModel : ViewModel() {
         syncCartWithServer(context)
     }
 
+    /**
+     * Полная очистка корзины.
+     * @param sync Если true, отправит пустой список на сервер для очистки облачной корзины.
+     */
     fun clearCart(context: android.content.Context, sync: Boolean = true) {
         _cartItems.value = emptyList()
         if (sync) syncCartWithServer(context)
     }
 
+    /**
+     * Рассчитывает общую стоимость всех товаров, учитывая их количество.
+     */
     fun getTotalPrice(): Int {
         return _cartItems.value.sumOf { (product, count) ->
-            // Улучшенный парсинг цены: убираем пробелы и берем первое число
+            // Парсинг цены: убираем валюту и пробелы для получения числа
             val priceCleaned = product.price.replace(" ", "").replace("\u00A0", "")
             val match = Regex("(\\d+)").find(priceCleaned)
             val priceInt = match?.value?.toIntOrNull() ?: 0
@@ -114,6 +142,9 @@ class CartViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Форматирует число в строку вида "1 500 ₽"
+     */
     fun formatPrice(price: Int): String {
         return String.format(java.util.Locale("ru", "RU"), "%, d", price).replace(",", " ").trim() + " ₽"
     }

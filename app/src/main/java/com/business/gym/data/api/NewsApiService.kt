@@ -266,6 +266,11 @@ interface NewsApiService {
     @GET("chat/unread-count")
     suspend fun getUnreadCount(): Map<String, Int>
 
+    @DELETE("chat/messages/{peerUid}")
+    suspend fun deleteChat(
+        @Path("peerUid") peerUid: String
+    ): okhttp3.ResponseBody
+
     // --- ПРОФИЛЬ ---
     @Multipart
     @POST("profile/avatar")

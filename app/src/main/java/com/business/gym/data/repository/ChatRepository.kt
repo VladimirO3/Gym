@@ -100,4 +100,15 @@ class ChatRepository(
             emptyMap()
         }
     }
+
+    suspend fun deleteChatMessages(peerUid: String): Boolean {
+        return try {
+            apiService.deleteChat(peerUid)
+            chatDao.deleteMessagesForPeer(peerUid)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete chat for peer=$peerUid", e)
+            false
+        }
+    }
 }

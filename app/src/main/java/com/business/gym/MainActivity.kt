@@ -59,22 +59,28 @@ import kotlinx.coroutines.launch
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 
+/**
+ * Главная Activity приложения. 
+ * Управляет жизненным циклом плеера, разрешениями и навигацией верхнего уровня.
+ */
 class MainActivity : AppCompatActivity() {
     private var exoPlayer: ExoPlayer? = null
     private var mediaSession: MediaSession? = null
     private lateinit var firebaseAnalytics: FirebaseAnalytics
 
+    // Лаунчер для запроса разрешений на уведомления (Android 13+)
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (!isGranted) {
-                Toast.makeText(this, "Notifications disabled", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Уведомления отключены", Toast.LENGTH_SHORT).show()
             }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge() // Включение полноэкранного режима (под шторку)
         
+        // Обработка входящего интента (например, переход из уведомления)
         handleIntent(intent)
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -83,7 +89,7 @@ class MainActivity : AppCompatActivity() {
 
         firebaseAnalytics = Firebase.analytics
 
-        // Создаем плеер ОДИН РАЗ на уровне Activity, чтобы он не пересоздавался при смене ориентации
+        // Создаем плеер ОДИН РАЗ на уровне Activity, чтобы музыка не прерывалась при смене экранов
         if (exoPlayer == null) {
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
@@ -91,11 +97,15 @@ class MainActivity : AppCompatActivity() {
                 .build()
 
             exoPlayer = ExoPlayer.Builder(this)
-                .setAudioAttributes(audioAttributes, true) // true = handleAudioFocus
+                .setAudioAttributes(audioAttributes, true) // true = обработка фокуса аудио
                 .setMediaSourceFactory(NewsApiService.getMediaSourceFactory(this))
                 .build()
 
-            mediaSession = MediaSession.Builder(this, exoPlayer!!).build()
+            // MediaSession позволяет управлять плеером через шторку и заблокированный экран
+            // Используем уникальный ID для каждой сессии, чтобы избежать IllegalStateException
+            mediaSession = MediaSession.Builder(this, exoPlayer!!)
+                .setId("GymAppSession_${System.currentTimeMillis()}")
+                .build()
         }
 
         setContent {
@@ -104,6 +114,7 @@ class MainActivity : AppCompatActivity() {
             val context = LocalContext.current
             val application = context.applicationContext as android.app.Application
             
+            // Инициализация основных ViewModel
             val authViewModel: AuthViewModel = viewModel()
             val settingsViewModel: SettingsViewModel = viewModel(
                 factory = SettingsViewModel.Factory(application)
@@ -113,7 +124,7 @@ class MainActivity : AppCompatActivity() {
                 factory = com.business.gym.ui.viewmodel.ChatViewModel.Factory(application)
             )
             
-            // Загружаем сессию и настройки СРАЗУ при запуске, не дожидаясь окончания Splash
+            // Загружаем сессию СРАЗУ при запуске
             LaunchedEffect(Unit) {
                 authViewModel.loadSession(context)
             }
@@ -122,10 +133,12 @@ class MainActivity : AppCompatActivity() {
             val currentUid by authViewModel.currentUid
             val jwtToken by authViewModel.jwtToken
 
+            // Загрузка настроек пользователя при изменении его статуса
             LaunchedEffect(currentUserEmail, currentUid) {
                 settingsViewModel.loadSettings(context, currentUserEmail, currentUserEmail)
             }
 
+            // Инициализация корзины и поллинга чата при получении токена
             LaunchedEffect(jwtToken) {
                 cartViewModel.init(context, jwtToken)
                 chatViewModel.startGlobalNotificationPolling(jwtToken)
@@ -151,7 +164,8 @@ class MainActivity : AppCompatActivity() {
                         settingsViewModel = settingsViewModel, 
                         cartViewModel = cartViewModel,
                         chatViewModel = chatViewModel,
-                        navigationRequest = navigationRequest,
+                        navigationRequest = navigationRequest.value,
+                        onResetNavigationRequest = { navigationRequest.value = null },
                         onExitRequest = { showExit = true },
                         isDarkTheme = useDarkTheme
                     )
@@ -160,6 +174,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Состояние запроса на навигацию (используется для диплинков из уведомлений)
     private val navigationRequest = mutableStateOf<Pair<String, String?>?>(null)
 
     override fun onNewIntent(intent: android.content.Intent) {
@@ -167,6 +182,9 @@ class MainActivity : AppCompatActivity() {
         handleIntent(intent)
     }
 
+    /**
+     * Разбор параметров интента для перехода на нужный экран.
+     */
     private fun handleIntent(intent: android.content.Intent?) {
         val navigateTo = intent?.getStringExtra("navigate_to")
         val senderId = intent?.getStringExtra("sender_id")
@@ -177,6 +195,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        // Освобождение ресурсов плеера при закрытии приложения
         mediaSession?.release()
         exoPlayer?.release()
         mediaSession = null
@@ -184,6 +203,9 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
+/**
+ * Точка входа в UI Compose. Настраивает основные компоненты и передает зависимости.
+ */
 @Composable
 fun GymApp(
     exoPlayer: ExoPlayer,
@@ -191,7 +213,8 @@ fun GymApp(
     settingsViewModel: SettingsViewModel,
     cartViewModel: CartViewModel,
     chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel,
-    navigationRequest: State<Pair<String, String?>?>,
+    navigationRequest: Pair<String, String?>?,
+    onResetNavigationRequest: () -> Unit,
     onExitRequest: () -> Unit,
     isDarkTheme: Boolean
 ) {
@@ -211,25 +234,31 @@ fun GymApp(
             cartViewModel.clearCart(context, sync = false)
         },
         onSaveSession = { identifier ->
-            // Сессия уже сохранена внутри ViewModel.verifyOtp, 
-            // здесь мы просто можем выполнить дополнительные действия если нужно.
+            // Дополнительная логика при сохранении сессии
         },
         onExitRequest = onExitRequest,
         settingsViewModel = settingsViewModel,
         cartViewModel = cartViewModel,
         chatViewModel = chatViewModel,
         navigationRequest = navigationRequest,
+        onResetNavigationRequest = onResetNavigationRequest,
         isDarkTheme = isDarkTheme,
         authViewModel = authViewModel
     )
 }
 
+/**
+ * Модель вкладки нижнего меню.
+ */
 data class GymTab(
     val title: String,
     val icon: ImageVector,
     val key: String
 )
 
+/**
+ * Основной контент приложения с навигацией (Pager) и нижним меню.
+ */
 @Composable
 fun GymAppContent(
     currentUserEmail: String?,
@@ -242,7 +271,8 @@ fun GymAppContent(
     settingsViewModel: SettingsViewModel,
     cartViewModel: CartViewModel,
     chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel,
-    navigationRequest: State<Pair<String, String?>?>,
+    navigationRequest: Pair<String, String?>?,
+    onResetNavigationRequest: () -> Unit,
     isDarkTheme: Boolean,
     authViewModel: AuthViewModel
 ) {
@@ -250,7 +280,7 @@ fun GymAppContent(
     val coroutineScope = rememberCoroutineScope()
     val isGuest = authViewModel.isGuest.value
     
-    // Список вкладок (Заголовок, Иконка, Ключ)
+    // Динамический список вкладок в зависимости от статуса гостя
     val tabs = remember(isGuest) {
         val list = mutableListOf<GymTab>()
         list.add(GymTab("Новости", Icons.Default.Newspaper, "news"))
@@ -265,13 +295,13 @@ fun GymAppContent(
         list
     }
 
-    // Состояние пайджера для свайпов
+    // Состояние пайджера для свайпов между экранами
     val pagerState = rememberPagerState(pageCount = { tabs.size })
 
-    // Обработка перехода из уведомлений
+    // Реакция на внешние запросы навигации (например, открытие чата из уведомления)
     val jwtToken by authViewModel.jwtToken
-    LaunchedEffect(navigationRequest.value, tabs) {
-        navigationRequest.value?.let { (screen, id) ->
+    LaunchedEffect(navigationRequest, tabs) {
+        navigationRequest?.let { (screen, id) ->
             if (screen == "chat") {
                 val chatIndex = tabs.indexOfFirst { it.key == "chat" }
                 if (chatIndex != -1) {
@@ -284,11 +314,10 @@ fun GymAppContent(
                     }
                 }
             }
-            // Сбрасываем запрос через ViewModel или напрямую если это возможно. 
-            // В MainActivity это mutableStateOf, мы можем обновить его если передали как MutableState
-            (navigationRequest as? MutableState<Pair<String, String?>?>)?.value = null
+            onResetNavigationRequest()
         }
     }
+    
     var showAuthOverlay by rememberSaveable { mutableStateOf(false) }
     
     val configuration = LocalConfiguration.current
@@ -300,6 +329,7 @@ fun GymAppContent(
             contentColor = MaterialTheme.colorScheme.onBackground
         ) {
             Row(modifier = Modifier.fillMaxSize()) {
+                // Боковое меню для планшетов (NavigationRail)
                 if (isWideScreen) {
                     NavigationRail(
                         containerColor = Color.Black.copy(alpha = 0.8f),
@@ -358,6 +388,7 @@ fun GymAppContent(
                             
                             Spacer(Modifier.height(16.dp))
                             
+                            // Кнопка авторизации (если не вошли)
                             NavigationRailItem(
                                 selected = showAuthOverlay,
                                 onClick = { showAuthOverlay = true },
@@ -370,6 +401,7 @@ fun GymAppContent(
                                     indicatorColor = Color.Transparent
                                 )
                             )
+                            // Кнопка выхода из приложения
                             NavigationRailItem(
                                 selected = false,
                                 onClick = { onExitRequest() },
@@ -383,13 +415,16 @@ fun GymAppContent(
                     }
                 }
 
+                // Основная область экрана со Scaffold
                 Scaffold(
                     modifier = Modifier.weight(1f),
                     containerColor = Color.Transparent,
                     topBar = {
+                        // Резерв места под статус-бар
                         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars).fillMaxWidth())
                     },
                     bottomBar = {
+                        // Нижнее меню для телефонов
                         if (!isWideScreen) {
                             Column(modifier = Modifier.background(Color.Black.copy(alpha = 0.8f))) {
                                 ScrollableTabRow(
@@ -414,23 +449,7 @@ fun GymAppContent(
                                             },
                                             text = { Text(tab.title, fontSize = 10.sp, maxLines = 1) },
                                             icon = { 
-                                                if (tab.key == "cart") {
-                                                    val cartItems by cartViewModel.cartItems
-                                                    val count = cartItems.sumOf { it.second }
-                                                    BadgedBox(
-                                                        badge = {
-                                                            if (count > 0) {
-                                                                Badge(containerColor = Color.Red, contentColor = Color.White) {
-                                                                    Text("$count")
-                                                                }
-                                                            }
-                                                        }
-                                                    ) {
-                                                        Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp))
-                                                    }
-                                                } else {
-                                                    Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp))
-                                                }
+                                                Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp))
                                             },
                                             selectedContentColor = Color.Red,
                                             unselectedContentColor = Color.Gray
@@ -456,6 +475,7 @@ fun GymAppContent(
                                         unselectedContentColor = Color.Gray
                                     )
                                 }
+                                // Нижний отступ для эстетичного вида на безрамочных экранах
                                 Spacer(Modifier.height(40.dp))
                             }
                         }
@@ -526,6 +546,7 @@ fun GymAppContent(
                             }
                         }
 
+                        // Слой авторизации поверх основного контента (если выбран)
                         if (showAuthOverlay) {
                             Box(modifier = Modifier.fillMaxSize()) {
                                 AuthScreen(
@@ -540,7 +561,7 @@ fun GymAppContent(
                                     onClick = { showAuthOverlay = false },
                                     modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
                                 ) {
-                                    Icon(Icons.Default.Clear, "Close", tint = Color.Red)
+                                    Icon(Icons.Default.Clear, "Закрыть", tint = Color.Red)
                                 }
                             }
                         }
@@ -558,7 +579,7 @@ fun GymAppPreview() {
     val authViewModel: AuthViewModel = viewModel()
     val cartViewModel: CartViewModel = viewModel()
     val chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel = viewModel()
-    val navReq = remember { mutableStateOf<Pair<String, String?>?>(null) }
+    val navReq: Pair<String, String?>? = null
     GymTheme {
         GymAppContent(
             currentUserEmail = "test@example.com",
@@ -572,6 +593,7 @@ fun GymAppPreview() {
             cartViewModel = cartViewModel,
             chatViewModel = chatViewModel,
             navigationRequest = navReq,
+            onResetNavigationRequest = {},
             isDarkTheme = true,
             authViewModel = authViewModel
         )

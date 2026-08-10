@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>UML Диаграмма классов - GYM App</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body { background-color: #121212; color: white; font-family: sans-serif; padding: 20px; }
+        .mermaid { background-color: white; padding: 20px; border-radius: 10px; }
+        h1 { color: #ff0000; text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>UML Диаграмма классов (Архитектура MVVM)</h1>
+    <div class="mermaid">
+        classDiagram
+            class MainActivity {
+                -ExoPlayer exoPlayer
+                -MediaSession mediaSession
+                -MutableState navigationRequest
+                +onCreate()
+                +onNewIntent()
+                -handleIntent()
+            }
+
+            class NewsApiService {
+                &lt;&lt;interface&gt;&gt;
+                +login()
+                +getProducts()
+                +addProduct()
+                +getCart()
+                +saveCart()
+                +getChatMessages()
+                +sendChatMessage()
+            }
+
+            class AuthViewModel {
+                -MutableState _currentUserEmail
+                -MutableState _jwtToken
+                +signInWithEmail()
+                +signUpWithEmail()
+                +loadSession()
+                +isAdmin()
+            }
+
+            class ShopViewModel {
+                -MutableState _products
+                -MutableState _isLoading
+                +fetchProducts()
+                +addProduct()
+                +updateProduct()
+                +deleteProduct()
+            }
+
+            class CartViewModel {
+                -MutableState _cartItems
+                +init()
+                +addToCart()
+                +removeFromCart()
+                +getTotalPrice()
+                -syncCartWithServer()
+            }
+
+            class ChatViewModel {
+                -MutableState _messages
+                -MutableState _users
+                +selectUser()
+                +sendLocalMessage()
+                +startGlobalNotificationPolling()
+            }
+
+            class NewsViewModel {
+                -MutableState _localNews
+                +fetchLocalNews()
+                +uploadToLocalServer()
+                +reactToNews()
+            }
+
+            class NewsRepository {
+                -NewsDao newsDao
+                +refreshNews()
+                +uploadNews()
+            }
+
+            class TrackRepository {
+                -TrackDao trackDao
+                +refreshTracks()
+                +uploadTrack()
+            }
+
+            class ChatRepository {
+                -ChatDao chatDao
+                +refreshMessages()
+                +sendMessage()
+                +getUnreadCount()
+            }
+
+            %% Relationships
+            MainActivity ..> AuthViewModel : "использует"
+            MainActivity ..> SettingsViewModel : "использует"
+            MainActivity ..> CartViewModel : "использует"
+            MainActivity ..> ChatViewModel : "использует"
+
+            AuthViewModel --> NewsApiService : "вызовы"
+            ShopViewModel --> NewsApiService : "вызовы"
+            CartViewModel --> NewsApiService : "вызовы"
+
+            ChatViewModel --> ChatRepository : "данные"
+            NewsViewModel --> NewsRepository : "данные"
+            PlaylistViewModel --> TrackRepository : "данные"
+
+            ChatRepository --> NewsApiService : "API"
+            NewsRepository --> NewsApiService : "API"
+            TrackRepository --> NewsApiService : "API"
+
+            NewsRepository --> NewsDao : "Local DB"
+            TrackRepository --> TrackDao : "Local DB"
+            ChatRepository --> ChatDao : "Local DB"
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }
+        });
+    </script>
+</body>
+</html>

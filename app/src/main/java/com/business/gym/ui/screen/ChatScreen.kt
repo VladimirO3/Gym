@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -47,6 +48,7 @@ fun ChatScreen(
     )
 
     val selectedUser by viewModel.selectedUser
+    val notifiedCounts by viewModel.notifiedCounts
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val jwtToken by authViewModel.jwtToken
@@ -70,7 +72,8 @@ fun ChatScreen(
                     UserListScreen(
                         users = viewModel.users.value.filter { it.uid != currentUid },
                         onUserSelected = { viewModel.selectUser(it, currentUid, jwtToken) },
-                        selectedUser = selectedUser
+                        selectedUser = selectedUser,
+                        notifiedCounts = notifiedCounts
                     )
                 }
                 VerticalDivider(color = Color.DarkGray)
@@ -84,6 +87,7 @@ fun ChatScreen(
                             onSendMessage = { 
                                 viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken, context)
                             },
+                            onDeleteChat = { viewModel.deleteChat(selectedUser!!.uid) },
                             showBackButton = false
                         )
                     } else {
@@ -102,7 +106,8 @@ fun ChatScreen(
                 UserListScreen(
                     users = viewModel.users.value.filter { it.uid != currentUid },
                     onUserSelected = { viewModel.selectUser(it, currentUid, jwtToken) },
-                    modifier = modifier
+                    modifier = modifier,
+                    notifiedCounts = notifiedCounts
                 )
             } else {
                 ConversationScreen(
@@ -113,6 +118,7 @@ fun ChatScreen(
                     onSendMessage = { 
                         viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken, context)
                     },
+                    onDeleteChat = { viewModel.deleteChat(selectedUser!!.uid) },
                     modifier = modifier,
                     showBackButton = true
                 )
@@ -126,7 +132,8 @@ fun UserListScreen(
     users: List<UserProfile>,
     onUserSelected: (UserProfile) -> Unit,
     modifier: Modifier = Modifier,
-    selectedUser: UserProfile? = null
+    selectedUser: UserProfile? = null,
+    notifiedCounts: Map<String, Int> = emptyMap()
 ) {
     Column(modifier = modifier.padding(16.dp)) {
         Text(
@@ -151,6 +158,9 @@ fun UserListScreen(
                 items(users) { user ->
                     val isUserAdmin = AuthViewModel.isStaticAdmin(user.email)
                     val isSelected = selectedUser?.uid == user.uid
+                    val unreadCount = notifiedCounts[user.uid] ?: 0
+                    val hasNotification = unreadCount > 0 && unreadCount != 999999
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -158,34 +168,54 @@ fun UserListScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = when {
                                 isSelected -> Color.Red.copy(alpha = 0.2f)
+                                hasNotification -> Color.Yellow.copy(alpha = 0.15f) // Подсветка нового сообщения
                                 isUserAdmin -> Color.DarkGray.copy(alpha = 0.5f)
                                 else -> Color.Black.copy(alpha = 0.3f)
                             }
                         ),
-                        border = if (isSelected) BorderStroke(1.dp, Color.Red) else BorderStroke(0.5.dp, Color.DarkGray)
+                        border = when {
+                            isSelected -> BorderStroke(2.dp, Color.Red)
+                            hasNotification -> BorderStroke(2.dp, Color.Yellow) // Заметная рамка
+                            else -> BorderStroke(0.5.dp, Color.DarkGray)
+                        }
                     ) {
-                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Person, 
-                                null,
-                                tint = if (isUserAdmin || isSelected) Color.Red else Color.Gray
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = if (isUserAdmin) stringResource(R.string.auth_administrator) else user.name, 
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = Color.White,
-                                    fontWeight = if (isUserAdmin || isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    maxLines = 1
+                        Row(
+                            modifier = Modifier.padding(12.dp), 
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Icon(
+                                    Icons.Default.Person, 
+                                    null,
+                                    tint = if (isUserAdmin || isSelected || hasNotification) Color.Red else Color.Gray
                                 )
-                                if (!isUserAdmin) {
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
                                     Text(
-                                        text = user.email, 
-                                        style = MaterialTheme.typography.bodySmall, 
-                                        color = Color.Gray,
+                                        text = if (isUserAdmin) stringResource(R.string.auth_administrator) else user.name, 
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = Color.White,
+                                        fontWeight = if (isUserAdmin || isSelected || hasNotification) FontWeight.Bold else FontWeight.Normal,
                                         maxLines = 1
                                     )
+                                    if (!isUserAdmin) {
+                                        Text(
+                                            text = user.email, 
+                                            style = MaterialTheme.typography.bodySmall, 
+                                            color = Color.Gray,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                            
+                            if (hasNotification) {
+                                Badge(
+                                    containerColor = Color.Red,
+                                    contentColor = Color.White
+                                ) {
+                                    Text(if (unreadCount > 99) "99+" else "$unreadCount")
                                 }
                             }
                         }
@@ -203,11 +233,34 @@ fun ConversationScreen(
     messages: List<ChatMessage>,
     onBack: () -> Unit,
     onSendMessage: (String) -> Unit,
+    onDeleteChat: () -> Unit, // Новый параметр
     modifier: Modifier = Modifier,
     showBackButton: Boolean = true
 ) {
     var text by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Удалить чат?") },
+            text = { Text("Это действие безвозвратно удалит всю историю переписки с этим пользователем.") },
+            confirmButton = {
+                TextButton(onClick = { 
+                    onDeleteChat()
+                    showDeleteConfirm = false 
+                }) {
+                    Text("Удалить", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Отмена")
+                }
+            }
+        )
+    }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -225,8 +278,7 @@ fun ConversationScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            contentAlignment = Alignment.Center
+                .padding(bottom = 8.dp)
         ) {
             if (showBackButton) {
                 IconButton(
@@ -243,8 +295,17 @@ fun ConversationScreen(
                 color = Color.Red,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.align(Alignment.Center)
             )
+
+            // Кнопка удаления чата справа
+            IconButton(
+                onClick = { showDeleteConfirm = true },
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = "Delete Chat", tint = Color.Gray)
+            }
         }
         
         HorizontalDivider(color = Color.DarkGray)

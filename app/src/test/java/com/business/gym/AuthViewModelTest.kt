@@ -1,44 +1,57 @@
 package com.business.gym
 
+import android.app.Application
 import com.business.gym.ui.viewmodel.AuthViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.Mockito.mock
 
+/**
+ * Юнит-тесты для логики авторизации.
+ * Проверяют переключения режимов и валидацию данных без участия UI и Firebase.
+ */
 class AuthViewModelTest {
 
     private lateinit var viewModel: AuthViewModel
+    private val mockApplication = mock(Application::class.java)
 
     @Before
     fun setup() {
-        // Note: Real Firebase instances will be null in unit tests without mocking.
-        // For logic testing, we focus on methods that don't depend on Firebase internals if not mocked.
-        viewModel = AuthViewModel()
+        // Используем мок Application, так как AuthViewModel является AndroidViewModel
+        viewModel = AuthViewModel(mockApplication)
     }
 
     @Test
-    fun testIsAdmin_ReturnsTrueForAdminEmail() {
-        // Use reflection or a test-specific subclass to set the private state if needed,
-        // but here we can test the logic via public methods if they were accessible.
-        // Since _currentUserEmail is private, we'd need to mock FirebaseAuth or use an integration test.
-        
-        // Let's test basic state transitions that don't hit Firebase
-        viewModel.onEmailChange("test@example.com")
-        assertEquals("test@example.com", viewModel.email.value)
+    fun testEmailStateUpdate() {
+        // Проверка корректного обновления состояния email
+        viewModel.onEmailChange("user@test.com")
+        assertEquals("user@test.com", viewModel.email.value)
     }
 
     @Test
-    fun testToggleIsLogin() {
-        val initial = viewModel.isLogin.value
+    fun testToggleIsLogin_ChangesState() {
+        // Проверка переключения между Входом и Регистрацией
+        val initialState = viewModel.isLogin.value
         viewModel.toggleIsLogin()
-        assertFalse(initial == viewModel.isLogin.value)
+        assertEquals(!initialState, viewModel.isLogin.value)
     }
 
     @Test
-    fun testAuthModeChange() {
+    fun testAuthMode_EmailPhoneSwitch() {
+        // Проверка смены режима (Email -> Телефон)
         viewModel.setAuthMode("phone")
         assertEquals("phone", viewModel.authMode.value)
     }
+
+    @Test
+    fun testIsStaticAdmin_ReturnsCorrectValue() {
+        // Проверка логики определения администратора по email
+        val adminEmail = AuthViewModel.ADMIN_EMAIL
+        assertTrue(AuthViewModel.isStaticAdmin(adminEmail))
+        assertFalse(AuthViewModel.isStaticAdmin("regular@user.com"))
+    }
+    
+    private fun assertTrue(condition: Boolean) = assert(condition)
 }

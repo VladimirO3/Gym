@@ -15,15 +15,25 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
+/**
+ * ViewModel для управления товарами в магазине.
+ * Обрабатывает получение списка товаров с сервера и административные функции (добавление/редактирование/удаление).
+ */
 class ShopViewModel(application: Application) : AndroidViewModel(application) {
+    // Список товаров, полученных с сервера
     private val _products = mutableStateOf<List<ProductResponse>>(emptyList())
     val products: State<List<ProductResponse>> = _products
 
+    // Флаг состояния загрузки
     private val _isLoading = mutableStateOf(false)
     val isLoading: State<Boolean> = _isLoading
 
+    // Инициализация API сервиса через ленивую инициализацию
     private val api by lazy { NewsApiService.create(application) }
 
+    /**
+     * Загружает актуальный список товаров из API.
+     */
     fun fetchProducts() {
         _isLoading.value = true
         viewModelScope.launch {
@@ -38,6 +48,10 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Административная функция: Добавление нового товара.
+     * @param imageUri URI фотографии из галереи телефона.
+     */
     fun addProduct(
         context: Context,
         name: String,
@@ -49,10 +63,12 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
         _isLoading.value = true
         viewModelScope.launch {
             try {
+                // Подготовка текстовых полей для Multipart запроса
                 val nameBody = name.toRequestBody("text/plain".toMediaTypeOrNull())
                 val priceBody = price.toRequestBody("text/plain".toMediaTypeOrNull())
                 val descBody = description.toRequestBody("text/plain".toMediaTypeOrNull())
                 
+                // Чтение файла изображения из URI
                 val inputStream = context.contentResolver.openInputStream(imageUri)
                 val bytes = inputStream?.readBytes()
                 if (bytes == null) throw Exception("Could not read image")
@@ -61,8 +77,9 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
                 val filePart = MultipartBody.Part.createFormData("file", "product_new.jpg", requestFile)
                 inputStream.close()
 
+                // Отправка данных на сервер
                 api.addProduct(nameBody, priceBody, descBody, filePart)
-                fetchProducts()
+                fetchProducts() // Обновляем список после добавления
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("ShopViewModel", "Failed to add product", e)
@@ -72,6 +89,10 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Административная функция: Обновление существующего товара.
+     * @param imageUri Новое фото (необязательно).
+     */
     fun updateProduct(
         context: Context,
         id: Int,
@@ -100,7 +121,7 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 api.updateProduct(id, nameBody, priceBody, descBody, filePart)
-                fetchProducts()
+                fetchProducts() // Обновляем список
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("ShopViewModel", "Failed to update product", e)
@@ -110,6 +131,9 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Административная функция: Полное удаление товара.
+     */
     fun deleteProduct(id: Int) {
         _isLoading.value = true
         viewModelScope.launch {
@@ -124,6 +148,9 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Административная функция: Удаление только фотографии товара (замена на заглушку).
+     */
     fun deleteProductPhoto(id: Int, onSuccess: () -> Unit) {
         _isLoading.value = true
         viewModelScope.launch {

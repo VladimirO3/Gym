@@ -25,36 +25,43 @@ import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.File
 import java.util.UUID
 
+/**
+ * ViewModel для управления музыкой и плейлистами.
+ * Обеспечивает воспроизведение из облака (Firebase) и локального VPS сервера.
+ */
 class PlaylistViewModel(
     application: Application,
     private val repository: TrackRepository
 ) : AndroidViewModel(application) {
+    // Firebase ссылки
     private val database = FirebaseDatabase.getInstance().getReference("playlist")
     private val storage = FirebaseStorage.getInstance().getReference("music")
+    
+    // API сервис
     private val localApiService get() = NewsApiService.create(getApplication())
 
+    // Треки из Firebase
     private val _tracks = mutableStateOf(listOf<Track>())
     val tracks: State<List<Track>> = _tracks
 
+    // Треки с VPS
     private val _localTracks = mutableStateOf(listOf<LocalTrack>())
     val localTracks: State<List<LocalTrack>> = _localTracks
 
+    // Состояние загрузки файла на сервер
     private val _isUploading = mutableStateOf(false)
     val isUploading: State<Boolean> = _isUploading
 
-    // Подписка на локальные треки из SQLite
     init {
+        // Загрузка "облачного" плейлиста
         fetchTracks()
         
+        // Подписка на локальные треки (кэш Room)
         viewModelScope.launch {
             repository.allTracks.collect { tracks ->
-                // Мы можем объединять или использовать отдельно. 
-                // В данном случае просто обновляем _localTracks для совместимости
                 _localTracks.value = tracks.map { 
                     LocalTrack(id = it.id.toIntOrNull() ?: 0, name = it.name, url = it.url) 
                 }
@@ -62,17 +69,22 @@ class PlaylistViewModel(
         }
     }
 
+    /**
+     * Загружает список музыки с VPS.
+     */
     fun fetchLocalTracks(token: String?) {
         viewModelScope.launch {
             repository.refreshTracks(token)
         }
     }
 
+    /**
+     * Загрузка музыкального файла на VPS сервер.
+     */
     fun uploadTrackToLocalServer(context: Context, uri: Uri, token: String?) {
-        Log.d("PlaylistViewModel", "Starting uploadTrackToLocalServer. HasToken: ${token != null}")
+        Log.d("PlaylistViewModel", "Starting uploadTrackToLocalServer")
         if (token == null) {
-            Log.e("PlaylistViewModel", "Upload failed: JWT Token is null")
-            Toast.makeText(context, "Ошибка: Токен сервера не найден. Перезайдите или проверьте настройки.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Ошибка: Авторизуйтесь для загрузки", Toast.LENGTH_LONG).show()
             return
         }
 
@@ -80,8 +92,6 @@ class PlaylistViewModel(
         viewModelScope.launch {
             try {
                 val fileName = getFileName(context, uri) ?: "Track_${UUID.randomUUID()}"
-                Log.d("PlaylistViewModel", "File name: $fileName")
-                
                 val contentResolver = context.contentResolver
                 val mimeType = contentResolver.getType(uri) ?: "audio/mpeg"
                 
@@ -92,28 +102,21 @@ class PlaylistViewModel(
                     val part = MultipartBody.Part.createFormData("file", fileName, requestFile)
                     inputStream.close()
                     part
-                } else {
-                    null
-                }
+                } else null
 
-                if (filePart == null) {
-                    throw Exception("Could not read file from Uri")
-                }
+                if (filePart == null) throw Exception("Could not read file")
 
-                Log.d("PlaylistViewModel", "Calling repository.uploadTrack...")
+                // Отправка в репозиторий
                 repository.uploadTrack(
                     token = token,
                     name = fileName,
                     filePart = filePart
                 )
-                Log.d("PlaylistViewModel", "Server response received")
-                
-                kotlinx.coroutines.delay(500)
                 
                 Toast.makeText(context, "Трек добавлен!", Toast.LENGTH_SHORT).show()
                 repository.refreshTracks(token)
             } catch (e: Exception) {
-                Log.e("PlaylistViewModel", "CRITICAL: Local upload failed", e)
+                Log.e("PlaylistViewModel", "Local upload failed", e)
                 Toast.makeText(context, "Ошибка сервера: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
                 _isUploading.value = false
@@ -121,6 +124,9 @@ class PlaylistViewModel(
         }
     }
 
+    /**
+     * Подписка на Firebase Database.
+     */
     private fun fetchTracks() {
         database.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -133,30 +139,9 @@ class PlaylistViewModel(
         })
     }
 
-    fun uploadTracks(context: Context, uris: List<Uri>) {
-        if (uris.isEmpty()) return
-        _isUploading.value = true
-
-        uris.forEach { uri ->
-            val fileName = getFileName(context, uri) ?: "Track_${UUID.randomUUID()}"
-            val fileRef = storage.child("${UUID.randomUUID()}_$fileName")
-
-            fileRef.putFile(uri)
-                .continueWithTask { task ->
-                    if (!task.isSuccessful) task.exception?.let { throw it }
-                    fileRef.downloadUrl
-                }
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        val trackId = database.push().key ?: UUID.randomUUID().toString()
-                        val newTrack = Track(trackId, task.result.toString(), fileName)
-                        database.child(trackId).setValue(newTrack)
-                    }
-                    _isUploading.value = false
-                }
-        }
-    }
-
+    /**
+     * Вспомогательный метод для получения имени файла.
+     */
     private fun getFileName(context: Context, uri: Uri): String? {
         var result: String? = null
         if (uri.scheme == "content") {
@@ -170,15 +155,21 @@ class PlaylistViewModel(
         return result ?: uri.path?.substringAfterLast('/')
     }
 
+    /**
+     * Удаление трека из Firebase.
+     */
     fun deleteTrack(track: Track) {
         database.child(track.id).removeValue()
         try {
             FirebaseStorage.getInstance().getReferenceFromUrl(track.url).delete()
         } catch (e: Exception) {
-            Log.e("PlaylistViewModel", "Error deleting file", e)
+            Log.e("PlaylistViewModel", "Error deleting file from storage", e)
         }
     }
 
+    /**
+     * Удаление трека с VPS.
+     */
     fun deleteLocalTrack(id: String, token: String?) {
         viewModelScope.launch {
             repository.deleteTrack(id, token)

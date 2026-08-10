@@ -37,6 +37,7 @@
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Gym"
+            android:launchMode="singleTop"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden">
