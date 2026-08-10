@@ -1,7 +1,6 @@
 package com.business.gym.ui.screen
 
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
@@ -11,12 +10,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.business.gym.R
 import kotlinx.coroutines.delay
+import coil.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * Экран заставки (Splash Screen), который видит пользователь при запуске.
@@ -59,8 +59,8 @@ fun SplashScreen(onFinished: () -> Unit) {
             verticalArrangement = Arrangement.Center
         ) {
             // Логотип с анимацией масштаба
-            Image(
-                painter = painterResource(id = R.mipmap.ic_launcher_background),
+            AsyncImage(
+                model = R.mipmap.ic_launcher_background,
                 contentDescription = "Logo",
                 modifier = Modifier
                     .size(180.dp)

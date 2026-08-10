@@ -91,4 +91,13 @@ class ChatRepository(
             false
         }
     }
+
+    suspend fun getUnreadCount(): Map<String, Int> {
+        return try {
+            apiService.getUnreadCount()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get unread count", e)
+            emptyMap()
+        }
+    }
 }

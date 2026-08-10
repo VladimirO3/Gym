@@ -89,7 +89,19 @@ data class CartItemResponse(
     @SerializedName("quantity") val quantity: Int,
     @SerializedName("name") val name: String,
     @SerializedName("price") val price: String,
-    @SerializedName("description") val description: String
+    @SerializedName("description") val description: String,
+    @SerializedName("image_url") val imageUrl: String = ""
+)
+
+/**
+ * Модели для магазина.
+ */
+data class ProductResponse(
+    @SerializedName("id") val id: Int,
+    @SerializedName("name") val name: String,
+    @SerializedName("price") val price: String,
+    @SerializedName("description") val description: String,
+    @SerializedName("image_url") val imageUrl: String
 )
 
 /**
@@ -104,6 +116,39 @@ interface NewsApiService {
         @Field("email") email: String,
         @Field("password") pass: String
     ): LoginResponse
+
+    // --- МАГАЗИН ---
+    @GET("shop/products")
+    suspend fun getProducts(): List<ProductResponse>
+
+    @Multipart
+    @POST("admin/shop/products")
+    suspend fun addProduct(
+        @Part("name") name: RequestBody,
+        @Part("price") price: RequestBody,
+        @Part("description") description: RequestBody,
+        @Part file: MultipartBody.Part
+    ): okhttp3.ResponseBody
+
+    @Multipart
+    @POST("admin/shop/products/{id}")
+    suspend fun updateProduct(
+        @Path("id") id: Int,
+        @Part("name") name: RequestBody,
+        @Part("price") price: RequestBody,
+        @Part("description") description: RequestBody,
+        @Part file: MultipartBody.Part? = null
+    ): okhttp3.ResponseBody
+
+    @DELETE("admin/shop/products/{id}")
+    suspend fun deleteProduct(
+        @Path("id") id: Int
+    ): okhttp3.ResponseBody
+
+    @DELETE("admin/shop/products/{id}/photo")
+    suspend fun deleteProductPhoto(
+        @Path("id") id: Int
+    ): okhttp3.ResponseBody
 
     // --- КОРЗИНА ---
     @GET("cart")

@@ -13,6 +13,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -121,39 +125,13 @@ fun VideoPlayer(
     }
     
     Box(modifier = modifier.background(Color.Black)) {
-        androidx.compose.ui.viewinterop.AndroidView(
-            factory = {
-                PlayerView(context).apply {
-                    player = activePlayer
-                    useController = isFullMode || !autoPlay
-                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
-                }
-            },
-            update = {
-                it.player = activePlayer
-                it.useController = isFullMode || !autoPlay
-            },
-            modifier = Modifier.matchParentSize()
+        VideoPlayerContent(
+            activePlayer = activePlayer,
+            useController = isFullMode || !autoPlay,
+            isLoading = isLoading,
+            errorMessage = errorMessage,
+            onFullScreenClick = { isFullMode = true }
         )
-
-        // Индикатор загрузки
-        if (isLoading && errorMessage == null) {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center).size(40.dp),
-                color = Color.Red
-            )
-        }
-
-        // Сообщение об ошибке
-        if (errorMessage != null) {
-            Text(
-                text = errorMessage!!,
-                color = Color.White,
-                modifier = Modifier.align(Alignment.Center).padding(16.dp),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
 
         if (!isFullMode && autoPlay && muted) {
             IconButton(
@@ -175,11 +153,114 @@ fun VideoPlayer(
         }
     }
 
+    // Полноэкранный режим через диалог
+    if (isFullMode && (autoPlay || !muted)) { // Условие для активации "настоящего" фулскрина
+        Dialog(
+            onDismissRequest = { isFullMode = false },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false,
+                usePlatformDefaultWidth = false
+            )
+        ) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                VideoPlayerContent(
+                    activePlayer = activePlayer,
+                    useController = true,
+                    isLoading = isLoading,
+                    errorMessage = errorMessage,
+                    onFullScreenClick = { isFullMode = false } // В диалоге кнопка закрывает его
+                )
+                // Кнопка закрытия в полноэкранном режиме
+                IconButton(
+                    onClick = { isFullMode = false },
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(16.dp),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.Black.copy(alpha = 0.5f),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close Full Screen")
+                }
+            }
+        }
+    }
+
     // Очистка только если мы создали плеер сами
     if (exoPlayer == null) {
         DisposableEffect(Unit) {
             onDispose {
                 internalPlayer.release()
+            }
+        }
+    }
+}
+
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@Composable
+private fun VideoPlayerContent(
+    activePlayer: ExoPlayer,
+    useController: Boolean,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onFullScreenClick: () -> Unit
+) {
+    val context = LocalContext.current
+    Box(modifier = Modifier.fillMaxSize()) {
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = {
+                PlayerView(context).apply {
+                    player = activePlayer
+                    this.useController = useController
+                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+                    setShowNextButton(false)
+                    setShowPreviousButton(false)
+                    controllerHideOnTouch = true
+                    controllerShowTimeoutMs = 3000
+                }
+            },
+            update = {
+                it.player = activePlayer
+                it.useController = useController
+                it.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            },
+            modifier = Modifier.matchParentSize()
+        )
+
+        // Индикатор загрузки
+        if (isLoading && errorMessage == null) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center).size(40.dp),
+                color = Color.Red
+            )
+        }
+
+        // Сообщение об ошибке
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage,
+                color = Color.White,
+                modifier = Modifier.align(Alignment.Center).padding(16.dp),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        // Кнопка развертывания (если контроллер не активен или мы в мини-режиме)
+        if (!useController) {
+            IconButton(
+                onClick = onFullScreenClick,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = Color.Black.copy(alpha = 0.3f),
+                    contentColor = Color.White
+                )
+            ) {
+                Icon(Icons.Default.Fullscreen, contentDescription = "Full Screen")
             }
         }
     }

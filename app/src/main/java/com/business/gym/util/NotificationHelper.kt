@@ -10,6 +10,9 @@ import androidx.core.app.NotificationManagerCompat
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import android.app.PendingIntent
+import android.content.Intent
+import com.business.gym.MainActivity
 
 /**
  * Помощник для отображения системных уведомлений в шторке.
@@ -22,7 +25,7 @@ object NotificationHelper {
     /**
      * Показывает уведомление.
      */
-    fun showNotification(context: Context, title: String, message: String) {
+    fun showNotification(context: Context, title: String, message: String, senderId: String? = null) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Создание канала (для Android 8.0+)
@@ -39,6 +42,20 @@ object NotificationHelper {
             return
         }
 
+        // Создаем Intent для открытия MainActivity при нажатии
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("navigate_to", "chat")
+            putExtra("sender_id", senderId)
+        }
+        
+        val pendingIntent = PendingIntent.getActivity(
+            context, 
+            senderId?.hashCode() ?: 0, 
+            intent, 
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         // Сборка уведомления
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher_background)
@@ -46,9 +63,10 @@ object NotificationHelper {
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
             .build()
 
         // Отображение
-        NotificationManagerCompat.from(context).notify(System.currentTimeMillis().toInt(), notification)
+        NotificationManagerCompat.from(context).notify(senderId?.hashCode() ?: 1, notification)
     }
 }

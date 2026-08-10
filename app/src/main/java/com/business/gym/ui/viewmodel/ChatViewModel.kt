@@ -1,6 +1,7 @@
 package com.business.gym.ui.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
@@ -75,9 +76,57 @@ class ChatViewModel(
      */
     private var messagesJob: kotlinx.coroutines.Job? = null
     private var pollingJob: kotlinx.coroutines.Job? = null
+    private var globalPollingJob: kotlinx.coroutines.Job? = null
+    
+    // Множество ID пользователей, о которых мы уже уведомляли в текущем сеансе
+    private val notifiedSenderIds = mutableSetOf<String>()
+
+    /**
+     * Запускает глобальный опрос непрочитанных сообщений для уведомлений.
+     */
+    fun startGlobalNotificationPolling(token: String?) {
+        if (token == null || token == "guest_token") return
+        
+        globalPollingJob?.cancel()
+        globalPollingJob = viewModelScope.launch {
+            while (isActive) {
+                try {
+                    val unreadMap = repository.getUnreadCount()
+                    if (unreadMap.isNotEmpty()) {
+                        unreadMap.forEach { (senderId, count) ->
+                            // Уведомляем только если:
+                            // 1. Есть новые сообщения
+                            // 2. Чат с этим пользователем сейчас НЕ открыт
+                            // 3. Мы еще НЕ уведомляли об этом пользователе в текущем запуске
+                            if (count > 0 && senderId != _selectedUser.value?.uid && !notifiedSenderIds.contains(senderId)) {
+                                // Находим имя отправителя
+                                val senderName = _users.value.find { it.uid == senderId }?.name ?: "Новое сообщение"
+                                NotificationHelper.showNotification(
+                                    getApplication(),
+                                    senderName,
+                                    "У вас $count новых сообщений",
+                                    senderId
+                                )
+                                notifiedSenderIds.add(senderId)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "Global polling failed", e)
+                }
+                delay(10000) // Опрос раз в 10 секунд
+            }
+        }
+    }
+
+    // Сброс уведомления при ручном выборе чата
+    fun clearNotificationFlag(senderId: String) {
+        notifiedSenderIds.remove(senderId)
+    }
 
     fun selectUser(user: UserProfile?, currentUid: String, token: String?) {
         _selectedUser.value = user
+        user?.let { notifiedSenderIds.add(it.uid) } // Если открыли чат, больше не уведомляем
         stopPolling()
         stopMessagesObservation()
         

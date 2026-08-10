@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.ui.platform.LocalConfiguration
+import kotlinx.coroutines.delay
 
 @Composable
 fun PlaylistScreen(
@@ -67,6 +68,42 @@ fun PlaylistScreen(
     
     var currentTrack by remember { mutableStateOf<Track?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
+    
+    // Плеер: состояние прогресса
+    var currentPosition by remember { mutableLongStateOf(0L) }
+    var trackDuration by remember { mutableLongStateOf(0L) }
+    var isShuffleMode by remember { mutableStateOf(exoPlayer.shuffleModeEnabled) }
+
+    // Обновление прогресса воспроизведения
+    LaunchedEffect(isPlaying) {
+        while (isPlaying) {
+            currentPosition = exoPlayer.currentPosition
+            trackDuration = exoPlayer.duration.coerceAtLeast(0L)
+            delay(500)
+        }
+    }
+
+    // Helper: форматирование времени
+    fun formatTime(ms: Long): String {
+        val totalSeconds = ms / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return "%02d:%02d".format(minutes, seconds)
+    }
+
+    // Функция для запуска всего плейлиста
+    fun playPlaylist(startIndex: Int, allTracks: List<Track>) {
+        exoPlayer.stop()
+        exoPlayer.clearMediaItems()
+        
+        val mediaItems = allTracks.map { MediaItem.fromUri(it.url) }
+        exoPlayer.addMediaItems(mediaItems)
+        exoPlayer.seekTo(startIndex, 0L)
+        exoPlayer.prepare()
+        exoPlayer.play()
+        
+        currentTrack = allTracks[startIndex]
+    }
 
     // Лаунчер для выбора аудио
     val launcher = rememberLauncherForActivityResult(
@@ -124,14 +161,18 @@ fun PlaylistScreen(
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 if (mediaItem != null) {
                     val url = mediaItem.localConfiguration?.uri?.toString() ?: ""
-                    val allTracks = tracks + localTracks.map { 
+                    val allTracksList = tracks + localTracks.map { 
                         val fullUrl = NewsApiService.getFullUrl(context, it.url)
                         Track(id = it.id.toString(), url = fullUrl, name = it.name)
                     }
-                    currentTrack = allTracks.find { it.url == url } ?: Track(id = "sync", url = url, name = "Playing...")
+                    currentTrack = allTracksList.find { it.url == url } ?: Track(id = "sync", url = url, name = "Playing...")
                 } else {
                     currentTrack = null
                 }
+            }
+
+            override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+                isShuffleMode = shuffleModeEnabled
             }
         }
         exoPlayer.addListener(listener)
@@ -189,7 +230,13 @@ fun PlaylistScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(tracks) { track ->
+                val allTracksList = tracks + localTracks.map { 
+                    val fullUrl = NewsApiService.getFullUrl(context, it.url)
+                    Track(id = it.id.toString(), url = fullUrl, name = it.name)
+                }
+
+                items(tracks.indices.toList()) { index ->
+                    val track = tracks[index]
                     val isThisTrackSelected = currentTrack?.url == track.url
                     TrackItem(
                         track = track,
@@ -199,10 +246,7 @@ fun PlaylistScreen(
                         onDelete = { viewModel.deleteTrack(track) },
                         onPlayPause = {
                             if (!isThisTrackSelected) {
-                                currentTrack = track
-                                exoPlayer.setMediaItem(MediaItem.fromUri(track.url))
-                                exoPlayer.prepare()
-                                exoPlayer.play()
+                                playPlaylist(index, allTracksList)
                             } else {
                                 if (isPlaying) exoPlayer.pause() else exoPlayer.play()
                             }
@@ -224,7 +268,8 @@ fun PlaylistScreen(
                             modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                         )
                     }
-                    items(localTracks) { localTrack ->
+                    items(localTracks.indices.toList()) { index ->
+                        val localTrack = localTracks[index]
                         val fullUrl = NewsApiService.getFullUrl(context, localTrack.url)
                         val isThisTrackSelected = currentTrack?.url == fullUrl
                         TrackItem(
@@ -235,10 +280,8 @@ fun PlaylistScreen(
                             onDelete = { viewModel.deleteLocalTrack(localTrack.id.toString(), jwtToken) },
                             onPlayPause = {
                                 if (!isThisTrackSelected) {
-                                    currentTrack = Track(id = localTrack.id.toString(), url = fullUrl, name = localTrack.name)
-                                    exoPlayer.setMediaItem(MediaItem.fromUri(fullUrl))
-                                    exoPlayer.prepare()
-                                    exoPlayer.play()
+                                    // Индекс в общем списке = размер облачных + индекс в локальных
+                                    playPlaylist(tracks.size + index, allTracksList)
                                 } else {
                                     if (isPlaying) exoPlayer.pause() else exoPlayer.play()
                                 }
@@ -258,7 +301,7 @@ fun PlaylistScreen(
             Card(
                 modifier = topRowModifier.padding(vertical = 8.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                     contentColor = MaterialTheme.colorScheme.onSurface
                 ),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color.Red)
@@ -267,32 +310,87 @@ fun PlaylistScreen(
                     Text(
                         text = currentTrack?.name ?: "",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = Color.Red,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Скролл (Slider) и Время
+                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Slider(
+                            value = currentPosition.toFloat(),
+                            onValueChange = { 
+                                currentPosition = it.toLong()
+                                exoPlayer.seekTo(it.toLong())
+                            },
+                            valueRange = 0f..(if (trackDuration > 0) trackDuration.toFloat() else 1f),
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color.Red,
+                                activeTrackColor = Color.Red,
+                                inactiveTrackColor = Color.Gray
+                            )
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(formatTime(currentPosition), style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                            Text(formatTime(trackDuration), style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        }
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Кнопка перемешивания
+                        IconButton(onClick = { 
+                            exoPlayer.shuffleModeEnabled = !isShuffleMode 
+                        }) {
+                            Icon(
+                                Icons.Default.Shuffle, 
+                                contentDescription = "Shuffle", 
+                                tint = if (isShuffleMode) Color.Red else Color.Gray
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { exoPlayer.seekToPrevious() }) {
+                                Icon(Icons.Default.SkipPrevious, null, tint = Color.White)
+                            }
+                            
+                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            IconButton(
+                                onClick = { if (isPlaying) exoPlayer.pause() else exoPlayer.play() },
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    containerColor = Color.Red,
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier.size(56.dp)
+                            ) {
+                                Icon(
+                                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, 
+                                    null,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            IconButton(onClick = { exoPlayer.seekToNext() }) {
+                                Icon(Icons.Default.SkipNext, null, tint = Color.White)
+                            }
+                        }
+
                         IconButton(onClick = {
                             exoPlayer.stop()
                             exoPlayer.clearMediaItems()
                             currentTrack = null
                         }) {
-                            Icon(Icons.Default.Stop, contentDescription = null, tint = Color.Red)
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        IconButton(
-                            onClick = { if (isPlaying) exoPlayer.pause() else exoPlayer.play() },
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.Red,
-                                contentColor = Color.White
-                            )
-                        ) {
-                            Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null)
+                            Icon(Icons.Default.Stop, contentDescription = null, tint = Color.Gray)
                         }
                     }
                 }

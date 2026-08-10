@@ -37,7 +37,7 @@ class CartViewModel : ViewModel() {
                 val response = api.getCart()
                 _cartItems.value = response.map {
                     Pair(
-                        ProductPlaceholder(it.productId, it.name, it.price, it.description),
+                        ProductPlaceholder(it.productId, it.name, it.price, it.description, it.imageUrl),
                         it.quantity
                     )
                 }

@@ -53,7 +53,11 @@ fun GymNavGraph(
             }
         }
         composable(Screen.Settings.route) {
-            SettingsScreen(currentUserEmail = currentUserEmail, onLogout = onLogout)
+            SettingsScreen(
+                currentUserEmail = currentUserEmail, 
+                onLogout = onLogout,
+                onGoToCart = {}
+            )
         }
         composable(Screen.About.route) {
             AboutScreen(isAdmin = isAdmin)

@@ -215,7 +215,13 @@ fun ConversationScreen(
         }
     }
 
-    Column(modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .imePadding() // Отступ для клавиатуры
+            .padding(horizontal = 16.dp)
+            .padding(top = 8.dp, bottom = 0.dp) // Убрал нижний отступ совсем
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -254,12 +260,10 @@ fun ConversationScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
         Surface(
             color = Color.Black.copy(alpha = 0.5f),
             shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp), // Небольшой отступ внутри, чтобы не липло к самому краю
             border = BorderStroke(1.dp, Color.DarkGray)
         ) {
             Row(

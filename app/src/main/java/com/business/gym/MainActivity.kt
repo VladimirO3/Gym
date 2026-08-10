@@ -75,6 +75,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
+        handleIntent(intent)
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -107,6 +109,9 @@ class MainActivity : AppCompatActivity() {
                 factory = SettingsViewModel.Factory(application)
             )
             val cartViewModel: CartViewModel = viewModel()
+            val chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel = viewModel(
+                factory = com.business.gym.ui.viewmodel.ChatViewModel.Factory(application)
+            )
             
             // Загружаем сессию и настройки СРАЗУ при запуске, не дожидаясь окончания Splash
             LaunchedEffect(Unit) {
@@ -123,8 +128,9 @@ class MainActivity : AppCompatActivity() {
 
             LaunchedEffect(jwtToken) {
                 cartViewModel.init(context, jwtToken)
+                chatViewModel.startGlobalNotificationPolling(jwtToken)
             }
-            
+
             if (showSplash) {
                 SplashScreen(onFinished = { showSplash = false })
             } else if (showExit) {
@@ -144,11 +150,28 @@ class MainActivity : AppCompatActivity() {
                         authViewModel = authViewModel, 
                         settingsViewModel = settingsViewModel, 
                         cartViewModel = cartViewModel,
+                        chatViewModel = chatViewModel,
+                        navigationRequest = navigationRequest,
                         onExitRequest = { showExit = true },
                         isDarkTheme = useDarkTheme
                     )
                 }
             }
+        }
+    }
+
+    private val navigationRequest = mutableStateOf<Pair<String, String?>?>(null)
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: android.content.Intent?) {
+        val navigateTo = intent?.getStringExtra("navigate_to")
+        val senderId = intent?.getStringExtra("sender_id")
+        if (navigateTo != null) {
+            navigationRequest.value = navigateTo to senderId
         }
     }
 
@@ -167,6 +190,8 @@ fun GymApp(
     authViewModel: AuthViewModel,
     settingsViewModel: SettingsViewModel,
     cartViewModel: CartViewModel,
+    chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel,
+    navigationRequest: State<Pair<String, String?>?>,
     onExitRequest: () -> Unit,
     isDarkTheme: Boolean
 ) {
@@ -192,6 +217,8 @@ fun GymApp(
         onExitRequest = onExitRequest,
         settingsViewModel = settingsViewModel,
         cartViewModel = cartViewModel,
+        chatViewModel = chatViewModel,
+        navigationRequest = navigationRequest,
         isDarkTheme = isDarkTheme,
         authViewModel = authViewModel
     )
@@ -214,6 +241,8 @@ fun GymAppContent(
     onExitRequest: () -> Unit,
     settingsViewModel: SettingsViewModel,
     cartViewModel: CartViewModel,
+    chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel,
+    navigationRequest: State<Pair<String, String?>?>,
     isDarkTheme: Boolean,
     authViewModel: AuthViewModel
 ) {
@@ -222,22 +251,44 @@ fun GymAppContent(
     val isGuest = authViewModel.isGuest.value
     
     // Список вкладок (Заголовок, Иконка, Ключ)
-    val tabs = mutableListOf<GymTab>()
-    tabs.add(GymTab(stringResource(R.string.tab_news), Icons.Default.Newspaper, "news"))
-    tabs.add(GymTab(stringResource(R.string.tab_playlist), Icons.Default.PlayArrow, "playlist"))
-    
-    if (!isGuest) {
-        tabs.add(GymTab(stringResource(R.string.tab_chat), Icons.AutoMirrored.Filled.Send, "chat"))
-        tabs.add(GymTab(stringResource(R.string.tab_shop), Icons.Default.ShoppingCart, "cart"))
+    val tabs = remember(isGuest) {
+        val list = mutableListOf<GymTab>()
+        list.add(GymTab("Новости", Icons.Default.Newspaper, "news"))
+        list.add(GymTab("Музыка", Icons.Default.PlayArrow, "playlist"))
+        if (!isGuest) {
+            list.add(GymTab("Чат", Icons.AutoMirrored.Filled.Send, "chat"))
+        }
+        list.add(GymTab("Профиль", Icons.Default.AccountCircle, "settings"))
+        list.add(GymTab("Магазин", Icons.Default.Store, "shop"))
+        list.add(GymTab("Оферта", Icons.Default.Gavel, "privacy"))
+        list.add(GymTab("О приложении", Icons.Default.Add, "about"))
+        list
     }
-    
-    tabs.add(GymTab(stringResource(R.string.tab_settings), Icons.Default.AccountCircle, "settings"))
-    tabs.add(GymTab(stringResource(R.string.tab_shop), Icons.Default.Store, "shop"))
-    tabs.add(GymTab(stringResource(R.string.tab_privacy), Icons.Default.Gavel, "privacy"))
-    tabs.add(GymTab(stringResource(R.string.tab_about), Icons.Default.Add, "about"))
 
     // Состояние пайджера для свайпов
     val pagerState = rememberPagerState(pageCount = { tabs.size })
+
+    // Обработка перехода из уведомлений
+    val jwtToken by authViewModel.jwtToken
+    LaunchedEffect(navigationRequest.value, tabs) {
+        navigationRequest.value?.let { (screen, id) ->
+            if (screen == "chat") {
+                val chatIndex = tabs.indexOfFirst { it.key == "chat" }
+                if (chatIndex != -1) {
+                    pagerState.scrollToPage(chatIndex)
+                    if (id != null) {
+                        val user = chatViewModel.users.value.find { it.uid == id }
+                        if (user != null) {
+                            chatViewModel.selectUser(user, currentUid, jwtToken)
+                        }
+                    }
+                }
+            }
+            // Сбрасываем запрос через ViewModel или напрямую если это возможно. 
+            // В MainActivity это mutableStateOf, мы можем обновить его если передали как MutableState
+            (navigationRequest as? MutableState<Pair<String, String?>?>)?.value = null
+        }
+    }
     var showAuthOverlay by rememberSaveable { mutableStateOf(false) }
     
     val configuration = LocalConfiguration.current
@@ -444,21 +495,23 @@ fun GymAppContent(
                                             ChatScreen(currentUid = currentUid, isAdmin = isAdmin)
                                         }
                                     }
-                                    "cart" -> CartScreen(cartViewModel = cartViewModel)
                                     "settings" -> SettingsScreen(
                                         currentUserEmail = currentUserEmail, 
                                         onLogout = onSignOut,
                                         viewModel = settingsViewModel,
-                                        authViewModel = authViewModel
+                                        authViewModel = authViewModel,
+                                        onGoToCart = {
+                                            val shopIndex = tabs.indexOfFirst { it.key == "shop" }
+                                            if (shopIndex != -1) {
+                                                coroutineScope.launch { pagerState.animateScrollToPage(shopIndex) }
+                                            }
+                                        }
                                     )
                                     "shop" -> ShopScreen(
                                         isAdmin = isAdmin,
                                         cartViewModel = cartViewModel,
                                         onGoToCart = {
-                                            val cartIndex = tabs.indexOfFirst { it.key == "cart" }
-                                            if (cartIndex != -1) {
-                                                coroutineScope.launch { pagerState.animateScrollToPage(cartIndex) }
-                                            }
+                                            // onGoToCart now handled internally in ShopScreen or just navigation
                                         }
                                     )
                                     "privacy" -> {
@@ -504,6 +557,8 @@ fun GymAppPreview() {
     val settingsViewModel: SettingsViewModel = viewModel()
     val authViewModel: AuthViewModel = viewModel()
     val cartViewModel: CartViewModel = viewModel()
+    val chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel = viewModel()
+    val navReq = remember { mutableStateOf<Pair<String, String?>?>(null) }
     GymTheme {
         GymAppContent(
             currentUserEmail = "test@example.com",
@@ -515,6 +570,8 @@ fun GymAppPreview() {
             onExitRequest = {},
             settingsViewModel = settingsViewModel,
             cartViewModel = cartViewModel,
+            chatViewModel = chatViewModel,
+            navigationRequest = navReq,
             isDarkTheme = true,
             authViewModel = authViewModel
         )

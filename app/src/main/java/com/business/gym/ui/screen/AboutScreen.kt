@@ -2,7 +2,6 @@ package com.business.gym.ui.screen
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -27,6 +25,8 @@ import com.business.gym.R
 import com.business.gym.ui.viewmodel.AboutViewModel
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 
 @Composable
 fun AboutScreen(
@@ -184,15 +184,21 @@ fun AboutScreen(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
         ) {
             Column {
-                Image(
-                    painter = painterResource(id = R.drawable.price),
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(R.drawable.price)
+                        .crossfade(true)
+                        .build(),
                     contentDescription = "Price List 1",
                     modifier = Modifier.fillMaxWidth(),
                     contentScale = ContentScale.FillWidth
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Image(
-                    painter = painterResource(id = R.drawable.price2),
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(R.drawable.price2)
+                        .crossfade(true)
+                        .build(),
                     contentDescription = "Price List 2",
                     modifier = Modifier.fillMaxWidth(),
                     contentScale = ContentScale.FillWidth

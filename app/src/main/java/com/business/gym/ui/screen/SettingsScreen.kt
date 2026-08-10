@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +40,7 @@ import com.business.gym.data.api.NewsApiService
 fun SettingsScreen(
     currentUserEmail: String?,
     onLogout: () -> Unit,
+    onGoToCart: () -> Unit,
     viewModel: SettingsViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel(),
     modifier: Modifier = Modifier
@@ -109,29 +111,24 @@ fun SettingsScreen(
 
         if (canEditProfile) {
             // Блок профиля
-            Row(
+            Text(
+                text = "Профиль",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.Red,
                 modifier = contentModifier,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Профиль",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.Red
-                )
-                if (!isEditMode && userName.isNotBlank()) {
-                    TextButton(onClick = { isEditMode = true }) {
-                        Text("Редактировать", color = Color.Gray, fontSize = 12.sp)
-                    }
-                }
-            }
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            
             Spacer(modifier = Modifier.height(8.dp))
             
             Card(
                 modifier = contentModifier,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
             ) {
-                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp), 
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     // Аватар (всегда отображаем, кликабелен только в режиме редактирования)
                     Box(
                         modifier = Modifier
@@ -175,14 +172,39 @@ fun SettingsScreen(
                             text = userName,
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
                         )
                         if (userAge != null) {
                             Text(
                                 text = "Возраст: $userAge",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray
+                                color = Color.Gray,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
                             )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // Кнопка Редактировать ТЕПЕРЬ НИЖЕ имени и возраста
+                        TextButton(onClick = { isEditMode = true }) {
+                            Text("Редактировать", color = Color.Gray, fontSize = 12.sp)
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Кнопка перехода в корзину из профиля
+                        Button(
+                            onClick = onGoToCart,
+                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.ShoppingCart, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Моя корзина", color = Color.White, fontSize = 12.sp)
                         }
                     } else {
                         // РЕЖИМ РЕДАКТИРОВАНИЯ
@@ -245,12 +267,13 @@ fun SettingsScreen(
         Text(
             text = stringResource(R.string.settings_theme_mode), 
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = contentModifier
+            color = Color.Red,
+            modifier = contentModifier,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
         Spacer(modifier = Modifier.height(8.dp))
         
-        Column(modifier = contentModifier) {
+        Column(modifier = contentModifier, horizontalAlignment = Alignment.Start) {
             ThemeOption("light", themeMode, stringResource(R.string.theme_light)) { viewModel.setThemeMode(context, currentUserEmail, it) }
             ThemeOption("dark", themeMode, stringResource(R.string.theme_dark)) { viewModel.setThemeMode(context, currentUserEmail, it) }
             ThemeOption("system", themeMode, stringResource(R.string.theme_system)) { viewModel.setThemeMode(context, currentUserEmail, it) }
@@ -261,19 +284,21 @@ fun SettingsScreen(
         Text(
             text = stringResource(R.string.settings_language), 
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = contentModifier
+            color = Color.Red,
+            modifier = contentModifier,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
         Spacer(modifier = Modifier.height(8.dp))
         
         val currentLocale = if (AppCompatDelegate.getApplicationLocales().isEmpty) "system" 
                            else AppCompatDelegate.getApplicationLocales().get(0)?.language ?: "system"
         
-        Column(modifier = contentModifier) {
+        Column(modifier = contentModifier, horizontalAlignment = Alignment.Start) {
             LanguageOption("system", currentLocale, stringResource(R.string.language_system)) { viewModel.setLanguage(context, currentUserEmail, it) }
             LanguageOption("en", currentLocale, stringResource(R.string.language_english)) { viewModel.setLanguage(context, currentUserEmail, it) }
             LanguageOption("ru", currentLocale, stringResource(R.string.language_russian)) { viewModel.setLanguage(context, currentUserEmail, it) }
         }
+
 
         // Кнопка Выйти (теперь видна всем)
         if (currentUserEmail != null) {
@@ -293,10 +318,11 @@ fun SettingsScreen(
         if (isAdmin) {
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "Pending Approvals (Admin)", 
+                text = "Заявки на регистрацию (Admin)", 
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.Red,
-                modifier = contentModifier
+                modifier = contentModifier,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             
             val pendingUsers by authViewModel.pendingUsers
