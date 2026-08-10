@@ -290,6 +290,9 @@ interface NewsApiService {
         @Field("age") age: Int?
     ): okhttp3.ResponseBody
 
+    @GET("auth/status")
+    suspend fun getAuthStatus(): Map<String, String>
+
     companion object {
         // Базовый адрес по умолчанию (VPS)
         private var currentBaseUrl = "http://5.35.98.149:5557/"

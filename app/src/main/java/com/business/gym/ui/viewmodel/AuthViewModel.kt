@@ -391,6 +391,72 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Поллинг статуса пользователя для уведомлений об активации или удалении.
+     */
+    private var statusJob: kotlinx.coroutines.Job? = null
+    private var lastKnownStatus: String? = null
+
+    fun startStatusPolling(context: Context) {
+        val token = _jwtToken.value
+        if (token == null || token == "guest_token") return
+
+        statusJob?.cancel()
+        statusJob = viewModelScope.launch {
+            while (true) {
+                try {
+                    val response = localApiService.getAuthStatus()
+                    val status = response["status"] // "active", "pending", "deleted"
+                    
+                    if (status != lastKnownStatus && lastKnownStatus != null) {
+                        when (status) {
+                            "active" -> if (lastKnownStatus == "pending") {
+                                com.business.gym.util.NotificationHelper.showNotification(
+                                    context,
+                                    "Аккаунт активирован",
+                                    "Добро пожаловать в GYM ABS! Ваша учетная запись одобрена."
+                                )
+                            }
+                            "deleted" -> {
+                                com.business.gym.util.NotificationHelper.showNotification(
+                                    context,
+                                    "Аккаунт удален",
+                                    "Ваша учетная запись была удалена администратором."
+                                )
+                                signOut()
+                                break
+                            }
+                        }
+                    }
+                    lastKnownStatus = status
+                } catch (e: retrofit2.HttpException) {
+                    if (e.code() == 401 || e.code() == 404) {
+                        com.business.gym.util.NotificationHelper.showNotification(
+                            context,
+                            "Ошибка авторизации",
+                            "Ваш аккаунт более не доступен."
+                        )
+                        signOut()
+                        break
+                    }
+                } catch (e: Exception) {
+                    Log.e("AuthViewModel", "Status polling error", e)
+                }
+                kotlinx.coroutines.delay(15000) // Раз в 15 секунд
+            }
+        }
+    }
+
+    fun stopStatusPolling() {
+        statusJob?.cancel()
+        statusJob = null
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopStatusPolling()
+    }
+
     fun signOut() {
         _currentUserEmail.value = null
         _jwtToken.value = null

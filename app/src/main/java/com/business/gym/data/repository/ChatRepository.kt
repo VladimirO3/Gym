@@ -102,26 +102,35 @@ class ChatRepository(
     }
 
     suspend fun deleteChatMessages(peerUid: String): Boolean {
-        return try {
-            apiService.deleteChat(peerUid)
+        var localDeleted = false
+        try {
+            // Пытаемся удалить в локальной БД сразу для мгновенного отклика UI
             chatDao.deleteMessagesForPeer(peerUid)
-            true
+            localDeleted = true
+            
+            // Затем пытаемся удалить на сервере
+            apiService.deleteChat(peerUid)
+            return true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to delete chat for peer=$peerUid", e)
-            false
+            Log.e(TAG, "Server deletion failed for peer=$peerUid, but local might be cleared", e)
+            return localDeleted
         }
     }
 
     suspend fun deleteUser(uid: String): Boolean {
-        return try {
-            apiService.deleteUser(uid)
-            // Также удаляем из локальной БД
+        var localDeleted = false
+        try {
+            // Удаляем локально
             chatDao.deleteUserByUid(uid)
             chatDao.deleteMessagesForPeer(uid)
-            true
+            localDeleted = true
+            
+            // Удаляем на сервере
+            apiService.deleteUser(uid)
+            return true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to delete user $uid", e)
-            false
+            Log.e(TAG, "Server user deletion failed for $uid", e)
+            return localDeleted
         }
     }
 }

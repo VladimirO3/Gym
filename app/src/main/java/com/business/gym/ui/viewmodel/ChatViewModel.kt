@@ -242,7 +242,7 @@ class ChatViewModel(
     /**
      * Удаление всей истории переписки с конкретным пользователем.
      */
-    fun deleteChat(peerUid: String) {
+    fun deleteChat(context: android.content.Context, peerUid: String) {
         viewModelScope.launch {
             val success = repository.deleteChatMessages(peerUid)
             if (success) {
@@ -252,6 +252,9 @@ class ChatViewModel(
                     _messages.value = emptyList()
                     stopPolling()
                 }
+                android.widget.Toast.makeText(context, "История переписки удалена", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                android.widget.Toast.makeText(context, "Ошибка при удалении истории", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -259,7 +262,7 @@ class ChatViewModel(
     /**
      * Административная функция: Удаление пользователя из системы.
      */
-    fun deleteUser(uid: String) {
+    fun deleteUser(context: android.content.Context, uid: String) {
         viewModelScope.launch {
             val success = repository.deleteUser(uid)
             if (success) {
@@ -269,6 +272,9 @@ class ChatViewModel(
                     _messages.value = emptyList()
                     stopPolling()
                 }
+                android.widget.Toast.makeText(context, "Пользователь удален", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                android.widget.Toast.makeText(context, "Ошибка при удалении пользователя", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }

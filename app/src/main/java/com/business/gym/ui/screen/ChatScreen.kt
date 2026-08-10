@@ -75,7 +75,7 @@ fun ChatScreen(
                         selectedUser = selectedUser,
                         notifiedCounts = notifiedCounts,
                         isAdmin = isAdmin,
-                        onDeleteUser = { viewModel.deleteUser(it) }
+                        onDeleteUser = { viewModel.deleteUser(context, it) }
                     )
                 }
                 VerticalDivider(color = Color.DarkGray)
@@ -89,7 +89,7 @@ fun ChatScreen(
                             onSendMessage = { 
                                 viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken, context)
                             },
-                            onDeleteChat = { viewModel.deleteChat(selectedUser!!.uid) },
+                            onDeleteChat = { viewModel.deleteChat(context, selectedUser!!.uid) },
                             showBackButton = false
                         )
                     } else {
@@ -111,7 +111,7 @@ fun ChatScreen(
                     modifier = modifier,
                     notifiedCounts = notifiedCounts,
                     isAdmin = isAdmin,
-                    onDeleteUser = { viewModel.deleteUser(it) }
+                    onDeleteUser = { viewModel.deleteUser(context, it) }
                 )
             } else {
                 ConversationScreen(
@@ -122,7 +122,7 @@ fun ChatScreen(
                     onSendMessage = { 
                         viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken, context)
                     },
-                    onDeleteChat = { viewModel.deleteChat(selectedUser!!.uid) },
+                    onDeleteChat = { viewModel.deleteChat(context, selectedUser!!.uid) },
                     modifier = modifier,
                     showBackButton = true
                 )
@@ -248,10 +248,15 @@ fun UserListScreen(
                                 }
                             }
 
-                            // Кнопка удаления для админа (нельзя удалить другого админа)
+            // Кнопка удаления для админа (нельзя удалить другого админа)
                             if (isAdmin && !isUserAdmin) {
                                 IconButton(onClick = { userToDelete = user }) {
-                                    Icon(Icons.Default.Delete, "Delete User", tint = Color.Gray.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Delete, 
+                                        contentDescription = "Delete User", 
+                                        tint = Color.Red.copy(alpha = 0.7f), 
+                                        modifier = Modifier.size(24.dp)
+                                    )
                                 }
                             }
                         }
@@ -340,7 +345,7 @@ fun ConversationScreen(
                 onClick = { showDeleteConfirm = true },
                 modifier = Modifier.align(Alignment.CenterEnd)
             ) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete Chat", tint = Color.Gray)
+                Icon(Icons.Default.Delete, contentDescription = "Delete Chat", tint = Color.Red.copy(alpha = 0.8f))
             }
         }
         

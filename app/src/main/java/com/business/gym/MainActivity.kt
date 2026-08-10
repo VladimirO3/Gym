@@ -142,6 +142,7 @@ class MainActivity : AppCompatActivity() {
             LaunchedEffect(jwtToken) {
                 cartViewModel.init(context, jwtToken)
                 chatViewModel.startGlobalNotificationPolling(jwtToken)
+                authViewModel.startStatusPolling(context)
             }
 
             if (showSplash) {
