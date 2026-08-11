@@ -21,6 +21,7 @@ retrofit = "2.11.0"
 coil = "2.7.0"
 playServicesAuth = "21.3.0"
 mockito = "5.11.0"
+desugar_jdk_libs = "2.1.4"
 
 [libraries]
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
@@ -61,6 +62,7 @@ retrofit-gson = { group = "com.squareup.retrofit2", name = "converter-gson", ver
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
+desugarlibs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

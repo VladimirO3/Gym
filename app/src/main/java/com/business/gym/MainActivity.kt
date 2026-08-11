@@ -87,7 +87,11 @@ class MainActivity : AppCompatActivity() {
             requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        firebaseAnalytics = Firebase.analytics
+        try {
+            firebaseAnalytics = Firebase.analytics
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Firebase analytics failed", e)
+        }
 
         // Создаем плеер ОДИН РАЗ на уровне Activity, чтобы музыка не прерывалась при смене экранов
         if (exoPlayer == null) {
@@ -271,7 +275,7 @@ fun GymAppContent(
     currentUid: String,
     isAdmin: Boolean,
     exoPlayer: ExoPlayer,
-    onSignOut: (suspend () -> Unit) -> Unit, // Изменил сигнатуру
+    onSignOut: (suspend () -> Unit) -> Unit,
     onSaveSession: (String) -> Unit,
     onExitRequest: () -> Unit,
     settingsViewModel: SettingsViewModel,
