@@ -72,7 +72,7 @@ fun ChatScreen(
             Row(modifier = modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(0.4f)) {
                     UserListScreen(
-                        users = viewModel.users.value.filter { it.uid != currentUid },
+                        users = viewModel.users.value, // Фильтрация "себя" уже в ViewModel
                         onUserSelected = { viewModel.selectUser(it, currentUid, jwtToken) },
                         selectedUser = selectedUser,
                         notifiedCounts = notifiedCounts,
@@ -111,7 +111,7 @@ fun ChatScreen(
             // Стандартный макет для вертикальной ориентации
             if (selectedUser == null) {
                 UserListScreen(
-                    users = viewModel.users.value.filter { it.uid != currentUid },
+                    users = viewModel.users.value, // Фильтрация "себя" уже в ViewModel
                     onUserSelected = { viewModel.selectUser(it, currentUid, jwtToken) },
                     modifier = modifier,
                     notifiedCounts = notifiedCounts,

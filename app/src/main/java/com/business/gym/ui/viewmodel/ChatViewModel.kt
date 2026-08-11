@@ -62,29 +62,30 @@ class ChatViewModel(
         viewModelScope.launch {
             repository.allUsers.collect { localUsers ->
                 // Получаем текущий email для фильтрации "себя"
-                val currentEmail = getApplication<com.business.gym.GymApplication>()
+                val sharedPref = getApplication<com.business.gym.GymApplication>()
                     .getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
-                    .getString("user_session_email", "") ?: ""
+                val currentEmail = sharedPref.getString("user_session_email", "") ?: ""
+                val currentUidFromPrefs = sharedPref.getString("user_session_uid", "") ?: ""
 
                 val profiles = localUsers
                     .filter { 
-                        val isSelf = it.email.trim().lowercase() == currentEmail.trim().lowercase()
+                        val isSelf = it.email.trim().lowercase() == currentEmail.trim().lowercase() || 
+                                   it.uid == currentUidFromPrefs
                         !isSelf && !deletedUserUids.contains(it.uid)
                     }
                     .map { UserProfile(uid = it.uid, email = it.email, name = it.name) }
                     .toMutableList()
                 
                 // Если мы не администратор, гарантируем наличие администратора в списке
-                if (!AuthViewModel.isStaticAdmin(currentEmail)) {
+                val isMeAdmin = AuthViewModel.isStaticAdmin(currentEmail)
+                if (!isMeAdmin) {
                     val adminInList = profiles.find { AuthViewModel.isStaticAdmin(it.email) }
                     if (adminInList != null) {
-                        // Если админ уже есть в списке от сервера, убеждаемся что он в начале и с красивым именем
                         profiles.remove(adminInList)
                         profiles.add(0, adminInList.copy(name = "Администратор"))
                     } else {
-                        // Если админа нет в списке от сервера, добавляем вручную
                         profiles.add(0, UserProfile(
-                            uid = "admin_static_id", // Используем фиксированный ID если админа нет в БД
+                            uid = "admin_static_id",
                             email = AuthViewModel.ADMIN_EMAIL,
                             name = "Администратор"
                         ))
