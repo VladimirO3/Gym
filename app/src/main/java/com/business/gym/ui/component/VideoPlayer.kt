@@ -12,7 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.ui.window.Dialog
@@ -240,12 +242,29 @@ private fun VideoPlayerContent(
 
         // Сообщение об ошибке
         if (errorMessage != null) {
-            Text(
-                text = errorMessage,
-                color = Color.White,
+            Column(
                 modifier = Modifier.align(Alignment.Center).padding(16.dp),
-                style = MaterialTheme.typography.bodySmall
-            )
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = errorMessage,
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        activePlayer.prepare()
+                        activePlayer.play()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                    modifier = Modifier.height(32.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                ) {
+                    Text("Повторить", fontSize = 12.sp)
+                }
+            }
         }
 
         // Кнопка развертывания (если контроллер не активен или мы в мини-режиме)

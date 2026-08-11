@@ -135,7 +135,7 @@ class MainActivity : AppCompatActivity() {
 
             // Загрузка настроек пользователя при изменении его статуса
             LaunchedEffect(currentUserEmail, currentUid) {
-                settingsViewModel.loadSettings(context, currentUserEmail, currentUserEmail)
+                settingsViewModel.loadSettings(context, currentUserEmail, currentUid)
             }
 
             // Инициализация корзины и поллинга чата при получении токена

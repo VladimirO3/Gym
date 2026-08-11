@@ -84,11 +84,13 @@ class ChatRepository(
 
     suspend fun sendMessage(token: String, receiverId: String, message: String): Boolean {
         return try {
-            apiService.sendChatMessage(receiverId, message)
+            Log.d("ChatRepository", "Sending message to $receiverId: $message")
+            val response = apiService.sendChatMessage(receiverId, message)
+            Log.d("ChatRepository", "Message sent successfully, response: $response")
             refreshMessages(token, receiverId)
             true
         } catch (e: Exception) {
-            Log.e("ChatRepository", "Failed to send message to peer=$receiverId", e)
+            Log.e("ChatRepository", "CRITICAL: Failed to send message to peer=$receiverId. Error: ${e.message}", e)
             false
         }
     }

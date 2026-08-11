@@ -168,17 +168,23 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val savedPhone = sharedPref.getString("user_session_phone", null)
         val savedToken = sharedPref.getString("user_session_token", null)
         val savedRefreshToken = sharedPref.getString("user_session_refresh_token", null)
+        val savedUid = sharedPref.getString("user_session_uid", null)
         
         if (savedToken != null) {
             _currentUserEmail.value = savedEmail
             _jwtToken.value = savedToken
             _refreshToken.value = savedRefreshToken
-            _currentUid.value = savedEmail ?: savedPhone ?: "user"
+            _currentUid.value = savedUid ?: savedEmail ?: savedPhone ?: "user"
             _isGuest.value = savedToken == "guest_token"
+            
+            // Если UID отсутствует или совпадает с email, пытаемся актуализировать его с сервера
+            if (savedUid == null && savedToken != "guest_token") {
+                fetchAndSaveProfile { /* ignore success/fail here */ }
+            }
         }
     }
 
-    fun saveSession(context: Context, email: String?, phone: String?, token: String, refreshToken: String? = null) {
+    fun saveSession(context: Context, email: String?, phone: String?, token: String, refreshToken: String? = null, uid: String? = null) {
         val sharedPref = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
         sharedPref.edit().apply {
             putString("user_session_email", email)
@@ -187,14 +193,33 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             if (refreshToken != null) {
                 putString("user_session_refresh_token", refreshToken)
             }
+            if (uid != null) {
+                putString("user_session_uid", uid)
+            }
             commit() // Используем commit для немедленной записи токенов
         }
-        Log.d("AuthViewModel", "Session saved for: $email. Token present: ${token.isNotBlank()}")
+        Log.d("AuthViewModel", "Session saved for: $email. UID: $uid")
     }
 
     fun clearSession(context: Context) {
         context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
             .edit().clear().apply()
+    }
+
+    private fun fetchAndSaveProfile(onSuccess: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val profile = localApiService.getProfile()
+                _currentUid.value = profile.uid
+                _currentUserEmail.value = profile.email
+                saveSession(getApplication(), profile.email, null, _jwtToken.value!!, _refreshToken.value, profile.uid)
+                onSuccess(profile.email)
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Failed to fetch profile after login", e)
+                // Если не удалось получить профиль, используем email как временный UID
+                onSuccess(_currentUserEmail.value ?: "")
+            }
+        }
     }
 
     fun signInWithEmail(onSuccess: (String) -> Unit) {
@@ -215,12 +240,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d("AuthViewModel", "Login successful, token received")
                 _jwtToken.value = response.token
                 _refreshToken.value = response.refreshToken
-                _currentUserEmail.value = emailValue
-                _currentUid.value = emailValue
+                
+                // Сначала сохраняем токен, чтобы последующий вызов getProfile прошел успешно
                 saveSession(getApplication(), emailValue, null, response.token, response.refreshToken)
-                saveCredentials(emailValue, passwordValue) // Сохраняем логин и пароль при успешном входе
-                _isLoading.value = false
-                onSuccess(emailValue)
+                saveCredentials(emailValue, passwordValue) 
+
+                // Получаем реальный UID и данные профиля с сервера
+                fetchAndSaveProfile { email ->
+                    _isLoading.value = false
+                    onSuccess(email)
+                }
             } catch (e: retrofit2.HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
                 Log.e("AuthViewModel", "Login HTTP error: ${e.code()} ${e.message()} Body: $errorBody")
@@ -295,17 +324,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 _jwtToken.value = response.token
                 _refreshToken.value = response.refreshToken
                 
-                _currentUserEmail.value = email
-                _currentUid.value = email ?: phone ?: "user"
                 saveSession(getApplication(), email, phone, response.token, response.refreshToken)
                 
-                // Если был введен email, сохраняем его (пароль при OTP не сохраняем)
                 if (email != null) {
                     saveCredentials(email, "")
                 }
 
-                _isLoading.value = false
-                onSuccess(email ?: phone ?: "")
+                fetchAndSaveProfile { userEmail ->
+                    _isLoading.value = false
+                    onSuccess(userEmail)
+                }
             } catch (e: Exception) {
                 val errorMessage = when (e) {
                     is java.net.ConnectException -> "Сервер недоступен (${NewsApiService.getBaseUrl()}). Проверьте IP-адрес (иконка шестеренки)."

@@ -500,17 +500,24 @@ interface NewsApiService {
             val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
             val token = sharedPref.getString("user_session_token", null)
 
+            // Настройка источника данных с увеличенными тайм-аутами для стабильной загрузки видео
             val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+                .setConnectTimeoutMs(15000)
+                .setReadTimeoutMs(15000)
+                .setAllowCrossProtocolRedirects(true)
+
             if (token != null) {
                 httpDataSourceFactory.setDefaultRequestProperties(mapOf("Authorization" to "Bearer $token"))
             }
 
+            // Использование кэша для видео
             val cacheDataSourceFactory = CacheDataSource.Factory()
                 .setCache(getCache(context))
                 .setUpstreamDataSourceFactory(httpDataSourceFactory)
                 .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
-            return DefaultMediaSourceFactory(context).setDataSourceFactory(cacheDataSourceFactory)
+            return DefaultMediaSourceFactory(context)
+                .setDataSourceFactory(cacheDataSourceFactory)
         }
 
         fun create(context: android.content.Context? = null): NewsApiService {

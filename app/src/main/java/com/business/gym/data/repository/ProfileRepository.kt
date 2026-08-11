@@ -1,6 +1,7 @@
 package com.business.gym.data.repository
 
 import android.content.Context
+import android.util.Log
 import com.business.gym.data.api.NewsApiService
 import com.business.gym.data.local.dao.DailyNoteDao
 import com.business.gym.data.local.dao.ProfileDao
@@ -27,7 +28,9 @@ class ProfileRepository(
      */
     suspend fun refreshProfileFromServer(uid: String) {
         try {
+            Log.d("ProfileRepository", "Refreshing profile from server...")
             val remote = apiService.getProfile()
+            Log.d("ProfileRepository", "Profile received: ${remote.email}, UID: ${remote.uid}")
             val entity = ProfileEntity(
                 uid = remote.uid,
                 email = remote.email,
@@ -40,7 +43,7 @@ class ProfileRepository(
             )
             profileDao.insertProfile(entity)
         } catch (e: Exception) {
-            android.util.Log.e("ProfileRepository", "Failed to refresh profile", e)
+            Log.e("ProfileRepository", "CRITICAL: Failed to refresh profile. Error: ${e.message}", e)
         }
     }
 
@@ -125,12 +128,14 @@ class ProfileRepository(
      */
     suspend fun refreshNotesFromServer(uid: String) {
         try {
+            Log.d("ProfileRepository", "Refreshing notes from server for UID: $uid")
             val remoteNotes = apiService.getNotes()
+            Log.d("ProfileRepository", "Notes received: ${remoteNotes.size}")
             remoteNotes.forEach { remote ->
                 dailyNoteDao.insertNote(DailyNoteEntity(uid = uid, date = remote.date, note = remote.note))
             }
         } catch (e: Exception) {
-            android.util.Log.e("ProfileRepository", "Failed to refresh notes", e)
+            Log.e("ProfileRepository", "CRITICAL: Failed to refresh notes. Error: ${e.message}", e)
         }
     }
 
