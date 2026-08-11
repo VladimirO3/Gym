@@ -24,6 +24,7 @@ import java.time.LocalDate
 /**
  * ViewModel для настроек и профиля пользователя.
  * Управляет личными данными, календарем заметок и планом тренировок.
+ * Обеспечивает полную синхронизацию данных с VPS сервером.
  */
 class SettingsViewModel(
     application: Application,
@@ -95,7 +96,6 @@ class SettingsViewModel(
     fun loadSettings(context: Context, currentUserEmail: String?, uid: String? = null) {
         val canUseProfile = isRegularAuthorizedUser(currentUserEmail, uid)
         currentUid = if (canUseProfile) uid else null
-        val emailKey = currentUserEmail?.replace(".", "_") ?: "guest"
         val globalPref = context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
         
         _themeMode.value = globalPref.getString("theme_mode", "system") ?: "system"
@@ -111,6 +111,12 @@ class SettingsViewModel(
         }
 
         uid?.let { id ->
+            // Принудительно запрашиваем актуальные данные профиля с VPS
+            viewModelScope.launch {
+                repository.refreshProfileFromServer(id)
+            }
+
+            // Подписка на локальный кэш профиля
             viewModelScope.launch {
                 repository.getProfile(id).collect { profile ->
                     profile?.let {
@@ -118,6 +124,9 @@ class SettingsViewModel(
                         _userName.value = it.name
                         _userAge.value = it.age
                         _avatarUrl.value = it.avatarUrl
+                        
+                        // Синхронизируем локальные настройки темы и языка, если они пришли с сервера
+                        if (it.themeMode != _themeMode.value) _themeMode.value = it.themeMode
                     } ?: run {
                         repository.saveProfile(ProfileEntity(
                             uid = id, 
@@ -130,7 +139,11 @@ class SettingsViewModel(
                 }
             }
 
-            // Загрузка заметок календаря
+            // Загрузка заметок календаря с сервера, затем подписка на локальные
+            viewModelScope.launch {
+                repository.refreshNotesFromServer(id)
+            }
+
             viewModelScope.launch {
                 repository.getAllNotes(id).collect { notes ->
                     _dailyNotes.value = notes
@@ -164,7 +177,7 @@ class SettingsViewModel(
         _isUpdatingProfile.value = true
         viewModelScope.launch {
             try {
-                NewsApiService.create(context).updateProfile(name, age)
+                // Синхронизирует и в локальной БД, и на VPS
                 repository.updateProfileInfo(currentUid!!, name, age)
                 _userName.value = name
                 _userAge.value = age
@@ -188,6 +201,10 @@ class SettingsViewModel(
                 val body = okhttp3.MultipartBody.Part.createFormData("file", "avatar.jpg", requestFile)
                 val api = NewsApiService.create(context)
                 api.uploadAvatar(body)
+                
+                // После успешной загрузки обновляем локальный профиль
+                repository.refreshProfileFromServer(currentUid!!)
+                
                 android.widget.Toast.makeText(context, "Фото загружено", android.widget.Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Log.e("SettingsViewModel", "Avatar upload failed", e)
@@ -201,6 +218,7 @@ class SettingsViewModel(
         _themeMode.value = mode
         context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
             .edit().putString("theme_mode", mode).apply()
+        
         currentUid?.let { uid ->
             viewModelScope.launch { repository.updateTheme(uid, mode) }
         }
@@ -210,6 +228,7 @@ class SettingsViewModel(
         applyLanguage(lang)
         context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
             .edit().putString("lang", lang).apply()
+            
         currentUid?.let { uid ->
             viewModelScope.launch { repository.updateLang(uid, lang) }
         }
@@ -233,7 +252,7 @@ class SettingsViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
                 val database = GymDatabase.getDatabase(application)
-                val repository = ProfileRepository(database.profileDao(), database.dailyNoteDao())
+                val repository = ProfileRepository(database.profileDao(), database.dailyNoteDao(), application)
                 @Suppress("UNCHECKED_CAST")
                 return SettingsViewModel(application, repository) as T
             }

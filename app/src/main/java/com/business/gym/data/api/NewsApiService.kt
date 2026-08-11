@@ -107,6 +107,25 @@ data class ProductResponse(
 )
 
 /**
+ * Модели для профиля и заметок.
+ */
+data class ProfileResponse(
+    val uid: String,
+    val email: String,
+    val name: String,
+    val age: Int?,
+    @SerializedName("avatar_url") val avatarUrl: String?,
+    val theme: String?,
+    val lang: String?,
+    @SerializedName("privacy_agreed") val privacyAgreed: Boolean?
+)
+
+data class DailyNoteResponse(
+    val date: String,
+    val note: String
+)
+
+/**
  * Описание запросов к вашему собственному серверу (Ktor/Node.js/Python).
  */
 interface NewsApiService {
@@ -287,6 +306,9 @@ interface NewsApiService {
     ): okhttp3.ResponseBody
 
     // --- ПРОФИЛЬ ---
+    @GET("profile")
+    suspend fun getProfile(): ProfileResponse
+
     @Multipart
     @POST("profile/avatar")
     suspend fun uploadAvatar(
@@ -297,7 +319,26 @@ interface NewsApiService {
     @POST("profile/update")
     suspend fun updateProfile(
         @Field("name") name: String,
-        @Field("age") age: Int?
+        @Field("age") age: Int?,
+        @Field("theme") theme: String? = null,
+        @Field("lang") lang: String? = null,
+        @Field("privacy_agreed") privacyAgreed: Boolean? = null
+    ): okhttp3.ResponseBody
+
+    // --- ЗАМЕТКИ (КАЛЕНДАРЬ) ---
+    @GET("profile/notes")
+    suspend fun getNotes(): List<DailyNoteResponse>
+
+    @FormUrlEncoded
+    @POST("profile/notes")
+    suspend fun saveNote(
+        @Field("date") date: String,
+        @Field("note") text: String
+    ): okhttp3.ResponseBody
+
+    @DELETE("profile/notes/{date}")
+    suspend fun deleteNote(
+        @Path("date") date: String
     ): okhttp3.ResponseBody
 
     @GET("auth/status")
