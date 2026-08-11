@@ -18,6 +18,8 @@ import com.google.firebase.Timestamp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * ViewModel для управления чатом между пользователями и администратором.
@@ -41,6 +43,8 @@ class ChatViewModel(
     // Список всех доступных собеседников
     private val _users = mutableStateOf(listOf<UserProfile>())
     val users: State<List<UserProfile>> = _users
+    
+    private var hasFetchedUsers = false
 
     // История сообщений с выбранным пользователем
     private val _messages = mutableStateOf(listOf<ChatMessage>())
@@ -172,7 +176,9 @@ class ChatViewModel(
                             senderId = it.senderId,
                             senderName = it.senderName,
                             timestamp = Timestamp(it.timestamp / 1000, 0),
-                            isRead = it.isRead
+                            isRead = it.isRead,
+                            mediaUrl = it.mediaUrl,
+                            mediaType = it.mediaType
                         )
                     }
                 }
@@ -217,9 +223,11 @@ class ChatViewModel(
     /**
      * Принудительное обновление списка пользователей с сервера.
      */
-    fun fetchLocalUsers(token: String) {
+    fun fetchLocalUsers(token: String, force: Boolean = false) {
+        if (hasFetchedUsers && !force) return
         viewModelScope.launch {
             repository.refreshUsers(token)
+            hasFetchedUsers = true
         }
     }
 
@@ -235,6 +243,32 @@ class ChatViewModel(
             val success = repository.sendMessage(token, peerUid, text)
             if (!success) {
                 android.widget.Toast.makeText(context, "Не удалось отправить сообщение. Проверьте подключение к серверу.", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    fun sendLocalMedia(peerUid: String, text: String, uri: android.net.Uri, token: String?, context: android.content.Context) {
+        if (token == null) return
+        viewModelScope.launch {
+            try {
+                val contentResolver = context.contentResolver
+                val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
+                val inputStream = contentResolver.openInputStream(uri)
+                val bytes = inputStream?.readBytes()
+                inputStream?.close()
+
+                if (bytes != null) {
+                    val mediaType = mimeType.toMediaTypeOrNull()
+                    val requestFile = bytes.toRequestBody(mediaType)
+                    val filePart = okhttp3.MultipartBody.Part.createFormData("file", "media_file", requestFile)
+                    
+                    val success = repository.sendMediaMessage(token, peerUid, text, filePart)
+                    if (!success) {
+                        android.widget.Toast.makeText(context, "Ошибка при отправке медиа", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Failed to send media", e)
             }
         }
     }

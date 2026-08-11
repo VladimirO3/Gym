@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +32,9 @@ import com.business.gym.ui.viewmodel.ChatViewModel
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
 
 import androidx.compose.ui.graphics.Color
 
@@ -89,6 +93,9 @@ fun ChatScreen(
                             onSendMessage = { 
                                 viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken, context)
                             },
+                            onSendMedia = { text, uri ->
+                                viewModel.sendLocalMedia(selectedUser!!.uid, text, uri, jwtToken, context)
+                            },
                             onDeleteChat = { viewModel.deleteChat(context, selectedUser!!.uid) },
                             showBackButton = false
                         )
@@ -121,6 +128,9 @@ fun ChatScreen(
                     onBack = { viewModel.selectUser(null, currentUid, jwtToken) },
                     onSendMessage = { 
                         viewModel.sendLocalMessage(selectedUser!!.uid, it, jwtToken, context)
+                    },
+                    onSendMedia = { text, uri ->
+                        viewModel.sendLocalMedia(selectedUser!!.uid, text, uri, jwtToken, context)
                     },
                     onDeleteChat = { viewModel.deleteChat(context, selectedUser!!.uid) },
                     modifier = modifier,
@@ -274,13 +284,23 @@ fun ConversationScreen(
     messages: List<ChatMessage>,
     onBack: () -> Unit,
     onSendMessage: (String) -> Unit,
-    onDeleteChat: () -> Unit, // Новый параметр
+    onSendMedia: (String, Uri) -> Unit, // Новый параметр
+    onDeleteChat: () -> Unit,
     modifier: Modifier = Modifier,
     showBackButton: Boolean = true
 ) {
     var text by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    
+    val context = LocalContext.current
+    
+    val mediaPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { onSendMedia(text, it) }
+        text = ""
+    }
 
     if (showDeleteConfirm) {
         AlertDialog(
@@ -372,6 +392,10 @@ fun ConversationScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
+                IconButton(onClick = { mediaPickerLauncher.launch("*/*") }) {
+                    Icon(Icons.Default.AttachFile, "Attach Media", tint = Color.Gray)
+                }
+
                 TextField(
                     value = text,
                     onValueChange = { text = it },

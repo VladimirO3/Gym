@@ -11,7 +11,9 @@ data class ChatMessageEntity(
     val senderName: String,
     val timestamp: Long,
     val peerUid: String, // Для фильтрации истории с конкретным пользователем
-    val isRead: Boolean = false
+    val isRead: Boolean = false,
+    val mediaUrl: String? = null,
+    val mediaType: String? = null
 )
 
 @Entity(tableName = "users")

@@ -49,7 +49,9 @@ data class LocalChatMessage(
     val senderId: String = "",
     val senderName: String = "",
     val timestamp: Long = 0,
-    val isRead: Boolean = false
+    val isRead: Boolean = false,
+    @SerializedName("media_url") val mediaUrl: String? = null,
+    @SerializedName("media_type") val mediaType: String? = null // "image" or "video"
 )
 
 /**
@@ -266,6 +268,14 @@ interface NewsApiService {
     suspend fun sendChatMessage(
         @Field("peerUid") receiverId: String,
         @Field("text") message: String
+    ): Map<String, String>
+
+    @Multipart
+    @POST("chat/send")
+    suspend fun sendChatMedia(
+        @Part("peerUid") receiverId: RequestBody,
+        @Part("text") message: RequestBody,
+        @Part file: MultipartBody.Part
     ): Map<String, String>
 
     @GET("chat/unread-count")

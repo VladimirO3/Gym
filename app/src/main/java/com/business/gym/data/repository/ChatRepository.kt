@@ -9,6 +9,8 @@ import com.business.gym.data.local.entity.ChatMessageEntity
 import com.business.gym.data.local.entity.UserEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class ChatRepository(
     private val chatDao: ChatDao,
@@ -50,7 +52,9 @@ class ChatRepository(
                     senderId = it.senderId, 
                     senderName = it.senderName, 
                     timestamp = it.timestamp,
-                    isRead = it.isRead
+                    isRead = it.isRead,
+                    mediaUrl = it.mediaUrl,
+                    mediaType = it.mediaType
                 ) 
             }
         }
@@ -66,7 +70,9 @@ class ChatRepository(
                     senderName = it.senderName, 
                     timestamp = it.timestamp,
                     peerUid = peerUid,
-                    isRead = it.isRead
+                    isRead = it.isRead,
+                    mediaUrl = it.mediaUrl,
+                    mediaType = it.mediaType
                 ) 
             }
             chatDao.deleteMessagesForPeer(peerUid)
@@ -81,13 +87,23 @@ class ChatRepository(
     suspend fun sendMessage(token: String, receiverId: String, message: String): Boolean {
         return try {
             apiService.sendChatMessage(receiverId, message)
-            val refreshed = refreshMessages(token, receiverId)
-            if (!refreshed) {
-                Log.w(TAG, "Message sent but refresh failed for peer=$receiverId")
-            }
+            refreshMessages(token, receiverId)
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send message to peer=$receiverId", e)
+            false
+        }
+    }
+
+    suspend fun sendMediaMessage(token: String, receiverId: String, text: String, filePart: okhttp3.MultipartBody.Part): Boolean {
+        return try {
+            val receiverIdBody = receiverId.toRequestBody("text/plain".toMediaTypeOrNull())
+            val textBody = text.toRequestBody("text/plain".toMediaTypeOrNull())
+            apiService.sendChatMedia(receiverIdBody, textBody, filePart)
+            refreshMessages(token, receiverId)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send media message to peer=$receiverId", e)
             false
         }
     }

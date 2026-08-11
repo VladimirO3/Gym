@@ -12,8 +12,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.business.gym.data.api.NewsApiService
 import com.business.gym.data.model.ChatMessage
 import com.business.gym.ui.viewmodel.AuthViewModel
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.runtime.*
 
 /**
  * Отрисовка пузырька сообщения с выравниванием и подписями.
@@ -65,12 +77,75 @@ fun MessageBubble(message: ChatMessage, isMe: Boolean) {
             color = bubbleColor,
             modifier = Modifier.widthIn(max = 280.dp)
         ) {
+            val context = LocalContext.current
+            var showFullMedia by remember { mutableStateOf(false) }
+
             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                Text(
-                    text = message.text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White
-                )
+                // Если есть медиа-файл
+                if (!message.mediaUrl.isNullOrBlank()) {
+                    val fullMediaUrl = NewsApiService.getFullUrl(context, message.mediaUrl)
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .padding(bottom = 8.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.2f))
+                            .clickable { showFullMedia = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (message.mediaType == "video") {
+                            // Превью видео (можно использовать Coil или специальный лоадер)
+                            Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(48.dp))
+                        } else {
+                            AsyncImage(
+                                model = fullMediaUrl,
+                                contentDescription = "Image",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    }
+
+                    if (showFullMedia) {
+                        Dialog(
+                            onDismissRequest = { showFullMedia = false },
+                            properties = DialogProperties(usePlatformDefaultWidth = false)
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                                if (message.mediaType == "video") {
+                                    VideoPlayer(
+                                        videoUrl = message.mediaUrl,
+                                        modifier = Modifier.fillMaxSize(),
+                                        autoPlay = true
+                                    )
+                                } else {
+                                    AsyncImage(
+                                        model = fullMediaUrl,
+                                        contentDescription = "Full Image",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { showFullMedia = false },
+                                    modifier = Modifier.align(Alignment.TopStart).padding(16.dp).background(Color.Black.copy(alpha = 0.5f), androidx.compose.foundation.shape.CircleShape)
+                                ) {
+                                    Icon(Icons.Default.Close, null, tint = Color.White)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (message.text.isNotBlank()) {
+                    Text(
+                        text = message.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White
+                    )
+                }
                 
                 // Иконка прочтения только для своих сообщений
                 if (isMe) {
