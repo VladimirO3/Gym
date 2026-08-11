@@ -27,7 +27,9 @@ class ChatRepository(
 
     suspend fun refreshUsers(token: String): Boolean {
         return try {
+            Log.d("ChatRepository", "Refreshing chat users from VPS...")
             val users = apiService.getChatUsers()
+            Log.d("ChatRepository", "Received ${users.size} users from VPS")
             val entities = users.map { 
                 UserEntity(uid = it.uid, email = it.email, name = it.name) 
             }
@@ -35,7 +37,7 @@ class ChatRepository(
             chatDao.insertUsers(entities)
             true
         } catch (e: Exception) {
-            Log.e("ChatRepository", "Failed to refresh chat users", e)
+            Log.e("ChatRepository", "CRITICAL: Failed to refresh chat users", e)
             false
         }
     }
@@ -84,13 +86,21 @@ class ChatRepository(
 
     suspend fun sendMessage(token: String, receiverId: String, message: String): Boolean {
         return try {
-            Log.d("ChatRepository", "Sending message to $receiverId: $message")
-            val response = apiService.sendChatMessage(receiverId, message)
-            Log.d("ChatRepository", "Message sent successfully, response: $response")
+            Log.d("ChatRepository", "Sending message via Multipart. peerUid: $receiverId, text: $message")
+            
+            val receiverIdBody = receiverId.toRequestBody("text/plain".toMediaTypeOrNull())
+            val textBody = message.toRequestBody("text/plain".toMediaTypeOrNull())
+            
+            val response = apiService.sendChatMessage(receiverIdBody, textBody)
+            Log.d("ChatRepository", "Message send result: $response")
             refreshMessages(token, receiverId)
             true
         } catch (e: Exception) {
-            Log.e("ChatRepository", "CRITICAL: Failed to send message to peer=$receiverId. Error: ${e.message}", e)
+            Log.e("ChatRepository", "CRITICAL ERROR: Failed to send message to peer=$receiverId", e)
+            if (e is retrofit2.HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                Log.e("ChatRepository", "HTTP Error body: $errorBody")
+            }
             false
         }
     }

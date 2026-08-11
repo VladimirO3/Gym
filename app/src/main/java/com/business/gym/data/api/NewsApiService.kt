@@ -58,7 +58,7 @@ data class LocalChatMessage(
  * Модель данных пользователя для локального чата.
  */
 data class LocalUser(
-    val uid: String = "",
+    @SerializedName("uid", alternate = ["id", "user_id"]) val uid: String = "",
     val email: String = "",
     val name: String = "",
     val age: Int? = null,
@@ -110,11 +110,11 @@ data class ProductResponse(
  * Модели для профиля и заметок.
  */
 data class ProfileResponse(
-    val uid: String,
+    @SerializedName("uid", alternate = ["id", "user_id"]) val uid: String?, 
     val email: String,
-    val name: String,
+    val name: String?,
     val age: Int?,
-    @SerializedName("avatar_url") val avatarUrl: String?,
+    @SerializedName("avatar_url", alternate = ["avatarUrl"]) val avatarUrl: String?,
     val theme: String?,
     val lang: String?,
     @SerializedName("privacy_agreed") val privacyAgreed: Boolean?
@@ -282,11 +282,11 @@ interface NewsApiService {
     ): List<LocalChatMessage>
 
     // Отправка сообщения
-    @FormUrlEncoded
+    @Multipart
     @POST("chat/send")
     suspend fun sendChatMessage(
-        @Field("peerUid") receiverId: String,
-        @Field("text") message: String
+        @Part("peerUid") receiverId: RequestBody,
+        @Part("text") message: RequestBody
     ): Map<String, String>
 
     @Multipart
@@ -329,11 +329,11 @@ interface NewsApiService {
     @GET("profile/notes")
     suspend fun getNotes(): List<DailyNoteResponse>
 
-    @FormUrlEncoded
+    @Multipart
     @POST("profile/notes")
     suspend fun saveNote(
-        @Field("date") date: String,
-        @Field("note") text: String
+        @Part("date") date: RequestBody,
+        @Part("note") text: RequestBody
     ): okhttp3.ResponseBody
 
     @DELETE("profile/notes/{date}")
@@ -406,14 +406,14 @@ interface NewsApiService {
             cachedClient?.let { return it }
 
             val dispatcher = okhttp3.Dispatcher().apply {
-                maxRequestsPerHost = 20 // Увеличиваем лимит одновременных запросов к серверу
+                maxRequestsPerHost = 20 
             }
 
             val client = okhttp3.OkHttpClient.Builder()
                 .dispatcher(dispatcher)
-                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .addInterceptor { chain ->
                     val request = chain.request()
@@ -423,11 +423,12 @@ interface NewsApiService {
                     val token = sharedPref.getString("user_session_token", null)
                     
                     // Добавляем токен для всех запросов к API, 
-                    // кроме тех, где он уже есть или если это прямой запрос к /uploads/
+                    // кроме тех, где он уже есть, если это прямой запрос к /uploads/ или если это гость
                     val isMedia = url.contains("/uploads/")
+                    val isGuestToken = token == "guest_token"
                     val hasAuth = request.header("Authorization") != null
                     
-                    val newRequest = if (!hasAuth && token != null && !isMedia) {
+                    val newRequest = if (!hasAuth && token != null && !isMedia && !isGuestToken) {
                         Log.d("NewsApiService", "Adding Authorization header to: $url")
                         request.newBuilder()
                             .header("Authorization", "Bearer $token")
@@ -437,7 +438,10 @@ interface NewsApiService {
                     }
                     
                     val response = chain.proceed(newRequest)
-                    Log.d("NewsApiService", "Request: ${request.method} ${request.url} -> Response: ${response.code}")
+                    Log.d("NewsApiService", "Request: ${request.method} ${request.url} -> Response Code: ${response.code}")
+                    if (!response.isSuccessful) {
+                        Log.e("NewsApiService", "Error body: ${response.peekBody(1024).string()}")
+                    }
                     response
                 }
                 .authenticator { _, response ->
@@ -502,10 +506,10 @@ interface NewsApiService {
             val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
             val token = sharedPref.getString("user_session_token", null)
 
-            // Настройка источника данных с увеличенными тайм-аутами для стабильной загрузки видео
+            // Настройка источника данных с максимально увеличенными тайм-аутами для видео
             val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-                .setConnectTimeoutMs(15000)
-                .setReadTimeoutMs(15000)
+                .setConnectTimeoutMs(30000)
+                .setReadTimeoutMs(30000)
                 .setAllowCrossProtocolRedirects(true)
 
             if (token != null) {

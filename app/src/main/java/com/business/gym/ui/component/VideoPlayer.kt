@@ -107,15 +107,19 @@ fun VideoPlayer(
 
     // Загрузка контента
     LaunchedEffect(fullUrl, activePlayer) {
+        if (fullUrl.isBlank()) return@LaunchedEffect
         Log.d("VideoPlayer", "Loading URL: $fullUrl")
         errorMessage = null
         try {
             val mediaItem = MediaItem.fromUri(fullUrl)
+            activePlayer.stop() // Останавливаем старое
+            activePlayer.clearMediaItems()
             activePlayer.setMediaItem(mediaItem)
             activePlayer.prepare()
             if (autoPlay) activePlayer.play()
         } catch (e: Exception) {
-            errorMessage = e.localizedMessage
+            Log.e("VideoPlayer", "Error loading video", e)
+            errorMessage = "Ошибка загрузки: ${e.localizedMessage}"
         }
     }
     

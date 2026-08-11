@@ -235,14 +235,24 @@ class ChatViewModel(
         messagesJob = null
     }
 
+    private val _error = mutableStateOf<String?>(null)
+    val error: State<String?> = _error
+
     /**
      * Принудительное обновление списка пользователей с сервера.
      */
     fun fetchLocalUsers(token: String, force: Boolean = false) {
         if (hasFetchedUsers && !force) return
+        _error.value = null
+        Log.d("ChatViewModel", "fetchLocalUsers called with token: ${token.take(8)}...")
         viewModelScope.launch {
-            repository.refreshUsers(token)
-            hasFetchedUsers = true
+            val success = repository.refreshUsers(token)
+            if (success) {
+                hasFetchedUsers = true
+            } else {
+                _error.value = "Ошибка подключения к чату"
+                Log.e("ChatViewModel", "Failed to refresh users list from VPS")
+            }
         }
     }
 

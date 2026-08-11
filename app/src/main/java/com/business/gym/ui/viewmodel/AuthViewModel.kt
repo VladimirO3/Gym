@@ -49,6 +49,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentUserEmail = mutableStateOf<String?>(null)
     val currentUserEmail: State<String?> = _currentUserEmail
 
+    // Используем не-nullable String, чтобы избежать NPE в UI
     private val _currentUid = mutableStateOf("")
     val currentUid: State<String> = _currentUid
 
@@ -160,13 +161,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val savedRefreshToken = sharedPref.getString("user_session_refresh_token", null)
         val savedUid = sharedPref.getString("user_session_uid", null)
         
+        Log.d("AuthViewModel", "Loading session. Token exists: ${savedToken != null}, Saved UID: $savedUid")
+        
         if (savedToken != null) {
             _currentUserEmail.value = savedEmail
             _jwtToken.value = savedToken
             _refreshToken.value = savedRefreshToken
+            // Fallback: UID -> Email -> Phone -> "user"
             _currentUid.value = savedUid ?: savedEmail ?: savedPhone ?: "user"
             _isGuest.value = savedToken == "guest_token"
-            if (savedUid == null && savedToken != "guest_token") fetchAndSaveProfile { /* ignore */ }
+            
+            // Пытаемся получить профиль и актуальный UID с сервера
+            if (savedUid == null && savedToken != "guest_token") {
+                fetchAndSaveProfile { /* ignore */ }
+            }
         }
     }
 
@@ -191,13 +199,25 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private fun fetchAndSaveProfile(onSuccess: (String) -> Unit) {
         viewModelScope.launch {
             try {
+                Log.d("AuthViewModel", "Fetching profile from server...")
                 val profile = localApiService.getProfile()
-                _currentUid.value = profile.uid ?: ""
-                _currentUserEmail.value = profile.email
-                saveSession(getApplication(), profile.email, null, _jwtToken.value!!, _refreshToken.value, profile.uid)
-                onSuccess(profile.email)
+                val profileUid = profile.uid
+                
+                if (profileUid != null) {
+                    Log.d("AuthViewModel", "Profile UID received: $profileUid")
+                    _currentUid.value = profileUid
+                    _currentUserEmail.value = profile.email
+                    saveSession(getApplication(), profile.email, null, _jwtToken.value!!, _refreshToken.value, profileUid)
+                    onSuccess(profile.email)
+                } else {
+                    // Если сервер прислал null UID, используем текущее значение (email/fallback) и сохраняем его
+                    val currentId = _currentUid.value
+                    Log.w("AuthViewModel", "Profile UID is null from server, keeping temporary ID: $currentId")
+                    saveSession(getApplication(), profile.email, null, _jwtToken.value!!, _refreshToken.value, currentId)
+                    onSuccess(profile.email)
+                }
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Failed to fetch profile", e)
+                Log.e("AuthViewModel", "Failed to fetch profile from VPS", e)
                 onSuccess(_currentUserEmail.value ?: "")
             }
         }
@@ -213,20 +233,26 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val passwordValue = _password.value
         viewModelScope.launch {
             try {
+                Log.d("AuthViewModel", "Signing in with email: $emailValue")
                 val response = localApiService.login(emailValue, passwordValue)
                 _jwtToken.value = response.token
                 _refreshToken.value = response.refreshToken
+                
+                // Устанавливаем данные пользователя СРАЗУ для перехода на главный экран
+                _currentUserEmail.value = emailValue
                 _currentUid.value = emailValue
+
                 saveSession(getApplication(), emailValue, null, response.token, response.refreshToken, uid = emailValue)
                 saveCredentials(emailValue, passwordValue) 
+                
                 fetchAndSaveProfile { email ->
                     _isLoading.value = false
                     onSuccess(email)
                 }
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Login error", e)
+                Log.e("AuthViewModel", "Login error: ${e.message}", e)
                 _isLoading.value = false
-                _error.value = "Ошибка входа."
+                _error.value = "Ошибка входа: ${e.localizedMessage ?: "проверьте данные"}"
             }
         }
     }
@@ -273,17 +299,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 val response = localApiService.verifyOtp(email = email, phone = phone, otp = code)
                 _jwtToken.value = response.token
                 _refreshToken.value = response.refreshToken
-                _currentUid.value = email ?: phone ?: "user"
-                saveSession(getApplication(), email, phone, response.token, response.refreshToken, uid = email ?: phone)
+                
+                val temporaryUid = email ?: phone ?: "user"
+                _currentUserEmail.value = email ?: phone
+                _currentUid.value = temporaryUid
+                
+                saveSession(getApplication(), email, phone, response.token, response.refreshToken, uid = temporaryUid)
                 if (email != null) saveCredentials(email, "")
+
                 fetchAndSaveProfile { userEmail ->
                     _isLoading.value = false
                     onSuccess(userEmail)
                 }
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "OTP verify error", e)
+                Log.e("AuthViewModel", "OTP verify error: ${e.message}", e)
                 _isLoading.value = false
-                _error.value = "Неверный код."
+                _error.value = "Неверный код или ошибка связи: ${e.localizedMessage}"
             }
         }
     }
@@ -378,6 +409,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _jwtToken.value = null
         _refreshToken.value = null
         _currentUid.value = ""
+        _isGuest.value = false
         clearSession(getApplication())
     }
 

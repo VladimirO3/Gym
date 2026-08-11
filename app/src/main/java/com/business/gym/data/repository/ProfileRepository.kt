@@ -9,6 +9,8 @@ import com.business.gym.data.local.entity.DailyNoteEntity
 import com.business.gym.data.local.entity.ProfileEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * Репозиторий для управления данными профиля и заметками.
@@ -28,13 +30,17 @@ class ProfileRepository(
      */
     suspend fun refreshProfileFromServer(uid: String) {
         try {
-            Log.d("ProfileRepository", "Refreshing profile from server...")
+            Log.d("ProfileRepository", "Refreshing profile from server for UID: $uid")
             val remote = apiService.getProfile()
-            Log.d("ProfileRepository", "Profile received: ${remote.email}, UID: ${remote.uid}")
+            Log.d("ProfileRepository", "Profile received: ${remote.email}, Remote UID: ${remote.uid}")
+            
+            // Используем переданный UID как основной, если сервер прислал null
+            val finalUid = remote.uid ?: uid
+            
             val entity = ProfileEntity(
-                uid = remote.uid,
+                uid = finalUid,
                 email = remote.email,
-                name = remote.name,
+                name = remote.name ?: "",
                 age = remote.age,
                 avatarUrl = remote.avatarUrl,
                 themeMode = remote.theme ?: "system",
@@ -145,8 +151,13 @@ class ProfileRepository(
     suspend fun saveNote(note: DailyNoteEntity) {
         dailyNoteDao.insertNote(note)
         try {
-            apiService.saveNote(note.date, note.note)
-        } catch (e: Exception) {}
+            val dateBody = note.date.toRequestBody("text/plain".toMediaTypeOrNull())
+            val noteBody = note.note.toRequestBody("text/plain".toMediaTypeOrNull())
+            Log.d("ProfileRepository", "Saving note to VPS via Multipart: ${note.date}")
+            apiService.saveNote(dateBody, noteBody)
+        } catch (e: Exception) {
+            Log.e("ProfileRepository", "Failed to save note on VPS", e)
+        }
     }
 
     /**

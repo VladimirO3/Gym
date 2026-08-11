@@ -73,7 +73,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        android.util.Log.d("MainActivity", "onCreate start")
+        android.util.Log.d("MainActivity", "onCreate started")
         
         try {
             enableEdgeToEdge() 
@@ -83,13 +83,13 @@ class MainActivity : AppCompatActivity() {
                 requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         } catch (e: Exception) {
-            android.util.Log.e("MainActivity", "EdgeToEdge error", e)
+            android.util.Log.e("MainActivity", "Init error", e)
         }
 
         try {
             firebaseAnalytics = Firebase.analytics
         } catch (e: Exception) {
-            android.util.Log.e("MainActivity", "Firebase analytics failed", e)
+            android.util.Log.e("MainActivity", "Analytics error", e)
         }
 
         if (exoPlayer == null) {
@@ -107,9 +107,8 @@ class MainActivity : AppCompatActivity() {
                 mediaSession = MediaSession.Builder(this, exoPlayer!!)
                     .setId("GymAppSession_${System.currentTimeMillis()}")
                     .build()
-                android.util.Log.d("MainActivity", "ExoPlayer initialized")
             } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "ExoPlayer error", e)
+                android.util.Log.e("MainActivity", "Player init error", e)
             }
         }
 
@@ -262,7 +261,7 @@ data class GymTab(
 @Composable
 fun GymAppContent(
     currentUserEmail: String?,
-    currentUid: String?, // Делаем nullable для предотвращения NPE
+    currentUid: String?,
     isAdmin: Boolean,
     exoPlayer: ExoPlayer,
     onSignOut: (suspend () -> Unit) -> Unit,
@@ -278,7 +277,7 @@ fun GymAppContent(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val isGuest = authViewModel.isGuest.value
+    val isGuest by authViewModel.isGuest // Используем делегат для реактивности
     
     val tabs = remember(isGuest) {
         val list = mutableListOf<GymTab>()
@@ -392,7 +391,12 @@ fun GymAppContent(
                 Scaffold(
                     modifier = Modifier.weight(1f),
                     containerColor = Color.Transparent,
-                    topBar = { Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars).fillMaxWidth()) },
+                    // Используем WindowInsets.ime для поднятия контента над клавиатурой
+                    contentWindowInsets = WindowInsets.systemBars,
+                    topBar = { 
+                        // Место под статус-бар
+                        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars).fillMaxWidth()) 
+                    },
                     bottomBar = {
                         val isKeyboardVisible = WindowInsets.ime.asPaddingValues().calculateBottomPadding() > 0.dp
                         if (!isWideScreen && !isKeyboardVisible) {
@@ -443,24 +447,35 @@ fun GymAppContent(
                         }
                     }
                 ) { innerPadding ->
-                    Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                    Box(modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .consumeWindowInsets(innerPadding)
+                        .imePadding() // Контент поднимается над клавиатурой
+                    ) {
                         if (!showAuthOverlay) {
                             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                                 val tabKey = if (page < tabs.size) tabs[page].key else ""
                                 when (tabKey) {
                                     "news" -> {
                                         if (currentUserEmail == null || isGuest) {
-                                            AuthScreen(viewModel = authViewModel, settingsViewModel = settingsViewModel, onAuthSuccess = { email ->
-                                                // onSaveSession logic
-                                            })
+                                            AuthScreen(
+                                                viewModel = authViewModel,
+                                                settingsViewModel = settingsViewModel,
+                                                onAuthSuccess = { }
+                                            )
                                         } else {
                                             NewsScreen(isAdmin = isAdmin, authViewModel = authViewModel)
                                         }
                                     }
                                     "playlist" -> PlaylistScreen(exoPlayer = exoPlayer, isAdmin = isAdmin)
                                     "chat" -> {
-                                        if (currentUserEmail == null) {
-                                            AuthScreen(viewModel = authViewModel, settingsViewModel = settingsViewModel, onAuthSuccess = { })
+                                        if (currentUserEmail == null || isGuest) {
+                                            AuthScreen(
+                                                viewModel = authViewModel, 
+                                                settingsViewModel = settingsViewModel, 
+                                                onAuthSuccess = { }
+                                            )
                                         } else {
                                             ChatScreen(currentUid = currentUid ?: "", isAdmin = isAdmin, viewModel = chatViewModel)
                                         }
@@ -499,5 +514,32 @@ fun GymAppContent(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GymAppPreview() {
+    val settingsViewModel: SettingsViewModel = viewModel()
+    val authViewModel: AuthViewModel = viewModel()
+    val cartViewModel: CartViewModel = viewModel()
+    val chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel = viewModel()
+    GymTheme {
+        GymAppContent(
+            currentUserEmail = "test@example.com",
+            currentUid = "123",
+            isAdmin = false,
+            exoPlayer = ExoPlayer.Builder(LocalContext.current).build(),
+            onSignOut = {},
+            onSaveSession = {},
+            onExitRequest = {},
+            settingsViewModel = settingsViewModel,
+            cartViewModel = cartViewModel,
+            chatViewModel = chatViewModel,
+            navigationRequest = null,
+            onResetNavigationRequest = {},
+            isDarkTheme = true,
+            authViewModel = authViewModel
+        )
     }
 }

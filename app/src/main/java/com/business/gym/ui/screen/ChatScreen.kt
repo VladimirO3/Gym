@@ -51,14 +51,24 @@ fun ChatScreen(
     
     val selectedUser by viewModel.selectedUser
     val notifiedCounts by viewModel.notifiedCounts
+    val chatError by viewModel.error
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val jwtToken by authViewModel.jwtToken
+
+    if (chatError != null) {
+        LaunchedEffect(chatError) {
+            android.widget.Toast.makeText(context, chatError, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
     
     // Загрузка пользователей (только из локального сервера)
     LaunchedEffect(currentUid, isAdmin, jwtToken) {
         if (jwtToken != null) {
-            viewModel.fetchLocalUsers(jwtToken!!)
+            viewModel.fetchLocalUsers(jwtToken!!, force = true)
+        } else if (currentUid.isNotBlank() && !AuthViewModel.isStaticAdmin(currentUid)) {
+             // Если токена нет, но мы не гость
+             android.util.Log.w("ChatScreen", "JWT Token is null for UID: $currentUid")
         }
     }
 
@@ -352,7 +362,7 @@ fun ConversationScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .imePadding() // Добавил обратно отступ для клавиатуры
+            // Padding handling is done in MainActivity for the entire screen
             .padding(horizontal = 16.dp)
             .padding(top = 8.dp, bottom = 4.dp)
     ) {

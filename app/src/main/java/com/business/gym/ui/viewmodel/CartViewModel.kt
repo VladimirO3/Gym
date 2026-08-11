@@ -65,21 +65,24 @@ class CartViewModel : ViewModel() {
      */
     private fun syncCartWithServer(context: android.content.Context) {
         val token = currentToken
-        if (token == null || token == "guest_token") return
+        if (token == null || token == "guest_token") {
+            Log.w("CartViewModel", "Sync skipped: token is $token")
+            return
+        }
         
-        // Отменяем предыдущую попытку синхронизации, если пользователь нажал кнопку еще раз
         syncJob?.cancel()
         syncJob = viewModelScope.launch {
-            delay(1000) // Ждем 1 секунду "спокойствия" перед отправкой
+            delay(1500) // Увеличил задержку для надежности
             try {
                 val api = NewsApiService.create(context)
                 val request = _cartItems.value.map { (product, count) ->
                     CartItemRequest(product.id, count)
                 }
+                Log.d("CartViewModel", "Syncing cart with VPS. Items: ${request.size}")
                 api.saveCart(request)
-                Log.i("CartViewModel", "Cart synced with server. Items count: ${request.size}")
+                Log.i("CartViewModel", "Cart sync SUCCESS")
             } catch (e: Exception) {
-                Log.e("CartViewModel", "Failed to sync cart with server", e)
+                Log.e("CartViewModel", "Cart sync FAILED", e)
             }
         }
     }
