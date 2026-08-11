@@ -387,9 +387,11 @@ interface NewsApiService {
         private var cachedClient: okhttp3.OkHttpClient? = null
         
         @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-        private var exoCache: Any? = null // Store as Any to avoid UnstableApi error on property
+        @Volatile
+        private var exoCache: Any? = null 
 
         @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+        @Synchronized
         private fun getCache(context: android.content.Context): SimpleCache {
             if (exoCache == null) {
                 val cacheDir = File(context.cacheDir, "exo_video_cache")
