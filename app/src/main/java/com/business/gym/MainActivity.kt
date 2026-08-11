@@ -262,7 +262,7 @@ data class GymTab(
 @Composable
 fun GymAppContent(
     currentUserEmail: String?,
-    currentUid: String?,
+    currentUid: String,
     isAdmin: Boolean,
     exoPlayer: ExoPlayer,
     onSignOut: (suspend () -> Unit) -> Unit,

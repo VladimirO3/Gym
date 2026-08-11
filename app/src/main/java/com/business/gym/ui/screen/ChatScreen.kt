@@ -95,6 +95,7 @@ fun ChatScreen(
                     if (selectedUser != null) {
                         ConversationScreen(
                             currentUid = currentUid,
+                            currentUserEmail = authViewModel.currentUserEmail.value,
                             peer = selectedUser!!,
                             messages = viewModel.messages.value,
                             onBack = { viewModel.selectUser(null, currentUid, jwtToken) },
@@ -131,6 +132,7 @@ fun ChatScreen(
             } else {
                 ConversationScreen(
                     currentUid = currentUid,
+                    currentUserEmail = authViewModel.currentUserEmail.value,
                     peer = selectedUser!!,
                     messages = viewModel.messages.value,
                     onBack = { viewModel.selectUser(null, currentUid, jwtToken) },
@@ -310,6 +312,7 @@ fun UserListScreen(
 @Composable
 fun ConversationScreen(
     currentUid: String,
+    currentUserEmail: String?,
     peer: UserProfile,
     messages: List<ChatMessage>,
     onBack: () -> Unit,
@@ -408,7 +411,7 @@ fun ConversationScreen(
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
             items(messages) { message ->
-                MessageBubble(message, message.senderId == currentUid)
+                MessageBubble(message, currentUid, currentUserEmail)
             }
         }
 

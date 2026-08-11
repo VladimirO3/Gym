@@ -21,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.Dialog
@@ -32,20 +33,23 @@ import androidx.compose.runtime.*
  * Администратор — слева, Пользователь — справа.
  */
 @Composable
-fun MessageBubble(message: ChatMessage, isMe: Boolean) {
+fun MessageBubble(message: ChatMessage, currentUid: String, currentUserEmail: String?) {
+    val isMe = message.senderId == currentUid || (currentUserEmail != null && message.senderId == currentUserEmail)
     val isSenderAdmin = AuthViewModel.isStaticAdmin(message.senderId)
     
-    // Выравнивание: Админ СЛЕВА, Пользователь СПРАВА
-    val alignment = if (isSenderAdmin) Alignment.Start else Alignment.End
+    // Выравнивание: Мои сообщения СПРАВА, чужие СЛЕВА
+    // Если я Админ, мои сообщения справа. Если я Пользователь, мои сообщения справа.
+    val alignment = if (isMe) Alignment.End else Alignment.Start
     
-    // Цвета: Админ - Серый/Красный, Пользователь - Красный/Синий
-    val bubbleColor = if (isSenderAdmin) {
-        Color.DarkGray.copy(alpha = 0.8f)
-    } else {
+    // Цвета: Мои - Красный/Темный, Чужие - Серый/Темный
+    val bubbleColor = if (isMe) {
         Color.Red.copy(alpha = 0.8f)
+    } else {
+        Color.DarkGray.copy(alpha = 0.8f)
     }
 
     val label = if (isSenderAdmin) "Администратор" else "Пользователь"
+    // Подсветка имени: красный для админа, голубой для пользователя
     val labelColor = if (isSenderAdmin) Color.Red else Color.Cyan
 
     Column(
@@ -61,8 +65,8 @@ fun MessageBubble(message: ChatMessage, isMe: Boolean) {
             fontWeight = FontWeight.Bold,
             color = if (isMe) Color.White.copy(alpha = 0.7f) else labelColor,
             modifier = Modifier.padding(
-                start = if (isSenderAdmin) 8.dp else 0.dp, 
-                end = if (isSenderAdmin) 0.dp else 8.dp, 
+                start = if (alignment == Alignment.Start) 8.dp else 0.dp, 
+                end = if (alignment == Alignment.End) 8.dp else 0.dp, 
                 bottom = 2.dp
             )
         )
@@ -71,8 +75,8 @@ fun MessageBubble(message: ChatMessage, isMe: Boolean) {
             shape = RoundedCornerShape(
                 topStart = 16.dp,
                 topEnd = 16.dp,
-                bottomStart = if (isSenderAdmin) 0.dp else 16.dp,
-                bottomEnd = if (isSenderAdmin) 16.dp else 0.dp
+                bottomStart = if (alignment == Alignment.Start) 0.dp else 16.dp,
+                bottomEnd = if (alignment == Alignment.End) 0.dp else 16.dp
             ),
             color = bubbleColor,
             modifier = Modifier.widthIn(max = 280.dp)
@@ -96,7 +100,6 @@ fun MessageBubble(message: ChatMessage, isMe: Boolean) {
                         contentAlignment = Alignment.Center
                     ) {
                         if (message.mediaType == "video") {
-                            // Превью видео (можно использовать Coil или специальный лоадер)
                             Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(48.dp))
                         } else {
                             AsyncImage(
@@ -130,7 +133,7 @@ fun MessageBubble(message: ChatMessage, isMe: Boolean) {
                                 }
                                 IconButton(
                                     onClick = { showFullMedia = false },
-                                    modifier = Modifier.align(Alignment.TopStart).padding(16.dp).background(Color.Black.copy(alpha = 0.5f), androidx.compose.foundation.shape.CircleShape)
+                                    modifier = Modifier.align(Alignment.TopStart).padding(16.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)
                                 ) {
                                     Icon(Icons.Default.Close, null, tint = Color.White)
                                 }
@@ -147,7 +150,7 @@ fun MessageBubble(message: ChatMessage, isMe: Boolean) {
                     )
                 }
                 
-                // Иконка прочтения только для своих сообщений
+                // Иконка прочтения ВСЕГДА для моих сообщений
                 if (isMe) {
                     Row(
                         modifier = Modifier.padding(top = 4.dp).align(Alignment.End),
