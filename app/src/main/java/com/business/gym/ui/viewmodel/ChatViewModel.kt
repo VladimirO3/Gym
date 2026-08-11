@@ -50,6 +50,9 @@ class ChatViewModel(
     private val _messages = mutableStateOf(listOf<ChatMessage>())
     val messages: State<List<ChatMessage>> = _messages
 
+    // Список локально удаленных пользователей (safeguard)
+    private val deletedUserUids = mutableSetOf<String>()
+
     // Выбранный в данный момент собеседник
     private val _selectedUser = mutableStateOf<UserProfile?>(null)
     val selectedUser: State<UserProfile?> = _selectedUser
@@ -64,17 +67,28 @@ class ChatViewModel(
                     .getString("user_session_email", "") ?: ""
 
                 val profiles = localUsers
-                    .filter { it.email != currentEmail } // Убираем текущего пользователя из списка
+                    .filter { 
+                        val isSelf = it.email.trim().lowercase() == currentEmail.trim().lowercase()
+                        !isSelf && !deletedUserUids.contains(it.uid)
+                    }
                     .map { UserProfile(uid = it.uid, email = it.email, name = it.name) }
                     .toMutableList()
                 
-                // Всегда добавляем администратора в начало списка, если мы сами не админ
-                if (currentEmail != AuthViewModel.ADMIN_EMAIL && profiles.none { AuthViewModel.isStaticAdmin(it.email) }) {
-                    profiles.add(0, UserProfile(
-                        uid = AuthViewModel.ADMIN_EMAIL,
-                        email = AuthViewModel.ADMIN_EMAIL,
-                        name = "Администратор"
-                    ))
+                // Если мы не администратор, гарантируем наличие администратора в списке
+                if (!AuthViewModel.isStaticAdmin(currentEmail)) {
+                    val adminInList = profiles.find { AuthViewModel.isStaticAdmin(it.email) }
+                    if (adminInList != null) {
+                        // Если админ уже есть в списке от сервера, убеждаемся что он в начале и с красивым именем
+                        profiles.remove(adminInList)
+                        profiles.add(0, adminInList.copy(name = "Администратор"))
+                    } else {
+                        // Если админа нет в списке от сервера, добавляем вручную
+                        profiles.add(0, UserProfile(
+                            uid = "admin_static_id", // Используем фиксированный ID если админа нет в БД
+                            email = AuthViewModel.ADMIN_EMAIL,
+                            name = "Администратор"
+                        ))
+                    }
                 }
                 
                 _users.value = profiles
@@ -297,6 +311,10 @@ class ChatViewModel(
      * Административная функция: Удаление пользователя из системы.
      */
     fun deleteUser(context: android.content.Context, uid: String) {
+        deletedUserUids.add(uid)
+        // Мгновенно убираем пользователя из UI
+        _users.value = _users.value.filter { it.uid != uid }
+        
         viewModelScope.launch {
             val success = repository.deleteUser(uid)
             if (success) {
@@ -308,7 +326,9 @@ class ChatViewModel(
                 }
                 android.widget.Toast.makeText(context, "Пользователь удален", android.widget.Toast.LENGTH_SHORT).show()
             } else {
-                android.widget.Toast.makeText(context, "Ошибка при удалении пользователя", android.widget.Toast.LENGTH_SHORT).show()
+                // Если ошибка, возвращаем в список (опционально, зависит от желаемого поведения)
+                // deletedUserUids.remove(uid)
+                android.widget.Toast.makeText(context, "Ошибка при удалении пользователя на сервере", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }

@@ -425,8 +425,9 @@ fun GymAppContent(
                         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars).fillMaxWidth())
                     },
                     bottomBar = {
-                        // Нижнее меню для телефонов
-                        if (!isWideScreen) {
+                        // Нижнее меню для телефонов (скрываем при открытой клавиатуре)
+                        val isKeyboardVisible = WindowInsets.ime.asPaddingValues().calculateBottomPadding() > 0.dp
+                        if (!isWideScreen && !isKeyboardVisible) {
                             Column(modifier = Modifier.background(Color.Black.copy(alpha = 0.8f))) {
                                 ScrollableTabRow(
                                     selectedTabIndex = pagerState.currentPage,
@@ -513,7 +514,11 @@ fun GymAppContent(
                                                 onAuthSuccess = { onSaveSession(it) }
                                             )
                                         } else {
-                                            ChatScreen(currentUid = currentUid, isAdmin = isAdmin)
+                                            ChatScreen(
+                                                currentUid = currentUid, 
+                                                isAdmin = isAdmin,
+                                                viewModel = chatViewModel
+                                            )
                                         }
                                     }
                                     "settings" -> SettingsScreen(

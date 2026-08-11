@@ -4,15 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.business.gym.data.local.dao.ChatDao
-import com.business.gym.data.local.dao.NewsDao
-import com.business.gym.data.local.dao.ProfileDao
-import com.business.gym.data.local.dao.TrackDao
-import com.business.gym.data.local.entity.ChatMessageEntity
-import com.business.gym.data.local.entity.NewsEntity
-import com.business.gym.data.local.entity.ProfileEntity
-import com.business.gym.data.local.entity.TrackEntity
-import com.business.gym.data.local.entity.UserEntity
+import com.business.gym.data.local.dao.*
+import com.business.gym.data.local.entity.*
 
 @Database(
     entities = [
@@ -20,9 +13,10 @@ import com.business.gym.data.local.entity.UserEntity
         NewsEntity::class, 
         ChatMessageEntity::class, 
         UserEntity::class,
-        ProfileEntity::class
+        ProfileEntity::class,
+        DailyNoteEntity::class
     ], 
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class GymDatabase : RoomDatabase() {
@@ -30,6 +24,7 @@ abstract class GymDatabase : RoomDatabase() {
     abstract fun newsDao(): NewsDao
     abstract fun chatDao(): ChatDao
     abstract fun profileDao(): ProfileDao
+    abstract fun dailyNoteDao(): DailyNoteDao
 
     companion object {
         @Volatile

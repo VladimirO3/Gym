@@ -43,15 +43,12 @@ import androidx.compose.animation.core.*
 fun ChatScreen(
     currentUid: String,
     isAdmin: Boolean,
+    viewModel: ChatViewModel, // Принимаем экземпляр извне
     authViewModel: AuthViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val application = context.applicationContext as android.app.Application
-    val viewModel: ChatViewModel = viewModel(
-        factory = ChatViewModel.Factory(application)
-    )
-
+    
     val selectedUser by viewModel.selectedUser
     val notifiedCounts by viewModel.notifiedCounts
     val configuration = LocalConfiguration.current
@@ -355,9 +352,9 @@ fun ConversationScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .imePadding() // Отступ для клавиатуры
+            // Удален imePadding, так как MainActivity скрывает меню при вводе
             .padding(horizontal = 16.dp)
-            .padding(top = 8.dp, bottom = 0.dp) // Убрал нижний отступ совсем
+            .padding(top = 8.dp, bottom = 4.dp)
     ) {
         Box(
             modifier = Modifier
@@ -408,7 +405,9 @@ fun ConversationScreen(
         Surface(
             color = Color.Black.copy(alpha = 0.5f),
             shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp), // Небольшой отступ внутри, чтобы не липло к самому краю
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 0.dp), // Максимально низко
             border = BorderStroke(1.dp, Color.DarkGray)
         ) {
             Row(

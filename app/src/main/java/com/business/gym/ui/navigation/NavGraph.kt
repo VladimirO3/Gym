@@ -49,7 +49,16 @@ fun GymNavGraph(
             if (currentUserEmail == null) {
                 AuthScreen(onAuthSuccess = onAuthSuccess)
             } else {
-                ChatScreen(currentUid = currentUid, isAdmin = isAdmin)
+                val chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    factory = com.business.gym.ui.viewmodel.ChatViewModel.Factory(
+                        androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application
+                    )
+                )
+                ChatScreen(
+                    currentUid = currentUid, 
+                    isAdmin = isAdmin,
+                    viewModel = chatViewModel
+                )
             }
         }
         composable(Screen.Settings.route) {
