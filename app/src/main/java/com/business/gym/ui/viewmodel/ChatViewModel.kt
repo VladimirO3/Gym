@@ -85,7 +85,7 @@ class ChatViewModel(
                         profiles.add(0, adminInList.copy(name = "Администратор"))
                     } else {
                         profiles.add(0, UserProfile(
-                            uid = "admin_static_id",
+                            uid = AuthViewModel.ADMIN_EMAIL,
                             email = AuthViewModel.ADMIN_EMAIL,
                             name = "Администратор"
                         ))

@@ -20,4 +20,7 @@ interface DailyNoteDao {
 
     @Query("DELETE FROM daily_notes WHERE uid = :uid AND date = :date")
     suspend fun deleteNote(uid: String, date: String)
+
+    @Query("DELETE FROM daily_notes WHERE uid = :uid")
+    suspend fun deleteAllNotesByUid(uid: String)
 }

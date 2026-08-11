@@ -220,6 +220,7 @@ fun GymApp(
     isDarkTheme: Boolean
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val currentUserEmail by authViewModel.currentUserEmail
     val currentUid by authViewModel.currentUid
     val isAdmin = remember(currentUserEmail) { authViewModel.isAdmin() }
@@ -229,10 +230,14 @@ fun GymApp(
         currentUid = currentUid,
         isAdmin = isAdmin,
         exoPlayer = exoPlayer,
-        onSignOut = {
+        onSignOut = { onSignOutAction ->
+            exoPlayer.stop()
             authViewModel.signOut()
             authViewModel.clearSession(context)
             cartViewModel.clearCart(context, sync = false)
+            coroutineScope.launch {
+                onSignOutAction()
+            }
         },
         onSaveSession = { identifier ->
             // Дополнительная логика при сохранении сессии
@@ -266,7 +271,7 @@ fun GymAppContent(
     currentUid: String,
     isAdmin: Boolean,
     exoPlayer: ExoPlayer,
-    onSignOut: () -> Unit,
+    onSignOut: (suspend () -> Unit) -> Unit, // Изменил сигнатуру
     onSaveSession: (String) -> Unit,
     onExitRequest: () -> Unit,
     settingsViewModel: SettingsViewModel,
@@ -523,7 +528,11 @@ fun GymAppContent(
                                     }
                                     "settings" -> SettingsScreen(
                                         currentUserEmail = currentUserEmail, 
-                                        onLogout = onSignOut,
+                                        onLogout = {
+                                            onSignOut {
+                                                pagerState.scrollToPage(0)
+                                            }
+                                        },
                                         viewModel = settingsViewModel,
                                         authViewModel = authViewModel,
                                         onGoToCart = {

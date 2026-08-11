@@ -4,6 +4,7 @@ import android.util.Log
 import com.business.gym.data.api.LocalChatMessage
 import com.business.gym.data.api.LocalUser
 import com.business.gym.data.api.NewsApiService
+import com.business.gym.data.local.GymDatabase
 import com.business.gym.data.local.dao.ChatDao
 import com.business.gym.data.local.entity.ChatMessageEntity
 import com.business.gym.data.local.entity.UserEntity
@@ -16,10 +17,7 @@ class ChatRepository(
     private val chatDao: ChatDao,
     private val context: android.content.Context
 ) {
-    companion object {
-        private const val TAG = "ChatRepository"
-    }
-
+    private val db by lazy { GymDatabase.getDatabase(context) }
     private val apiService get() = NewsApiService.create(context)
 
     // Получение пользователей (собеседников)
@@ -37,7 +35,7 @@ class ChatRepository(
             chatDao.insertUsers(entities)
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to refresh chat users", e)
+            Log.e("ChatRepository", "Failed to refresh chat users", e)
             false
         }
     }
@@ -79,7 +77,7 @@ class ChatRepository(
             chatDao.insertMessages(entities)
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to refresh messages for peer=$peerUid", e)
+            Log.e("ChatRepository", "Failed to refresh messages for peer=$peerUid", e)
             false
         }
     }
@@ -90,7 +88,7 @@ class ChatRepository(
             refreshMessages(token, receiverId)
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to send message to peer=$receiverId", e)
+            Log.e("ChatRepository", "Failed to send message to peer=$receiverId", e)
             false
         }
     }
@@ -103,7 +101,7 @@ class ChatRepository(
             refreshMessages(token, receiverId)
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to send media message to peer=$receiverId", e)
+            Log.e("ChatRepository", "Failed to send media message to peer=$receiverId", e)
             false
         }
     }
@@ -112,7 +110,7 @@ class ChatRepository(
         return try {
             apiService.getUnreadCount()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to get unread count", e)
+            Log.e("ChatRepository", "Failed to get unread count", e)
             emptyMap()
         }
     }
@@ -128,7 +126,7 @@ class ChatRepository(
             apiService.deleteChat(peerUid)
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "Server deletion failed for peer=$peerUid, but local might be cleared", e)
+            Log.e("ChatRepository", "Server deletion failed for peer=$peerUid, but local might be cleared", e)
             return localDeleted
         }
     }
@@ -136,16 +134,19 @@ class ChatRepository(
     suspend fun deleteUser(uid: String): Boolean {
         var localDeleted = false
         try {
-            // Удаляем локально
+            // Полная очистка локального кэша для этого пользователя
             chatDao.deleteUserByUid(uid)
             chatDao.deleteMessagesForPeer(uid)
+            db.profileDao().deleteProfileByUid(uid)
+            db.dailyNoteDao().deleteAllNotesByUid(uid)
+            
             localDeleted = true
             
             // Удаляем на сервере
             apiService.deleteUser(uid)
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "Server user deletion failed for $uid", e)
+            Log.e("ChatRepository", "Server user deletion failed for $uid", e)
             return localDeleted
         }
     }

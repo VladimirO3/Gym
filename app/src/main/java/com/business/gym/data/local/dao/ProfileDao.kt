@@ -29,4 +29,7 @@ interface ProfileDao {
 
     @Query("UPDATE user_profile SET avatarUrl = :url WHERE uid = :uid")
     suspend fun updateAvatarUrl(uid: String, url: String?)
+
+    @Query("DELETE FROM user_profile WHERE uid = :uid")
+    suspend fun deleteProfileByUid(uid: String)
 }

@@ -352,7 +352,7 @@ fun ConversationScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            // Удален imePadding, так как MainActivity скрывает меню при вводе
+            .imePadding() // Добавил обратно отступ для клавиатуры
             .padding(horizontal = 16.dp)
             .padding(top = 8.dp, bottom = 4.dp)
     ) {
