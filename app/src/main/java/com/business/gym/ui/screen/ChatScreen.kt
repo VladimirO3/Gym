@@ -37,6 +37,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.core.*
 
 @Composable
 fun ChatScreen(
@@ -200,21 +201,34 @@ fun UserListScreen(
                     val unreadCount = notifiedCounts[user.uid] ?: 0
                     val hasNotification = unreadCount > 0 && unreadCount != 999999
 
+                    // Анимация пульсации для новых сообщений
+                    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                    val pulseAlpha by infiniteTransition.animateFloat(
+                        initialValue = 0.4f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1000),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "alpha"
+                    )
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .padding(horizontal = 4.dp)
                             .clickable { onUserSelected(user) },
                         colors = CardDefaults.cardColors(
                             containerColor = when {
                                 isSelected -> Color.Red.copy(alpha = 0.2f)
-                                hasNotification -> Color.Yellow.copy(alpha = 0.15f) // Подсветка нового сообщения
+                                hasNotification -> Color.Yellow.copy(alpha = 0.1f * pulseAlpha) // Пульсирующий фон
                                 isUserAdmin -> Color.DarkGray.copy(alpha = 0.5f)
                                 else -> Color.Black.copy(alpha = 0.3f)
                             }
                         ),
                         border = when {
                             isSelected -> BorderStroke(2.dp, Color.Red)
-                            hasNotification -> BorderStroke(2.dp, Color.Yellow) // Заметная рамка
+                            hasNotification -> BorderStroke(2.dp, Color.Yellow.copy(alpha = pulseAlpha)) // Пульсирующая рамка
                             else -> BorderStroke(0.5.dp, Color.DarkGray)
                         }
                     ) {
@@ -250,11 +264,20 @@ fun UserListScreen(
                             }
                             
                             if (hasNotification) {
-                                Badge(
-                                    containerColor = Color.Red,
-                                    contentColor = Color.White
-                                ) {
-                                    Text(if (unreadCount > 99) "99+" else "$unreadCount")
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Badge(
+                                        containerColor = Color.Red,
+                                        contentColor = Color.White
+                                    ) {
+                                        Text(if (unreadCount > 99) "99+" else "$unreadCount")
+                                    }
+                                    Text(
+                                        "НОВОЕ", 
+                                        color = Color.Yellow, 
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
                                 }
                             }
 

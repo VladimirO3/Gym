@@ -21,10 +21,16 @@ class GymApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        android.util.Log.d("GymApplication", "Application onCreate started")
         
         // Настройка оффлайн-сохранения (Persistence) должна происходить
         // строго ПРИ ЗАПУСКЕ приложения, до любого обращения к данным.
-        configureFirebasePersistence()
+        try {
+            configureFirebasePersistence()
+            android.util.Log.d("GymApplication", "Firebase Persistence configured")
+        } catch (e: Exception) {
+            android.util.Log.e("GymApplication", "Failed to configure Firebase", e)
+        }
     }
 
     override fun newImageLoader(): ImageLoader {
