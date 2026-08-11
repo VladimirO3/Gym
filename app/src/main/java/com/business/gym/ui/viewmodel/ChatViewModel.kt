@@ -57,6 +57,23 @@ class ChatViewModel(
     private val _selectedUser = mutableStateOf<UserProfile?>(null)
     val selectedUser: State<UserProfile?> = _selectedUser
 
+    /**
+     * Полная очистка состояния чата и остановка всех процессов.
+     * Должно вызываться при выходе из аккаунта.
+     */
+    fun clearAll() {
+        stopPolling()
+        stopMessagesObservation()
+        globalPollingJob?.cancel()
+        _selectedUser.value = null
+        _messages.value = emptyList()
+        _users.value = emptyList()
+        _notifiedCounts.value = emptyMap()
+        hasFetchedUsers = false
+        deletedUserUids.clear()
+        Log.d("ChatViewModel", "Chat state cleared and polling stopped")
+    }
+
     init {
         // Подписка на список пользователей из локальной базы данных (Room)
         viewModelScope.launch {

@@ -233,6 +233,7 @@ fun GymApp(
         exoPlayer = exoPlayer,
         onSignOut = { onSignOutAction ->
             exoPlayer.stop()
+            chatViewModel.clearAll() // Очищаем чат и останавливаем все фоновые процессы
             authViewModel.signOut()
             authViewModel.clearSession(context)
             cartViewModel.clearCart(context, sync = false)

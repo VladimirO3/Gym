@@ -84,6 +84,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _currentUid.value = "guest"
         _jwtToken.value = "guest_token"
         saveSession(getApplication(), GUEST_EMAIL, null, "guest_token", uid = "guest")
+        
+        // Очищаем ошибки перед входом
+        _error.value = null
         onSuccess()
     }
 
