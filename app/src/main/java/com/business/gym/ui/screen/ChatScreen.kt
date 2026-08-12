@@ -38,6 +38,12 @@ import android.net.Uri
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import coil.compose.AsyncImage
+import com.business.gym.data.api.NewsApiService
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun ChatScreen(
@@ -247,11 +253,26 @@ fun UserListScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                Icon(
-                                    Icons.Default.Person, 
-                                    null,
-                                    tint = if (isUserAdmin || isSelected || hasNotification) Color.Red else Color.Gray
-                                )
+                                val currentContext = LocalContext.current
+                                val avatarUrl = user.avatarUrl
+                                val fullAvatarUrl = NewsApiService.getFullUrl(currentContext, avatarUrl)
+                                
+                                if (!avatarUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = fullAvatarUrl,
+                                        contentDescription = "Avatar",
+                                        modifier = Modifier.size(40.dp).clip(CircleShape),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.Person, 
+                                        null,
+                                        tint = if (isUserAdmin || isSelected || hasNotification) Color.Red else Color.Gray,
+                                        modifier = Modifier.size(40.dp)
+                                    )
+                                }
+                                
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
@@ -262,8 +283,15 @@ fun UserListScreen(
                                         maxLines = 1
                                     )
                                     if (!isUserAdmin) {
+                                        val lastSeenText = if (user.lastSeen != null && user.lastSeen > 0) {
+                                            val sdf = SimpleDateFormat("dd.MM HH:mm", Locale.getDefault())
+                                            "был(а) в сети ${sdf.format(Date(user.lastSeen))}"
+                                        } else {
+                                            user.email
+                                        }
+                                        
                                         Text(
-                                            text = user.email, 
+                                            text = lastSeenText,
                                             style = MaterialTheme.typography.bodySmall, 
                                             color = Color.Gray,
                                             maxLines = 1

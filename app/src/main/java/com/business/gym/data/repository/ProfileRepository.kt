@@ -64,12 +64,17 @@ class ProfileRepository(
         val current = profileDao.getProfile(uid).firstOrNull()
         profileDao.updateTheme(uid, mode)
         try {
+            val nameBody = (current?.name ?: "").toRequestBody("text/plain".toMediaTypeOrNull())
+            val ageBody = current?.age?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
+            val themeBody = mode.toRequestBody("text/plain".toMediaTypeOrNull())
             apiService.updateProfile(
-                name = current?.name ?: "",
-                age = current?.age,
-                theme = mode
+                name = nameBody,
+                age = ageBody,
+                theme = themeBody
             )
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            Log.e("ProfileRepository", "Update theme on VPS failed", e)
+        }
     }
 
     /**
@@ -79,27 +84,40 @@ class ProfileRepository(
         val current = profileDao.getProfile(uid).firstOrNull()
         profileDao.updateLang(uid, lang)
         try {
+            val nameBody = (current?.name ?: "").toRequestBody("text/plain".toMediaTypeOrNull())
+            val ageBody = current?.age?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
+            val langBody = lang.toRequestBody("text/plain".toMediaTypeOrNull())
             apiService.updateProfile(
-                name = current?.name ?: "",
-                age = current?.age,
-                lang = lang
+                name = nameBody,
+                age = ageBody,
+                lang = langBody
             )
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            Log.e("ProfileRepository", "Update lang on VPS failed", e)
+        }
     }
 
     /**
      * Обновляет согласие с приватностью и синхронизирует с сервером.
      */
     suspend fun updatePrivacy(uid: String, agreed: Boolean) {
+        Log.d("ProfileRepository", "Updating privacy to $agreed in Room and VPS for UID: $uid")
         val current = profileDao.getProfile(uid).firstOrNull()
         profileDao.updatePrivacy(uid, agreed)
         try {
+            val nameBody = (current?.name ?: "").toRequestBody("text/plain".toMediaTypeOrNull())
+            val ageBody = current?.age?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
+            val privacyBody = agreed.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            
             apiService.updateProfile(
-                name = current?.name ?: "",
-                age = current?.age,
-                privacyAgreed = agreed
+                name = nameBody,
+                age = ageBody,
+                privacyAgreed = privacyBody
             )
-        } catch (e: Exception) {}
+            Log.i("ProfileRepository", "Privacy update SUCCESS on VPS")
+        } catch (e: Exception) {
+            Log.e("ProfileRepository", "Update privacy on VPS failed", e)
+        }
     }
 
     /**
@@ -109,14 +127,22 @@ class ProfileRepository(
         val current = profileDao.getProfile(uid).firstOrNull()
         profileDao.updateProfileInfo(uid, name, age)
         try {
+            val nameBody = name.toRequestBody("text/plain".toMediaTypeOrNull())
+            val ageBody = age?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
+            val themeBody = current?.themeMode?.toRequestBody("text/plain".toMediaTypeOrNull())
+            val langBody = current?.lang?.toRequestBody("text/plain".toMediaTypeOrNull())
+            val privacyBody = current?.privacyAgreed?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
+
             apiService.updateProfile(
-                name = name,
-                age = age,
-                theme = current?.themeMode,
-                lang = current?.lang,
-                privacyAgreed = current?.privacyAgreed
+                name = nameBody,
+                age = ageBody,
+                theme = themeBody,
+                lang = langBody,
+                privacyAgreed = privacyBody
             )
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            Log.e("ProfileRepository", "Update info on VPS failed", e)
+        }
     }
 
     suspend fun updateAvatarUrl(uid: String, url: String?) {

@@ -62,7 +62,8 @@ data class LocalUser(
     val email: String = "",
     val name: String = "",
     val age: Int? = null,
-    @SerializedName("avatar_url", alternate = ["avatarUrl"]) val avatarUrl: String? = null
+    @SerializedName("avatar_url", alternate = ["avatarUrl"]) val avatarUrl: String? = null,
+    @SerializedName("last_seen", alternate = ["lastSeen"]) val lastSeen: Long? = null
 )
 
 /**
@@ -316,14 +317,14 @@ interface NewsApiService {
         @Part file: MultipartBody.Part
     ): okhttp3.ResponseBody
 
-    @FormUrlEncoded
+    @Multipart
     @POST("profile/update")
     suspend fun updateProfile(
-        @Field("name") name: String,
-        @Field("age") age: Int?,
-        @Field("theme") theme: String? = null,
-        @Field("lang") lang: String? = null,
-        @Field("privacy_agreed") privacyAgreed: Boolean? = null
+        @Part("name") name: RequestBody,
+        @Part("age") age: RequestBody?,
+        @Part("theme") theme: RequestBody? = null,
+        @Part("lang") lang: RequestBody? = null,
+        @Part("privacy_agreed") privacyAgreed: RequestBody? = null
     ): okhttp3.ResponseBody
 
     // --- ЗАМЕТКИ (КАЛЕНДАРЬ) ---

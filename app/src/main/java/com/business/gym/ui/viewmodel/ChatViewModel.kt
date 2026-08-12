@@ -90,7 +90,15 @@ class ChatViewModel(
                                    it.uid == currentUidFromPrefs
                         !isSelf && !deletedUserUids.contains(it.uid)
                     }
-                    .map { UserProfile(uid = it.uid, email = it.email, name = it.name) }
+                    .map { 
+                        UserProfile(
+                            uid = it.uid, 
+                            email = it.email, 
+                            name = it.name,
+                            avatarUrl = it.avatarUrl,
+                            lastSeen = it.lastSeen
+                        ) 
+                    }
                     .toMutableList()
                 
                 // Если мы не администратор, гарантируем наличие администратора в списке

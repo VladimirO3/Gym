@@ -20,5 +20,7 @@ data class ChatMessageEntity(
 data class UserEntity(
     @PrimaryKey val uid: String,
     val email: String,
-    val name: String
+    val name: String,
+    val avatarUrl: String? = null,
+    val lastSeen: Long? = null
 )

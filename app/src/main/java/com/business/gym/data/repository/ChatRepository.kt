@@ -22,7 +22,15 @@ class ChatRepository(
 
     // Получение пользователей (собеседников)
     val allUsers: Flow<List<LocalUser>> = chatDao.getAllUsers().map { entities ->
-        entities.map { LocalUser(uid = it.uid, email = it.email, name = it.name) }
+        entities.map { 
+            LocalUser(
+                uid = it.uid, 
+                email = it.email, 
+                name = it.name,
+                avatarUrl = it.avatarUrl,
+                lastSeen = it.lastSeen
+            ) 
+        }
     }
 
     suspend fun refreshUsers(token: String): Boolean {
@@ -33,7 +41,13 @@ class ChatRepository(
             val entities = users.map { 
                 // Гарантируем наличие UID (если пустой, используем email)
                 val finalUid = if (it.uid.isNullOrBlank()) it.email else it.uid
-                UserEntity(uid = finalUid, email = it.email, name = it.name) 
+                UserEntity(
+                    uid = finalUid, 
+                    email = it.email, 
+                    name = it.name,
+                    avatarUrl = it.avatarUrl,
+                    lastSeen = it.lastSeen
+                )
             }
             chatDao.deleteAllUsers()
             chatDao.insertUsers(entities)

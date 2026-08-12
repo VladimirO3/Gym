@@ -65,7 +65,8 @@ class SettingsViewModel(
     private fun isRegularAuthorizedUser(email: String?, uid: String?): Boolean {
         if (email.isNullOrBlank() || uid.isNullOrBlank()) return false
         val normalized = email.trim().lowercase()
-        return normalized != ADMIN_EMAIL.lowercase() && normalized != GUEST_EMAIL.lowercase()
+        // Теперь разрешаем профиль для всех, кроме Гостей, чтобы Admin тоже мог принять Оферту
+        return normalized != GUEST_EMAIL.lowercase()
     }
 
     init {

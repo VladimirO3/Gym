@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -293,17 +294,23 @@ fun GymAppContent(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val isGuest by authViewModel.isGuest // Используем делегат для реактивности
+    val privacyAgreed by settingsViewModel.privacyAgreed
     
-    val tabs = remember(isGuest) {
+    val tabs = remember(isGuest, privacyAgreed) {
         val list = mutableListOf<GymTab>()
         list.add(GymTab("Новости", Icons.Default.Newspaper, "news"))
-        list.add(GymTab("Музыка", Icons.Default.PlayArrow, "playlist"))
+        list.add(GymTab("Плейлист", Icons.Default.PlayArrow, "playlist"))
         if (!isGuest) {
             list.add(GymTab("Чат", Icons.AutoMirrored.Filled.Send, "chat"))
         }
         list.add(GymTab("Профиль", Icons.Default.AccountCircle, "settings"))
         list.add(GymTab("Магазин", Icons.Default.Store, "shop"))
-        list.add(GymTab("Оферта", Icons.Default.Gavel, "privacy"))
+        
+        // Показываем Оферту только если НЕ гость и еще НЕ согласился
+        if (!isGuest && !privacyAgreed) {
+            list.add(GymTab("Оферта", Icons.Default.Gavel, "privacy"))
+        }
+
         list.add(GymTab("О приложении", Icons.Default.Add, "about"))
         list
     }
@@ -409,8 +416,38 @@ fun GymAppContent(
                     // Используем WindowInsets.ime для поднятия контента над клавиатурой
                     contentWindowInsets = WindowInsets.systemBars,
                     topBar = { 
-                        // Место под статус-бар
-                        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars).fillMaxWidth()) 
+                        Column {
+                            // Место под статус-бар
+                            Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars).fillMaxWidth())
+                            
+                            // Напоминание об оферте
+                            if (!isGuest && !privacyAgreed && currentUserEmail != null) {
+                                Surface(
+                                    color = Color.Yellow,
+                                    onClick = {
+                                        val privacyIndex = tabs.indexOfFirst { it.key == "privacy" }
+                                        if (privacyIndex != -1) {
+                                            coroutineScope.launch { pagerState.animateScrollToPage(privacyIndex) }
+                                        }
+                                    }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(Icons.Default.Warning, null, tint = Color.Black)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "Пожалуйста, примите условия Оферты", 
+                                            color = Color.Black, 
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     },
                     bottomBar = {
                         val isKeyboardVisible = WindowInsets.ime.asPaddingValues().calculateBottomPadding() > 0.dp

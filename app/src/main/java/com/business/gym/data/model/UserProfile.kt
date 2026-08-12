@@ -17,5 +17,7 @@ data class UserProfile(
     val uid: String = "",
     val email: String = "",
     val name: String = "",
-    val hasPassword: Boolean = false
+    val hasPassword: Boolean = false,
+    val avatarUrl: String? = null,
+    val lastSeen: Long? = null
 )

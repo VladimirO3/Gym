@@ -36,7 +36,7 @@
     <string name="about_services">- групповые программы\n- персональный тренинг\n- кардио тренажеры\n- силовые тренажеры\n- спортивное питание\n- массаж (оздоровительный, энергетический)</string>
     <string name="about_footer">Наши опытные инструкторы с радостью помогут Вам в совершенствовании своего тела ❤</string>
 
-    <string name="playlist_title">Трек для моей тренировки.</string>
+    <string name="playlist_title">Плейлист</string>
     <string name="playlist_empty">Музыка еще не добавлена. Нажмите +, чтобы добавить песни.</string>
     <string name="playlist_add_desc">Добавить музыку</string>
     <string name="playlist_unknown_track">Неизвестный трек</string>
