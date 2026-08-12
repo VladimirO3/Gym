@@ -155,6 +155,28 @@ class ProfileRepository(
         profileDao.updateAvatarUrl(uid, url)
     }
 
+    // --- ГЛОБАЛЬНЫЙ КОНТЕНТ ---
+
+    suspend fun getPrivacyPolicy(): String {
+        return try {
+            val response = apiService.getPrivacyPolicy()
+            response["content"] ?: ""
+        } catch (e: Exception) {
+            Log.e("ProfileRepository", "Failed to fetch privacy policy", e)
+            ""
+        }
+    }
+
+    suspend fun updatePrivacyPolicy(content: String) {
+        try {
+            val body = content.toRequestBody("text/plain".toMediaTypeOrNull())
+            apiService.updatePrivacyPolicy(body)
+            Log.i("ProfileRepository", "Privacy policy updated on VPS")
+        } catch (e: Exception) {
+            Log.e("ProfileRepository", "Failed to update privacy policy", e)
+        }
+    }
+
     // --- DAILY NOTES (SYNC) ---
 
     fun getNote(uid: String, date: String): Flow<DailyNoteEntity?> = dailyNoteDao.getNote(uid, date)

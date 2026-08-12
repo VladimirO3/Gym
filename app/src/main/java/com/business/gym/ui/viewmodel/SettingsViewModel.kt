@@ -60,6 +60,10 @@ class SettingsViewModel(
     private val _dailyNotes = mutableStateOf<List<DailyNoteEntity>>(emptyList())
     val dailyNotes: State<List<DailyNoteEntity>> = _dailyNotes
 
+    // Текст Оферты
+    private val _privacyPolicyText = mutableStateOf("")
+    val privacyPolicyText: State<String> = _privacyPolicyText
+
     private var currentUid: String? = null
 
     private fun isRegularAuthorizedUser(email: String?, uid: String?): Boolean {
@@ -261,6 +265,29 @@ class SettingsViewModel(
         context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
             .edit().putString("server_ip", ip).apply()
         NewsApiService.updateBaseUrl("http://$ip/")
+    }
+
+    /**
+     * Загружает текст оферты с сервера.
+     */
+    fun fetchPrivacyPolicy() {
+        viewModelScope.launch {
+            val content = repository.getPrivacyPolicy()
+            if (content.isNotBlank()) {
+                _privacyPolicyText.value = content
+            }
+        }
+    }
+
+    /**
+     * Обновляет текст оферты на сервере (только для админа).
+     */
+    fun updatePrivacyPolicy(content: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            repository.updatePrivacyPolicy(content)
+            _privacyPolicyText.value = content
+            onSuccess()
+        }
     }
 
     class Factory(private val application: Application) : ViewModelProvider.Factory {

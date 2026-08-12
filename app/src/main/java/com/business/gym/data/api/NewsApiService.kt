@@ -346,6 +346,16 @@ interface NewsApiService {
     @GET("auth/status")
     suspend fun getAuthStatus(): Map<String, String>
 
+    // --- ГЛОБАЛЬНЫЙ КОНТЕНТ (ОФЕРТА) ---
+    @GET("content/privacy")
+    suspend fun getPrivacyPolicy(): Map<String, String>
+
+    @Multipart
+    @POST("admin/content/privacy")
+    suspend fun updatePrivacyPolicy(
+        @Part("content") content: RequestBody
+    ): okhttp3.ResponseBody
+
     companion object {
         // Базовый адрес по умолчанию (VPS)
         private var currentBaseUrl = "http://5.35.98.149:5557/"

@@ -213,7 +213,9 @@ fun UserListScreen(
                 items(users) { user ->
                     val isUserAdmin = AuthViewModel.isStaticAdmin(user.email)
                     val isSelected = selectedUser?.uid == user.uid
-                    val unreadCount = notifiedCounts[user.uid] ?: 0
+                    
+                    // Проверяем уведомления по UID и по Email (на случай несовпадения форматов)
+                    val unreadCount = notifiedCounts[user.uid] ?: notifiedCounts[user.email] ?: 0
                     val hasNotification = unreadCount > 0 && unreadCount != 999999
 
                     // Анимация пульсации для новых сообщений

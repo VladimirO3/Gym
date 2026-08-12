@@ -127,9 +127,16 @@ class ChatViewModel(
     private var globalPollingJob: kotlinx.coroutines.Job? = null
     
     // Карта для отслеживания количества непрочитанных сообщений, о которых уже уведомили
-    // Key: senderId, Value: count
+    // Key: digital UID or email, Value: count
     private val _notifiedCounts = mutableStateOf<Map<String, Int>>(emptyMap())
     val notifiedCounts: State<Map<String, Int>> = _notifiedCounts
+
+    /**
+     * Возвращает общее количество непрочитанных сообщений для всех пользователей.
+     */
+    fun getTotalUnreadCount(): Int {
+        return _notifiedCounts.value.filter { it.key != _selectedUser.value?.uid }.values.sum()
+    }
 
     /**
      * Запускает глобальный опрос непрочитанных сообщений для фоновых уведомлений.

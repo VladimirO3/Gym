@@ -164,7 +164,7 @@ class ChatRepository(
             Log.d("ChatRepository", "Admin action: Deleting user $uid")
             
             // 1. Отправляем запрос на сервер
-            apiService.deleteUser(uid, uid)
+            val response = apiService.deleteUser(uid, uid)
             Log.i("ChatRepository", "VPS User deletion confirmed for $uid")
 
             // 2. Только после подтверждения сервера чистим локальный кэш
@@ -177,6 +177,10 @@ class ChatRepository(
             return true
         } catch (e: Exception) {
             Log.e("ChatRepository", "CRITICAL: VPS failed to delete user $uid.", e)
+            if (e is retrofit2.HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                Log.e("ChatRepository", "Server error body: $errorBody")
+            }
             return false // Возвращаем false при ошибке сервера
         }
     }

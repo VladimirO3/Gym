@@ -306,9 +306,11 @@ fun GymAppContent(
         list.add(GymTab("Профиль", Icons.Default.AccountCircle, "settings"))
         list.add(GymTab("Магазин", Icons.Default.Store, "shop"))
         
-        // Показываем Оферту только если НЕ гость, НЕ админ и еще НЕ согласился
-        if (!isGuest && !isAdmin && !privacyAgreed) {
-            list.add(GymTab("Оферта", Icons.Default.Gavel, "privacy"))
+        // Показываем Оферту если НЕ гость и (НЕ админ и еще НЕ согласился) ИЛИ (если Админ - всегда для редактирования)
+        if (!isGuest) {
+            if (isAdmin || !privacyAgreed) {
+                list.add(GymTab("Оферта", Icons.Default.Gavel, "privacy"))
+            }
         }
 
         list.add(GymTab("О приложении", Icons.Default.Add, "about"))
@@ -376,6 +378,20 @@ fun GymAppContent(
                                                     if (count > 0) {
                                                         Badge(containerColor = Color.Red, contentColor = Color.White) {
                                                             Text("$count")
+                                                        }
+                                                    }
+                                                }
+                                            ) { Icon(tab.icon, contentDescription = tab.title) }
+                                        } else if (tab.key == "chat") {
+                                            val unreadCount = chatViewModel.notifiedCounts.value
+                                                .filter { it.key != chatViewModel.selectedUser.value?.uid }
+                                                .values.sumOf { if (it == 999999) 0 else it }
+                                            
+                                            BadgedBox(
+                                                badge = {
+                                                    if (unreadCount > 0) {
+                                                        Badge(containerColor = Color.Red, contentColor = Color.White) {
+                                                            Text(if (unreadCount > 99) "99+" else "$unreadCount")
                                                         }
                                                     }
                                                 }
@@ -471,7 +487,27 @@ fun GymAppContent(
                                                 showAuthOverlay = false 
                                             },
                                             text = { Text(tab.title, fontSize = 10.sp, maxLines = 1) },
-                                            icon = { Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp)) },
+                                            icon = { 
+                                                if (tab.key == "chat") {
+                                                    val unreadCount = chatViewModel.notifiedCounts.value
+                                                        .filter { it.key != chatViewModel.selectedUser.value?.uid }
+                                                        .values.sumOf { if (it == 999999) 0 else it }
+                                                    
+                                                    BadgedBox(
+                                                        badge = {
+                                                            if (unreadCount > 0) {
+                                                                Badge(containerColor = Color.Red, contentColor = Color.White) {
+                                                                    Text(if (unreadCount > 99) "99+" else "$unreadCount")
+                                                                }
+                                                            }
+                                                        }
+                                                    ) {
+                                                        Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp))
+                                                    }
+                                                } else {
+                                                    Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp))
+                                                }
+                                            },
                                             selectedContentColor = Color.Red,
                                             unselectedContentColor = Color.Gray
                                         )
@@ -547,7 +583,9 @@ fun GymAppContent(
                                         val currentContext = LocalContext.current
                                         PrivacyScreen(
                                             onAgree = { settingsViewModel.setPrivacyAgreed(currentContext, currentUserEmail, true) },
-                                            isAlreadyAgreed = settingsViewModel.privacyAgreed.value
+                                            isAlreadyAgreed = settingsViewModel.privacyAgreed.value,
+                                            isAdmin = isAdmin,
+                                            viewModel = settingsViewModel
                                         )
                                     }
                                     "about" -> AboutScreen(isAdmin = isAdmin)
