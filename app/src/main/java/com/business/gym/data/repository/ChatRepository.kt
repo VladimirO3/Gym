@@ -31,7 +31,9 @@ class ChatRepository(
             val users = apiService.getChatUsers()
             Log.d("ChatRepository", "Received ${users.size} users from VPS")
             val entities = users.map { 
-                UserEntity(uid = it.uid, email = it.email, name = it.name) 
+                // Гарантируем наличие UID (если пустой, используем email)
+                val finalUid = if (it.uid.isNullOrBlank()) it.email else it.uid
+                UserEntity(uid = finalUid, email = it.email, name = it.name) 
             }
             chatDao.deleteAllUsers()
             chatDao.insertUsers(entities)
@@ -144,22 +146,28 @@ class ChatRepository(
     }
 
     suspend fun deleteUser(uid: String): Boolean {
-        var localDeleted = false
         try {
-            // Полная очистка локального кэша для этого пользователя
+            Log.d("ChatRepository", "Starting deletion of user: $uid")
+            
+            // 1. Сначала удаляем на сервере. Если сервер вернет ошибку, мы не будем считать удаление успешным.
+            // Передаем UID и в Path, и в Query для максимальной совместимости с роутингом VPS
+            apiService.deleteUser(uid, uid)
+            
+            // 2. Если сервер ответил успешно (не выбросил Exception), вычищаем локальный кэш
             chatDao.deleteUserByUid(uid)
             chatDao.deleteMessagesForPeer(uid)
             db.profileDao().deleteProfileByUid(uid)
             db.dailyNoteDao().deleteAllNotesByUid(uid)
             
-            localDeleted = true
-            
-            // Удаляем на сервере
-            apiService.deleteUser(uid)
+            Log.i("ChatRepository", "User $uid deleted successfully from VPS and Local Cache")
             return true
         } catch (e: Exception) {
-            Log.e("ChatRepository", "Server user deletion failed for $uid", e)
-            return localDeleted
+            Log.e("ChatRepository", "FAILED to delete user $uid from VPS. User will remain in list.", e)
+            if (e is retrofit2.HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                Log.e("ChatRepository", "Server Error Body: $errorBody")
+            }
+            return false
         }
     }
 }

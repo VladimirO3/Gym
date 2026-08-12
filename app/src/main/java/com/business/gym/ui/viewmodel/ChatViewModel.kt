@@ -338,25 +338,36 @@ class ChatViewModel(
     /**
      * Административная функция: Удаление пользователя из системы.
      */
-    fun deleteUser(context: android.content.Context, uid: String) {
+    fun deleteUser(context: android.content.Context, uid: String, token: String?) {
+        if (token == null) {
+            android.widget.Toast.makeText(context, "Ошибка: вы не авторизованы", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 1. Добавляем во временный черный список, чтобы пользователь исчез из UI сразу
         deletedUserUids.add(uid)
-        // Мгновенно убираем пользователя из UI
         _users.value = _users.value.filter { it.uid != uid }
         
         viewModelScope.launch {
+            // 2. Выполняем удаление на VPS и в локальном кэше через репозиторий
             val success = repository.deleteUser(uid)
+            
             if (success) {
-                // Если мы сейчас в чате с удаленным пользователем, выходим
+                // 3. Если удаление на сервере прошло успешно, выходим из чата с этим пользователем
                 if (_selectedUser.value?.uid == uid) {
                     _selectedUser.value = null
                     _messages.value = emptyList()
                     stopPolling()
                 }
-                android.widget.Toast.makeText(context, "Пользователь удален", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, "Пользователь полностью удален", android.widget.Toast.LENGTH_SHORT).show()
+                
+                // Принудительно обновляем список, чтобы синхронизировать данные
+                repository.refreshUsers(token)
             } else {
-                // Если ошибка, возвращаем в список (опционально, зависит от желаемого поведения)
-                // deletedUserUids.remove(uid)
-                android.widget.Toast.makeText(context, "Ошибка при удалении пользователя на сервере", android.widget.Toast.LENGTH_SHORT).show()
+                // 4. Если сервер вернул ошибку, возвращаем пользователя в список
+                deletedUserUids.remove(uid)
+                repository.refreshUsers(token) // Перекачиваем список, чтобы восстановить UI
+                android.widget.Toast.makeText(context, "Ошибка сервера при удалении. Пользователь восстановлен.", android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }

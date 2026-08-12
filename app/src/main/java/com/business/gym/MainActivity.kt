@@ -226,31 +226,38 @@ fun GymApp(
     val currentUid by authViewModel.currentUid
     val isAdmin = remember(currentUserEmail) { authViewModel.isAdmin() }
 
-    GymAppContent(
-        currentUserEmail = currentUserEmail,
-        currentUid = currentUid,
-        isAdmin = isAdmin,
-        exoPlayer = exoPlayer,
-        onSignOut = { onSignOutAction ->
-            exoPlayer.stop()
-            chatViewModel.clearAll() // Очищаем чат и останавливаем все фоновые процессы
-            authViewModel.signOut()
-            authViewModel.clearSession(context)
-            cartViewModel.clearCart(context, sync = false)
-            coroutineScope.launch {
-                onSignOutAction()
-            }
-        },
-        onSaveSession = { identifier -> },
-        onExitRequest = onExitRequest,
-        settingsViewModel = settingsViewModel,
-        cartViewModel = cartViewModel,
-        chatViewModel = chatViewModel,
-        navigationRequest = navigationRequest,
-        onResetNavigationRequest = onResetNavigationRequest,
-        isDarkTheme = isDarkTheme,
-        authViewModel = authViewModel
-    )
+    if (currentUid.isNullOrBlank() && !authViewModel.isGuest.value) {
+        // Если UID нет и мы не гость - показываем загрузку, чтобы не передать null в GymAppContent
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Color.Red)
+        }
+    } else {
+        GymAppContent(
+            currentUserEmail = currentUserEmail,
+            currentUid = currentUid ?: "", 
+            isAdmin = isAdmin,
+            exoPlayer = exoPlayer,
+            onSignOut = { onSignOutAction ->
+                exoPlayer.stop()
+                chatViewModel.clearAll() // Очищаем чат и останавливаем все фоновые процессы
+                authViewModel.signOut()
+                authViewModel.clearSession(context)
+                cartViewModel.clearCart(context, sync = false)
+                coroutineScope.launch {
+                    onSignOutAction()
+                }
+            },
+            onSaveSession = { identifier -> },
+            onExitRequest = onExitRequest,
+            settingsViewModel = settingsViewModel,
+            cartViewModel = cartViewModel,
+            chatViewModel = chatViewModel,
+            navigationRequest = navigationRequest,
+            onResetNavigationRequest = onResetNavigationRequest,
+            isDarkTheme = isDarkTheme,
+            authViewModel = authViewModel
+        )
+    }
 }
 
 data class GymTab(

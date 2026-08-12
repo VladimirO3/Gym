@@ -87,7 +87,7 @@ fun ChatScreen(
                         selectedUser = selectedUser,
                         notifiedCounts = notifiedCounts,
                         isAdmin = isAdmin,
-                        onDeleteUser = { viewModel.deleteUser(context, it) }
+                        onDeleteUser = { viewModel.deleteUser(context, it, jwtToken) }
                     )
                 }
                 VerticalDivider(color = Color.DarkGray)
@@ -127,7 +127,7 @@ fun ChatScreen(
                     modifier = modifier,
                     notifiedCounts = notifiedCounts,
                     isAdmin = isAdmin,
-                    onDeleteUser = { viewModel.deleteUser(context, it) }
+                    onDeleteUser = { viewModel.deleteUser(context, it, jwtToken) }
                 )
             } else {
                 ConversationScreen(

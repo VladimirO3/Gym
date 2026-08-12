@@ -224,7 +224,8 @@ interface NewsApiService {
 
     @DELETE("admin/users/{uid}")
     suspend fun deleteUser(
-        @Path("uid") uid: String
+        @Path("uid") uid: String,
+        @Query("uid") uidQuery: String? = null // Добавляем как Query-параметр на случай, если сервер ожидает его там
     ): okhttp3.ResponseBody
 
     // --- НОВОСТИ ---
