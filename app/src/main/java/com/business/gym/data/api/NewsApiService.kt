@@ -92,7 +92,7 @@ data class CartItemResponse(
     @SerializedName("name") val name: String,
     @SerializedName("price") val price: String,
     @SerializedName("description") val description: String,
-    @SerializedName("image_url") val imageUrl: String = ""
+    @SerializedName("image_url", alternate = ["imageUrl", "url"]) val imageUrl: String = ""
 )
 
 /**
@@ -103,7 +103,7 @@ data class ProductResponse(
     @SerializedName("name") val name: String,
     @SerializedName("price") val price: String,
     @SerializedName("description") val description: String,
-    @SerializedName("image_url") val imageUrl: String
+    @SerializedName("image_url", alternate = ["imageUrl", "url"]) val imageUrl: String
 )
 
 /**
@@ -424,12 +424,11 @@ interface NewsApiService {
                     val token = sharedPref.getString("user_session_token", null)
                     
                     // Добавляем токен для всех запросов к API, 
-                    // кроме тех, где он уже есть, если это прямой запрос к /uploads/ или если это гость
-                    val isMedia = url.contains("/uploads/")
+                    // кроме тех, где он уже есть или если это гость
                     val isGuestToken = token == "guest_token"
                     val hasAuth = request.header("Authorization") != null
                     
-                    val newRequest = if (!hasAuth && token != null && !isMedia && !isGuestToken) {
+                    val newRequest = if (!hasAuth && token != null && !isGuestToken) {
                         Log.d("NewsApiService", "Adding Authorization header to: $url")
                         request.newBuilder()
                             .header("Authorization", "Bearer $token")

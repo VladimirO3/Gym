@@ -14,9 +14,10 @@ import com.business.gym.data.local.entity.*
         ChatMessageEntity::class, 
         UserEntity::class,
         ProfileEntity::class,
-        DailyNoteEntity::class
+        DailyNoteEntity::class,
+        ProductEntity::class
     ], 
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class GymDatabase : RoomDatabase() {
@@ -25,6 +26,7 @@ abstract class GymDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
     abstract fun profileDao(): ProfileDao
     abstract fun dailyNoteDao(): DailyNoteDao
+    abstract fun productDao(): ProductDao
 
     companion object {
         @Volatile

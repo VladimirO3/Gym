@@ -52,11 +52,7 @@ fun ShopScreen(
     val application = context.applicationContext as android.app.Application
     
     val shopViewModel: ShopViewModel = viewModel(
-        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                return ShopViewModel(application) as T
-            }
-        }
+        factory = ShopViewModel.Factory(application)
     )
 
     val products by shopViewModel.products
@@ -325,10 +321,11 @@ fun CartItemRow(product: ProductPlaceholder, count: Int, viewModel: CartViewMode
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
-                model = product.imageUrl,
+                model = NewsApiService.getFullUrl(context, product.imageUrl),
                 contentDescription = product.name,
                 modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                error = ColorPainter(Color.DarkGray)
             )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
