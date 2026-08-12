@@ -63,8 +63,15 @@ class ProfileRepository(
     suspend fun updateTheme(uid: String, mode: String) {
         val current = profileDao.getProfile(uid).firstOrNull()
         profileDao.updateTheme(uid, mode)
+        
+        val name = current?.name ?: ""
+        if (name.isBlank()) {
+            Log.w("ProfileRepository", "Skipping VPS theme update: name is empty")
+            return
+        }
+        
         try {
-            val nameBody = (current?.name ?: "").toRequestBody("text/plain".toMediaTypeOrNull())
+            val nameBody = name.toRequestBody("text/plain".toMediaTypeOrNull())
             val ageBody = current?.age?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
             val themeBody = mode.toRequestBody("text/plain".toMediaTypeOrNull())
             apiService.updateProfile(
@@ -83,8 +90,15 @@ class ProfileRepository(
     suspend fun updateLang(uid: String, lang: String) {
         val current = profileDao.getProfile(uid).firstOrNull()
         profileDao.updateLang(uid, lang)
+        
+        val name = current?.name ?: ""
+        if (name.isBlank()) {
+            Log.w("ProfileRepository", "Skipping VPS lang update: name is empty")
+            return
+        }
+
         try {
-            val nameBody = (current?.name ?: "").toRequestBody("text/plain".toMediaTypeOrNull())
+            val nameBody = name.toRequestBody("text/plain".toMediaTypeOrNull())
             val ageBody = current?.age?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
             val langBody = lang.toRequestBody("text/plain".toMediaTypeOrNull())
             apiService.updateProfile(
@@ -104,8 +118,15 @@ class ProfileRepository(
         Log.d("ProfileRepository", "Updating privacy to $agreed in Room and VPS for UID: $uid")
         val current = profileDao.getProfile(uid).firstOrNull()
         profileDao.updatePrivacy(uid, agreed)
+        
+        val name = current?.name ?: ""
+        if (name.isBlank()) {
+            Log.w("ProfileRepository", "Skipping VPS privacy update: name is empty")
+            return
+        }
+
         try {
-            val nameBody = (current?.name ?: "").toRequestBody("text/plain".toMediaTypeOrNull())
+            val nameBody = name.toRequestBody("text/plain".toMediaTypeOrNull())
             val ageBody = current?.age?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
             val privacyBody = agreed.toString().toRequestBody("text/plain".toMediaTypeOrNull())
             
@@ -124,6 +145,10 @@ class ProfileRepository(
      * Обновляет имя и возраст и синхронизирует с сервером.
      */
     suspend fun updateProfileInfo(uid: String, name: String, age: Int?) {
+        if (name.isBlank()) {
+            throw IllegalArgumentException("name не может быть пустым")
+        }
+
         val current = profileDao.getProfile(uid).firstOrNull()
         profileDao.updateProfileInfo(uid, name, age)
         try {
@@ -193,7 +218,7 @@ class ProfileRepository(
             val remoteNotes: List<com.business.gym.data.api.DailyNoteResponse>? = apiService.getNotes()
             Log.d("ProfileRepository", "Notes received: ${remoteNotes?.size ?: 0}")
             remoteNotes?.forEach { remote ->
-                dailyNoteDao.insertNote(DailyNoteEntity(uid = uid, date = remote.date, note = remote.note))
+                dailyNoteDao.insertNote(DailyNoteEntity(uid = uid, date = remote.date, note = remote.content))
             }
         } catch (e: Exception) {
             Log.e("ProfileRepository", "CRITICAL: Failed to refresh notes. Error: ${e.message}", e)

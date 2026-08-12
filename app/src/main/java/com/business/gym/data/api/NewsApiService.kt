@@ -123,7 +123,7 @@ data class ProfileResponse(
 
 data class DailyNoteResponse(
     val date: String,
-    val note: String
+    val content: String
 )
 
 /**
@@ -223,16 +223,14 @@ interface NewsApiService {
         @Field("email") email: String? = null
     ): okhttp3.ResponseBody
 
-    @DELETE("admin/users/{uid}")
+    @DELETE("admin/users/{userId}")
     suspend fun deleteUser(
-        @Path("uid") uid: String,
-        @Query("uid") uidQuery: String? = null,
-        @Query("email") emailQuery: String? = null
+        @Path("userId") userId: Int
     ): okhttp3.ResponseBody
 
-    @DELETE("admin/users")
+    @DELETE("admin/users/email/{email}")
     suspend fun deleteUserByEmail(
-        @Query("email") email: String
+        @Path("email") email: String
     ): okhttp3.ResponseBody
 
     // --- НОВОСТИ ---
@@ -353,11 +351,11 @@ interface NewsApiService {
     suspend fun getAuthStatus(): Map<String, String>
 
     // --- ГЛОБАЛЬНЫЙ КОНТЕНТ (ОФЕРТА) ---
-    @GET("content/privacy")
+    @GET("policy")
     suspend fun getPrivacyPolicy(): Map<String, String>
 
     @FormUrlEncoded
-    @POST("admin/privacy")
+    @POST("admin/policy")
     suspend fun updatePrivacyPolicy(
         @Field("date") date: String,
         @Field("content") content: String

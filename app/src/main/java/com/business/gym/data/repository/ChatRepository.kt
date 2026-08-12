@@ -164,23 +164,29 @@ class ChatRepository(
             Log.d("ChatRepository", "Admin action: Deleting user. UID: $uid")
             
             // Пытаемся удалить через основной REST-эндпоинт. 
-            // Если UID содержит @, значит это email - используем deleteUserByEmail
-            if (uid.contains("@")) {
-                apiService.deleteUserByEmail(uid)
+            // Согласно документации, сервер может ожидать числовой ID или email.
+            val numericId = uid.toIntOrNull()
+            if (numericId != null) {
+                apiService.deleteUser(numericId)
             } else {
-                apiService.deleteUser(uid, uid)
+                // Если UID не является числом, пробуем удаление по email
+                apiService.deleteUserByEmail(uid)
             }
             Log.i("ChatRepository", "VPS User deletion success for $uid")
 
-            // 2. Только после подтверждения сервера чистим локальный кэш
-            chatDao.deleteUserByUid(uid)
-            chatDao.deleteMessagesForPeer(uid)
-            db.profileDao().deleteProfileByUid(uid)
-            db.dailyNoteDao().deleteAllNotesByUid(uid)
-            db.cartDao().clearCart(uid)
+            // 2. Чистим локальный кэш
+            performLocalUserCleanup(uid)
             
             return true
         } catch (e: Exception) {
+            // Если сервер вернул 404, значит пользователь уже удален или эндпоинт не найден, 
+            // но мы все равно должны очистить локальные данные.
+            if (e is retrofit2.HttpException && e.code() == 404) {
+                Log.w("ChatRepository", "Server returned 404 for user $uid. Proceeding with local cleanup.")
+                performLocalUserCleanup(uid)
+                return true
+            }
+
             Log.e("ChatRepository", "CRITICAL: VPS failed to delete user $uid.", e)
             if (e is retrofit2.HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
@@ -188,5 +194,13 @@ class ChatRepository(
             }
             return false
         }
+    }
+
+    private suspend fun performLocalUserCleanup(uid: String) {
+        chatDao.deleteUserByUid(uid)
+        chatDao.deleteMessagesForPeer(uid)
+        db.profileDao().deleteProfileByUid(uid)
+        db.dailyNoteDao().deleteAllNotesByUid(uid)
+        db.cartDao().clearCart(uid)
     }
 }

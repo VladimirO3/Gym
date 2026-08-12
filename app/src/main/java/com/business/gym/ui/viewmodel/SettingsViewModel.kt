@@ -125,16 +125,26 @@ class SettingsViewModel(
         }
 
         uid?.let { id ->
+            // Проверка на админа (админам не нужно принимать оферту)
+            val isAdmin = AuthViewModel.isStaticAdmin(currentUserEmail)
+            if (isAdmin) {
+                _privacyAgreed.value = true
+            }
+
             // Принудительно запрашиваем актуальные данные профиля с VPS
             viewModelScope.launch {
                 repository.refreshProfileFromServer(id)
+                // Если админ, после загрузки с сервера гарантируем согласие в локальной БД
+                if (isAdmin) {
+                    repository.updatePrivacy(id, true)
+                }
             }
 
             // Подписка на локальный кэш профиля
             viewModelScope.launch {
                 repository.getProfile(id).collect { profile ->
                     profile?.let {
-                        _privacyAgreed.value = it.privacyAgreed
+                        _privacyAgreed.value = if (isAdmin) true else it.privacyAgreed
                         _userName.value = it.name
                         _userAge.value = it.age
                         _avatarUrl.value = it.avatarUrl
@@ -147,7 +157,7 @@ class SettingsViewModel(
                             email = currentUserEmail ?: "", 
                             name = "",
                             themeMode = _themeMode.value,
-                            privacyAgreed = _privacyAgreed.value
+                            privacyAgreed = isAdmin // Для админа ставим true сразу
                         ))
                     }
                 }

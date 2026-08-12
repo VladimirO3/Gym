@@ -440,8 +440,8 @@ fun GymAppContent(
                             // Место под статус-бар
                             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars).fillMaxWidth())
                             
-                            // Напоминание об оферте
-                            if (!isGuest && !privacyAgreed && currentUserEmail != null) {
+                            // Напоминание об оферте (только для обычных пользователей, не для админа и не для гостей)
+                            if (!isGuest && !isAdmin && !privacyAgreed && currentUserEmail != null) {
                                 Surface(
                                     color = Color.Yellow,
                                     onClick = {
