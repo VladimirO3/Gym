@@ -344,7 +344,8 @@ class ChatViewModel(
             return
         }
 
-        // 1. Добавляем во временный черный список, чтобы пользователь исчез из UI сразу
+        // 1. Мгновенно убираем из UI и добавляем в "черный список" сессии
+        // Это предотвратит их повторное появление даже при обновлении списка
         deletedUserUids.add(uid)
         _users.value = _users.value.filter { it.uid != uid }
         
@@ -353,21 +354,16 @@ class ChatViewModel(
             val success = repository.deleteUser(uid)
             
             if (success) {
-                // 3. Если удаление на сервере прошло успешно, выходим из чата с этим пользователем
                 if (_selectedUser.value?.uid == uid) {
                     _selectedUser.value = null
                     _messages.value = emptyList()
                     stopPolling()
                 }
-                android.widget.Toast.makeText(context, "Пользователь полностью удален", android.widget.Toast.LENGTH_SHORT).show()
-                
-                // Принудительно обновляем список, чтобы синхронизировать данные
-                repository.refreshUsers(token)
+                android.widget.Toast.makeText(context, "Пользователь и его данные удалены", android.widget.Toast.LENGTH_SHORT).show()
             } else {
-                // 4. Если сервер вернул ошибку, возвращаем пользователя в список
-                deletedUserUids.remove(uid)
-                repository.refreshUsers(token) // Перекачиваем список, чтобы восстановить UI
-                android.widget.Toast.makeText(context, "Ошибка сервера при удалении. Пользователь восстановлен.", android.widget.Toast.LENGTH_LONG).show()
+                // НЕ удаляем из deletedUserUids здесь, чтобы пользователь не "прыгал" обратно в список
+                // даже если сервер вернул ошибку. Он останется скрытым до перезапуска приложения.
+                android.widget.Toast.makeText(context, "Ошибка удаления на сервере, но пользователь скрыт локально", android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }

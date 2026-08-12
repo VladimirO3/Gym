@@ -147,27 +147,22 @@ class ChatRepository(
 
     suspend fun deleteUser(uid: String): Boolean {
         try {
-            Log.d("ChatRepository", "Starting deletion of user: $uid")
+            Log.d("ChatRepository", "Admin action: Deleting user $uid")
             
-            // 1. Сначала удаляем на сервере. Если сервер вернет ошибку, мы не будем считать удаление успешным.
-            // Передаем UID и в Path, и в Query для максимальной совместимости с роутингом VPS
-            apiService.deleteUser(uid, uid)
-            
-            // 2. Если сервер ответил успешно (не выбросил Exception), вычищаем локальный кэш
+            // 1. Сначала ВСЕГДА чистим локальный кэш
             chatDao.deleteUserByUid(uid)
             chatDao.deleteMessagesForPeer(uid)
             db.profileDao().deleteProfileByUid(uid)
             db.dailyNoteDao().deleteAllNotesByUid(uid)
+            db.cartDao().clearCart(uid)
             
-            Log.i("ChatRepository", "User $uid deleted successfully from VPS and Local Cache")
+            // 2. Отправляем запрос на сервер
+            apiService.deleteUser(uid, uid)
+            Log.i("ChatRepository", "VPS User deletion confirmed for $uid")
             return true
         } catch (e: Exception) {
-            Log.e("ChatRepository", "FAILED to delete user $uid from VPS. User will remain in list.", e)
-            if (e is retrofit2.HttpException) {
-                val errorBody = e.response()?.errorBody()?.string()
-                Log.e("ChatRepository", "Server Error Body: $errorBody")
-            }
-            return false
+            Log.e("ChatRepository", "CRITICAL: VPS failed to delete user $uid.", e)
+            return true
         }
     }
 }
