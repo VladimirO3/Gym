@@ -46,7 +46,9 @@ import com.business.gym.ui.viewmodel.ShopViewModel
 @Composable
 fun ShopScreen(
     isAdmin: Boolean,
-    cartViewModel: CartViewModel = viewModel(),
+    cartViewModel: CartViewModel = viewModel(
+        factory = CartViewModel.Factory(LocalContext.current.applicationContext as android.app.Application)
+    ),
     onGoToCart: () -> Unit = {}
 ) {
     val context = LocalContext.current

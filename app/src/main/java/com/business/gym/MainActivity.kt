@@ -124,7 +124,9 @@ class MainActivity : AppCompatActivity() {
             val settingsViewModel: SettingsViewModel = viewModel(
                 factory = SettingsViewModel.Factory(application)
             )
-            val cartViewModel: CartViewModel = viewModel()
+            val cartViewModel: CartViewModel = viewModel(
+                factory = CartViewModel.Factory(application)
+            )
             val chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel = viewModel(
                 factory = com.business.gym.ui.viewmodel.ChatViewModel.Factory(application)
             )
@@ -143,9 +145,9 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            LaunchedEffect(jwtToken) {
+            LaunchedEffect(jwtToken, currentUid) {
                 if (jwtToken != null) {
-                    cartViewModel.init(context, jwtToken)
+                    cartViewModel.init(context, jwtToken, currentUid)
                     chatViewModel.startGlobalNotificationPolling(jwtToken)
                     authViewModel.startStatusPolling(context)
                 }

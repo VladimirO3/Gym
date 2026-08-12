@@ -1,58 +1,100 @@
 package com.business.gym.ui.viewmodel
 
+import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.business.gym.data.api.CartItemRequest
 import com.business.gym.data.api.NewsApiService
+import com.business.gym.data.local.GymDatabase
+import com.business.gym.data.local.dao.CartDao
+import com.business.gym.data.local.entity.CartItemEntity
 import com.business.gym.ui.screen.ProductPlaceholder
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
  * ViewModel для управления корзиной покупок.
- * Обеспечивает синхронизацию списка выбранных товаров с VPS сервером.
+ * Обеспечивает синхронизацию списка выбранных товаров с VPS сервером и локальной БД Room.
  */
-class CartViewModel : ViewModel() {
+class CartViewModel(
+    application: Application,
+    private val cartDao: CartDao
+) : AndroidViewModel(application) {
+    
     // Список товаров в корзине: Пара (Товар, Количество)
     private val _cartItems = mutableStateOf<List<Pair<ProductPlaceholder, Int>>>(emptyList())
     val cartItems: State<List<Pair<ProductPlaceholder, Int>>> = _cartItems
 
     private var syncJob: Job? = null
     private var currentToken: String? = null
+    private var currentUserId: String? = null
 
     /**
-     * Инициализация корзины. Загружает данные с сервера, если токен изменился или корзина пуста.
+     * Инициализация корзины. Загружает данные с сервера и локальной БД.
      */
-    fun init(context: android.content.Context, token: String?) {
+    fun init(context: android.content.Context, token: String?, userId: String? = null) {
         val tokenChanged = currentToken != token
         currentToken = token
+        currentUserId = userId
         
-        // Если токен появился или изменился, принудительно загружаем данные с сервера
-        if (token != null && token != "guest_token" && (tokenChanged || _cartItems.value.isEmpty())) {
-            loadCartFromServer(context, token)
+        if (token != null && token != "guest_token") {
+            // 1. Загружаем из локальной БД для быстрого отображения
+            userId?.let { uid ->
+                viewModelScope.launch {
+                    val localItems = cartDao.getCartItems(uid).first()
+                    if (_cartItems.value.isEmpty() && localItems.isNotEmpty()) {
+                        _cartItems.value = localItems.map {
+                            Pair(
+                                ProductPlaceholder(it.productId, it.name, it.price, it.description, it.imageUrl),
+                                it.quantity
+                            )
+                        }
+                        Log.d("CartViewModel", "Cart loaded from local Room cache for user: $uid")
+                    }
+                    
+                    // 2. Затем актуализируем с сервера
+                    loadCartFromServer(context, token, uid)
+                }
+            } ?: run {
+                // Если UID нет, просто пробуем сервер (напр. переходный период)
+                loadCartFromServer(context, token, null)
+            }
         }
     }
 
     /**
-     * Получает актуальное состояние корзины из API.
+     * Получает актуальное состояние корзины из API и сохраняет в Room.
      */
-    private fun loadCartFromServer(context: android.content.Context, token: String) {
+    private fun loadCartFromServer(context: android.content.Context, token: String, userId: String?) {
         viewModelScope.launch {
             try {
-                // Используем API сервис с контекстом для автоматической подстановки токена
                 val api = NewsApiService.create(context)
                 val response = api.getCart()
-                _cartItems.value = response.map {
+                val newItems = response.map {
                     Pair(
                         ProductPlaceholder(it.productId, it.name, it.price, it.description, it.imageUrl),
                         it.quantity
                     )
                 }
-                Log.i("CartViewModel", "Cart loaded from server for token: ${token.take(10)}... Size: ${response.size}")
+                _cartItems.value = newItems
+                
+                // Сохраняем в локальную БД
+                if (userId != null) {
+                    val entities = newItems.map { (p, count) ->
+                        CartItemEntity(userId, p.id, count, p.name, p.price, p.description, p.imageUrl)
+                    }
+                    cartDao.clearCart(userId)
+                    cartDao.insertItems(entities)
+                }
+                
+                Log.i("CartViewModel", "Cart synced from VPS. Size: ${response.size}")
             } catch (e: Exception) {
                 Log.e("CartViewModel", "Failed to load cart from server", e)
             }
@@ -60,29 +102,38 @@ class CartViewModel : ViewModel() {
     }
 
     /**
-     * Синхронизирует текущее локальное состояние корзины с сервером.
-     * Использует задержку (debounce) для предотвращения слишком частых запросов при быстром изменении количества.
+     * Синхронизирует текущее локальное состояние корзины с сервером и Room.
      */
     private fun syncCartWithServer(context: android.content.Context) {
         val token = currentToken
-        if (token == null || token == "guest_token") {
-            Log.w("CartViewModel", "Sync skipped: token is $token")
-            return
-        }
+        val userId = currentUserId
         
+        if (token == null || token == "guest_token") return
+        
+        // Сначала сохраняем в Room (мгновенно)
+        if (userId != null) {
+            viewModelScope.launch {
+                val entities = _cartItems.value.map { (p, count) ->
+                    CartItemEntity(userId, p.id, count, p.name, p.price, p.description, p.imageUrl)
+                }
+                cartDao.clearCart(userId)
+                cartDao.insertItems(entities)
+            }
+        }
+
+        // Затем на сервер с задержкой
         syncJob?.cancel()
         syncJob = viewModelScope.launch {
-            delay(1500) // Увеличил задержку для надежности
+            delay(1500)
             try {
                 val api = NewsApiService.create(context)
                 val request = _cartItems.value.map { (product, count) ->
                     CartItemRequest(product.id, count)
                 }
-                Log.d("CartViewModel", "Syncing cart with VPS. Items: ${request.size}")
                 api.saveCart(request)
-                Log.i("CartViewModel", "Cart sync SUCCESS")
+                Log.i("CartViewModel", "Cart synced with VPS success")
             } catch (e: Exception) {
-                Log.e("CartViewModel", "Cart sync FAILED", e)
+                Log.e("CartViewModel", "Failed to sync cart with server", e)
             }
         }
     }
@@ -125,11 +176,15 @@ class CartViewModel : ViewModel() {
 
     /**
      * Полная очистка корзины.
-     * @param sync Если true, отправит пустой список на сервер для очистки облачной корзины.
      */
     fun clearCart(context: android.content.Context, sync: Boolean = true) {
         _cartItems.value = emptyList()
-        if (sync) syncCartWithServer(context)
+        if (sync) {
+            currentUserId?.let { uid ->
+                viewModelScope.launch { cartDao.clearCart(uid) }
+            }
+            syncCartWithServer(context)
+        }
     }
 
     /**
@@ -137,7 +192,6 @@ class CartViewModel : ViewModel() {
      */
     fun getTotalPrice(): Int {
         return _cartItems.value.sumOf { (product, count) ->
-            // Парсинг цены: убираем валюту и пробелы для получения числа
             val priceCleaned = product.price.replace(" ", "").replace("\u00A0", "")
             val match = Regex("(\\d+)").find(priceCleaned)
             val priceInt = match?.value?.toIntOrNull() ?: 0
@@ -150,5 +204,19 @@ class CartViewModel : ViewModel() {
      */
     fun formatPrice(price: Int): String {
         return String.format(java.util.Locale("ru", "RU"), "%, d", price).replace(",", " ").trim() + " ₽"
+    }
+
+    /**
+     * Фабрика для создания CartViewModel.
+     */
+    class Factory(private val application: Application) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(CartViewModel::class.java)) {
+                val database = GymDatabase.getDatabase(application)
+                @Suppress("UNCHECKED_CAST")
+                return CartViewModel(application, database.cartDao()) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
+        }
     }
 }
