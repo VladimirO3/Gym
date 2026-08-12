@@ -190,9 +190,9 @@ class ProfileRepository(
     suspend fun refreshNotesFromServer(uid: String) {
         try {
             Log.d("ProfileRepository", "Refreshing notes from server for UID: $uid")
-            val remoteNotes = apiService.getNotes()
-            Log.d("ProfileRepository", "Notes received: ${remoteNotes.size}")
-            remoteNotes.forEach { remote ->
+            val remoteNotes: List<com.business.gym.data.api.DailyNoteResponse>? = apiService.getNotes()
+            Log.d("ProfileRepository", "Notes received: ${remoteNotes?.size ?: 0}")
+            remoteNotes?.forEach { remote ->
                 dailyNoteDao.insertNote(DailyNoteEntity(uid = uid, date = remote.date, note = remote.note))
             }
         } catch (e: Exception) {
@@ -208,11 +208,9 @@ class ProfileRepository(
         dailyNoteDao.insertNote(note)
         
         try {
-            // 2. Затем на VPS через Multipart
-            val dateBody = note.date.toRequestBody("text/plain".toMediaTypeOrNull())
-            val noteBody = note.note.toRequestBody("text/plain".toMediaTypeOrNull())
+            // 2. Затем на VPS через FormUrlEncoded
             Log.d("ProfileRepository", "Syncing note to VPS: ${note.date}")
-            apiService.saveNote(dateBody, noteBody)
+            apiService.saveNote(note.date, note.note)
         } catch (e: Exception) {
             Log.e("ProfileRepository", "Failed to sync note to VPS. Local copy remains.", e)
         }

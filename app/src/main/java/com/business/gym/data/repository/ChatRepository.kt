@@ -163,12 +163,11 @@ class ChatRepository(
         try {
             Log.d("ChatRepository", "Admin action: Deleting user. UID: $uid")
             
-            // 1. Отправляем запрос на сервер. 
+            // Пытаемся удалить через основной REST-эндпоинт. 
+            // Если UID содержит @, значит это email - используем deleteUserByEmail
             if (uid.contains("@")) {
-                // Если UID является email-адресом, используем специализированный эндпоинт
                 apiService.deleteUserByEmail(uid)
             } else {
-                // Иначе используем стандартный REST-путь с ID
                 apiService.deleteUser(uid, uid)
             }
             Log.i("ChatRepository", "VPS User deletion success for $uid")
@@ -182,7 +181,7 @@ class ChatRepository(
             
             return true
         } catch (e: Exception) {
-            Log.e("ChatRepository", "FAILED to delete user $uid from VPS.", e)
+            Log.e("ChatRepository", "CRITICAL: VPS failed to delete user $uid.", e)
             if (e is retrofit2.HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
                 Log.e("ChatRepository", "Status Code: ${e.code()} | Error Body: $errorBody")

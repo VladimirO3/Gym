@@ -337,11 +337,11 @@ interface NewsApiService {
     @GET("profile/notes")
     suspend fun getNotes(): List<DailyNoteResponse>
 
-    @Multipart
+    @FormUrlEncoded
     @POST("profile/notes")
     suspend fun saveNote(
-        @Part("date") date: RequestBody,
-        @Part("note") text: RequestBody
+        @Field("date") date: String,
+        @Field("content") text: String
     ): okhttp3.ResponseBody
 
     @DELETE("profile/notes/{date}")
@@ -357,7 +357,7 @@ interface NewsApiService {
     suspend fun getPrivacyPolicy(): Map<String, String>
 
     @FormUrlEncoded
-    @POST("admin/content/privacy")
+    @POST("admin/privacy")
     suspend fun updatePrivacyPolicy(
         @Field("date") date: String,
         @Field("content") content: String
