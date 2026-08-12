@@ -369,6 +369,7 @@ class ChatViewModel(
         // 1. Мгновенно убираем из UI и добавляем в "черный список" сессии
         // Это предотвратит их повторное появление даже при обновлении списка
         deletedUserUids.add(uid)
+        repository.markUserAsDeleted(uid) // Синхронизируем с репозиторием, чтобы refreshUsers их не вернул
         _users.value = _users.value.filter { it.uid != uid }
         
         viewModelScope.launch {
@@ -376,16 +377,17 @@ class ChatViewModel(
             val success = repository.deleteUser(uid)
             
             if (success) {
+                // Если мы сейчас в диалоге с этим пользователем, закрываем его
                 if (_selectedUser.value?.uid == uid) {
                     _selectedUser.value = null
                     _messages.value = emptyList()
                     stopPolling()
                 }
-                android.widget.Toast.makeText(context, "Пользователь и его данные удалены", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, "Пользователь удален из системы", android.widget.Toast.LENGTH_SHORT).show()
             } else {
-                // НЕ удаляем из deletedUserUids здесь, чтобы пользователь не "прыгал" обратно в список
-                // даже если сервер вернул ошибку. Он останется скрытым до перезапуска приложения.
-                android.widget.Toast.makeText(context, "Ошибка удаления на сервере, но пользователь скрыт локально", android.widget.Toast.LENGTH_LONG).show()
+                // Если даже репозиторий вернул false (например, полная потеря связи),
+                // пользователь всё равно остается в deletedUserUids, то есть скрыт из списка.
+                android.widget.Toast.makeText(context, "Ошибка связи с сервером, пользователь скрыт локально", android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }

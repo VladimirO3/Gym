@@ -20,6 +20,16 @@ class ChatRepository(
     private val db by lazy { GymDatabase.getDatabase(context) }
     private val apiService get() = NewsApiService.create(context)
 
+    // Список UID, удаленных в текущей сессии, чтобы они не возвращались при синхронизации
+    private val sessionDeletedUids = mutableSetOf<String>()
+
+    /**
+     * Помечает пользователя как удаленного в текущей сессии.
+     */
+    fun markUserAsDeleted(uid: String) {
+        sessionDeletedUids.add(uid)
+    }
+
     // Получение пользователей (собеседников)
     val allUsers: Flow<List<LocalUser>> = chatDao.getAllUsers().map { entities ->
         entities.map { 
@@ -38,7 +48,14 @@ class ChatRepository(
             Log.d("ChatRepository", "Refreshing chat users from VPS...")
             val users = apiService.getChatUsers()
             Log.d("ChatRepository", "Received ${users.size} users from VPS")
-            val entities = users.map { 
+            
+            // Фильтруем пользователей, которые были удалены в этой сессии
+            val filteredUsers = users.filter { 
+                val finalUid = if (it.uid.isNullOrBlank()) it.email else it.uid
+                !sessionDeletedUids.contains(finalUid)
+            }
+
+            val entities = filteredUsers.map {
                 // Гарантируем наличие UID (если пустой, используем email)
                 val finalUid = if (it.uid.isNullOrBlank()) it.email else it.uid
                 UserEntity(
@@ -53,6 +70,7 @@ class ChatRepository(
             chatDao.insertUsers(entities)
             true
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e("ChatRepository", "CRITICAL: Failed to refresh chat users", e)
             false
         }
@@ -95,6 +113,7 @@ class ChatRepository(
             chatDao.insertMessages(entities)
             true
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e("ChatRepository", "Failed to refresh messages for peer=$peerUid", e)
             false
         }
@@ -179,19 +198,23 @@ class ChatRepository(
             
             return true
         } catch (e: Exception) {
-            // Если сервер вернул 404, значит пользователь уже удален или эндпоинт не найден, 
-            // но мы все равно должны очистить локальные данные.
-            if (e is retrofit2.HttpException && e.code() == 404) {
-                Log.w("ChatRepository", "Server returned 404 for user $uid. Proceeding with local cleanup.")
+            // Если сервер вернул 404, значит пользователь уже удален или эндпоинт не найден.
+            // Если сервер вернул 400, возможно ID невалиден или сервер считает это ошибкой.
+            // В любом случае для админа это означает, что пользователя на сервере больше нет/быть не должно.
+            if (e is retrofit2.HttpException && (e.code() == 404 || e.code() == 400)) {
+                Log.d("ChatRepository", "User $uid already removed or not found on server (Code: ${e.code()}). Forcing local cleanup.")
                 performLocalUserCleanup(uid)
                 return true
             }
 
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e("ChatRepository", "CRITICAL: VPS failed to delete user $uid.", e)
             if (e is retrofit2.HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
                 Log.e("ChatRepository", "Status Code: ${e.code()} | Error Body: $errorBody")
             }
+            // Даже при других сетевых ошибках мы можем захотеть почистить локально, 
+            // но пока вернем false, чтобы ViewModel могла решить, что делать.
             return false
         }
     }
