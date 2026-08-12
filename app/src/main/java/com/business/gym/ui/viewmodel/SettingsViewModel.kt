@@ -184,26 +184,21 @@ class SettingsViewModel(
 
     fun updateProfile(context: Context, name: String, age: Int?, token: String?) {
         Log.d("SettingsViewModel", "updateProfile called. token=${token?.take(5)}..., uid=$currentUid")
-        if (token == null) {
-            android.widget.Toast.makeText(context, "Ошибка: вы не авторизованы", android.widget.Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (currentUid == null) {
-            android.widget.Toast.makeText(context, "Ошибка: профиль не загружен (UID null)", android.widget.Toast.LENGTH_SHORT).show()
-            return
-        }
+        if (token == null || currentUid == null) return
         
         _isUpdatingProfile.value = true
         viewModelScope.launch {
             try {
-                Log.d("SettingsViewModel", "Updating profile on VPS for UID: $currentUid")
                 repository.updateProfileInfo(currentUid!!, name, age)
-                _userName.value = name
-                _userAge.value = age
+                
+                // Важно: Даем серверу немного времени на запись в БД перед обновлением
+                kotlinx.coroutines.delay(1000)
+                repository.refreshProfileFromServer(currentUid!!)
+                
                 android.widget.Toast.makeText(context, "Профиль успешно сохранен", android.widget.Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Log.e("SettingsViewModel", "Profile update failed", e)
-                android.widget.Toast.makeText(context, "Ошибка сохранения: ${e.localizedMessage}", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(context, "Ошибка сохранения", android.widget.Toast.LENGTH_SHORT).show()
             } finally {
                 _isUpdatingProfile.value = false
             }

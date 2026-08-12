@@ -163,20 +163,21 @@ class ChatRepository(
         try {
             Log.d("ChatRepository", "Admin action: Deleting user $uid")
             
-            // 1. Сначала ВСЕГДА чистим локальный кэш
+            // 1. Отправляем запрос на сервер
+            apiService.deleteUser(uid, uid)
+            Log.i("ChatRepository", "VPS User deletion confirmed for $uid")
+
+            // 2. Только после подтверждения сервера чистим локальный кэш
             chatDao.deleteUserByUid(uid)
             chatDao.deleteMessagesForPeer(uid)
             db.profileDao().deleteProfileByUid(uid)
             db.dailyNoteDao().deleteAllNotesByUid(uid)
             db.cartDao().clearCart(uid)
             
-            // 2. Отправляем запрос на сервер
-            apiService.deleteUser(uid, uid)
-            Log.i("ChatRepository", "VPS User deletion confirmed for $uid")
             return true
         } catch (e: Exception) {
             Log.e("ChatRepository", "CRITICAL: VPS failed to delete user $uid.", e)
-            return true
+            return false // Возвращаем false при ошибке сервера
         }
     }
 }

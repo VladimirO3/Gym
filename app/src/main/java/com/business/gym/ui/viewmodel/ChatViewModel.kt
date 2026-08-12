@@ -147,16 +147,21 @@ class ChatViewModel(
                         var changed = false
 
                         unreadMap.forEach { (senderId, count) ->
+                            Log.d("ChatViewModel", "Unread check: Sender=$senderId, Count=$count")
                             val lastNotifiedCount = currentNotified[senderId] ?: 0
                             
+                            // Проверяем наличие пользователя в нашем списке (по UID или Email)
+                            val userInList = _users.value.find { it.uid == senderId || it.email == senderId }
+                            
                             if (count > 0 && senderId != _selectedUser.value?.uid && count > lastNotifiedCount) {
-                                val senderName = _users.value.find { it.uid == senderId }?.name ?: "Новое сообщение"
+                                val senderName = userInList?.name ?: "Новое сообщение"
                                 NotificationHelper.showNotification(
                                     getApplication(),
                                     senderName,
                                     "У вас $count новых сообщений",
                                     senderId
                                 )
+                                // Сохраняем в notifiedCounts именно тот ID, который прислал сервер
                                 currentNotified[senderId] = count
                                 changed = true
                             } else if (count == 0 && currentNotified.containsKey(senderId)) {

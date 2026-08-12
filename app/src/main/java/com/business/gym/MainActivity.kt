@@ -306,8 +306,8 @@ fun GymAppContent(
         list.add(GymTab("Профиль", Icons.Default.AccountCircle, "settings"))
         list.add(GymTab("Магазин", Icons.Default.Store, "shop"))
         
-        // Показываем Оферту только если НЕ гость и еще НЕ согласился
-        if (!isGuest && !privacyAgreed) {
+        // Показываем Оферту только если НЕ гость, НЕ админ и еще НЕ согласился
+        if (!isGuest && !isAdmin && !privacyAgreed) {
             list.add(GymTab("Оферта", Icons.Default.Gavel, "privacy"))
         }
 

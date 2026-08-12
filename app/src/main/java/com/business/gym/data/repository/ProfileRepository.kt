@@ -128,11 +128,15 @@ class ProfileRepository(
         profileDao.updateProfileInfo(uid, name, age)
         try {
             val nameBody = name.toRequestBody("text/plain".toMediaTypeOrNull())
-            val ageBody = age?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
-            val themeBody = current?.themeMode?.toRequestBody("text/plain".toMediaTypeOrNull())
-            val langBody = current?.lang?.toRequestBody("text/plain".toMediaTypeOrNull())
-            val privacyBody = current?.privacyAgreed?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
+            // Если возраст не указан, отправляем пустую строку или 0
+            val ageValue = age?.toString() ?: ""
+            val ageBody = ageValue.toRequestBody("text/plain".toMediaTypeOrNull())
+            
+            val themeBody = (current?.themeMode ?: "system").toRequestBody("text/plain".toMediaTypeOrNull())
+            val langBody = (current?.lang ?: "system").toRequestBody("text/plain".toMediaTypeOrNull())
+            val privacyBody = (current?.privacyAgreed ?: false).toString().toRequestBody("text/plain".toMediaTypeOrNull())
 
+            Log.d("ProfileRepository", "Updating profile info on VPS for UID: $uid (Name: $name, Age: $ageValue)")
             apiService.updateProfile(
                 name = nameBody,
                 age = ageBody,
@@ -140,8 +144,10 @@ class ProfileRepository(
                 lang = langBody,
                 privacyAgreed = privacyBody
             )
+            Log.i("ProfileRepository", "VPS profile info update SUCCESS")
         } catch (e: Exception) {
             Log.e("ProfileRepository", "Update info on VPS failed", e)
+            throw e // Пробрасываем ошибку, чтобы ViewModel могла показать Toast
         }
     }
 
@@ -175,14 +181,17 @@ class ProfileRepository(
      * Сохраняет заметку локально и на сервере.
      */
     suspend fun saveNote(note: DailyNoteEntity) {
+        // 1. Сначала в локальную БД для быстрого отклика
         dailyNoteDao.insertNote(note)
+        
         try {
+            // 2. Затем на VPS через Multipart
             val dateBody = note.date.toRequestBody("text/plain".toMediaTypeOrNull())
             val noteBody = note.note.toRequestBody("text/plain".toMediaTypeOrNull())
-            Log.d("ProfileRepository", "Saving note to VPS via Multipart: ${note.date}")
+            Log.d("ProfileRepository", "Syncing note to VPS: ${note.date}")
             apiService.saveNote(dateBody, noteBody)
         } catch (e: Exception) {
-            Log.e("ProfileRepository", "Failed to save note on VPS", e)
+            Log.e("ProfileRepository", "Failed to sync note to VPS. Local copy remains.", e)
         }
     }
 
