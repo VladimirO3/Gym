@@ -85,9 +85,11 @@ class ShopViewModel(
                 if (bytes == null) throw Exception("Could not read image")
                 
                 val requestFile = bytes.toRequestBody("image/*".toMediaTypeOrNull())
-                val filePart = MultipartBody.Part.createFormData("file", "product_new.jpg", requestFile)
+                val uniqueFileName = "product_${System.currentTimeMillis()}.jpg"
+                val filePart = MultipartBody.Part.createFormData("file", uniqueFileName, requestFile)
                 inputStream.close()
 
+                Log.d("ShopViewModel", "Adding product with image: $uniqueFileName")
                 repository.addProduct(nameBody, priceBody, descBody, filePart)
                 onSuccess()
             } catch (e: Exception) {

@@ -3,6 +3,7 @@ package com.business.gym
 import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import com.business.gym.data.api.NewsApiService
 import com.google.firebase.FirebaseApp
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.firestore.FirebaseFirestore
@@ -40,6 +41,19 @@ class GymApplication : Application(), ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
+            .okHttpClient { NewsApiService.getOkHttpClient(this) }
+            .diskCache {
+                coil.disk.DiskCache.Builder()
+                    .directory(this.cacheDir.resolve("image_cache"))
+                    .maxSizeBytes(100 * 1024 * 1024) // 100MB cache
+                    .build()
+            }
+            .memoryCache {
+                coil.memory.MemoryCache.Builder(this)
+                    .maxSizePercent(0.25) // 25% of app memory
+                    .build()
+            }
+            .respectCacheHeaders(false) // Игнорируем заголовки сервера для агрессивного кэширования
             .crossfade(true)
             .build()
     }

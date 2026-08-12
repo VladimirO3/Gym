@@ -21,7 +21,9 @@ class ProductRepository(
     suspend fun refreshProducts() {
         try {
             val response = api.getProducts()
+            Log.d("ProductRepository", "Received ${response.size} products from server")
             val entities = response.map {
+                Log.d("ProductRepository", "Product: ${it.name}, ImagePath: ${it.imageUrl}")
                 ProductEntity(it.id, it.name, it.price, it.description, it.imageUrl)
             }
             productDao.deleteAllProducts()

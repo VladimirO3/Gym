@@ -65,6 +65,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _isGuest = mutableStateOf(false)
     val isGuest: State<Boolean> = _isGuest
 
+    private val _isSessionLoaded = mutableStateOf(false)
+    val isSessionLoaded: State<Boolean> = _isSessionLoaded
+
     private val localApiService get() = NewsApiService.create(getApplication())
 
     companion object {
@@ -164,8 +167,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val savedRefreshToken = sharedPref.getString("user_session_refresh_token", null)
         val savedUid = sharedPref.getString("user_session_uid", null)
         
-        Log.d("AuthViewModel", "Loading session. Token exists: ${savedToken != null}, Saved UID: $savedUid")
-        
         if (savedToken != null) {
             _currentUserEmail.value = savedEmail
             _jwtToken.value = savedToken
@@ -174,10 +175,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             _currentUid.value = savedUid ?: savedEmail ?: savedPhone ?: "user"
             _isGuest.value = savedToken == "guest_token"
             
-            // Пытаемся получить профиль и актуальный UID с сервера
-            if (savedUid == null && savedToken != "guest_token") {
-                fetchAndSaveProfile { /* ignore */ }
+            // Если токен валиден, пробуем подтянуть свежий профиль (и реальный UID)
+            if (savedToken != "guest_token") {
+                fetchAndSaveProfile { _isSessionLoaded.value = true }
+            } else {
+                _isSessionLoaded.value = true
             }
+        } else {
+            _isSessionLoaded.value = true
         }
     }
 
@@ -408,11 +413,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun signOut() {
+        _isLoading.value = false
         _currentUserEmail.value = null
         _jwtToken.value = null
         _refreshToken.value = null
         _currentUid.value = ""
         _isGuest.value = false
+        _isSessionLoaded.value = true // После выхода сессия "загружена" (её нет)
         clearSession(getApplication())
     }
 

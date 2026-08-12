@@ -224,10 +224,11 @@ fun GymApp(
     val coroutineScope = rememberCoroutineScope()
     val currentUserEmail by authViewModel.currentUserEmail
     val currentUid by authViewModel.currentUid
+    val isSessionLoaded by authViewModel.isSessionLoaded
     val isAdmin = remember(currentUserEmail) { authViewModel.isAdmin() }
 
-    if (currentUid.isNullOrBlank() && !authViewModel.isGuest.value) {
-        // Если UID нет и мы не гость - показываем загрузку, чтобы не передать null в GymAppContent
+    if (!isSessionLoaded && !authViewModel.isGuest.value) {
+        // Показываем загрузку только во время начальной проверки сессии
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = Color.Red)
         }
@@ -238,13 +239,17 @@ fun GymApp(
             isAdmin = isAdmin,
             exoPlayer = exoPlayer,
             onSignOut = { onSignOutAction ->
+                // Остановка и очистка данных
                 exoPlayer.stop()
-                chatViewModel.clearAll() // Очищаем чат и останавливаем все фоновые процессы
-                authViewModel.signOut()
-                authViewModel.clearSession(context)
+                chatViewModel.clearAll()
+                settingsViewModel.clearProfile()
                 cartViewModel.clearCart(context, sync = false)
+                
+                // Переход на главную, затем сброс авторизации
                 coroutineScope.launch {
-                    onSignOutAction()
+                    onSignOutAction() 
+                    authViewModel.signOut()
+                    authViewModel.clearSession(context)
                 }
             },
             onSaveSession = { identifier -> },

@@ -2,6 +2,7 @@ package com.business.gym.ui.screen
 
 import android.content.res.Configuration
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -320,13 +321,29 @@ fun CartItemRow(product: ProductPlaceholder, count: Int, viewModel: CartViewMode
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AsyncImage(
-                model = NewsApiService.getFullUrl(context, product.imageUrl),
-                contentDescription = product.name,
-                modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop,
-                error = ColorPainter(Color.DarkGray)
-            )
+            val imageUrl = NewsApiService.getFullUrl(context, product.imageUrl)
+            if (imageUrl.isNotBlank()) {
+                Log.d("ShopScreen", "Loading cart item image: $imageUrl")
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = product.name,
+                    modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop,
+                    error = ColorPainter(Color.DarkGray),
+                    placeholder = ColorPainter(Color.LightGray.copy(alpha = 0.2f))
+                )
+            } else {
+                Log.w("ShopScreen", "Empty image URL for cart item: ${product.name}")
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Gray.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.ShoppingBag, null, tint = Color.Gray, modifier = Modifier.size(24.dp))
+                }
+            }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = product.name, fontWeight = FontWeight.Bold)
@@ -377,13 +394,26 @@ fun ShopProductCard(
                         .background(Color.DarkGray.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    AsyncImage(
-                        model = NewsApiService.getFullUrl(context, product.imageUrl),
-                        contentDescription = product.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        error = ColorPainter(Color.DarkGray)
-                    )
+                    val imageUrl = NewsApiService.getFullUrl(context, product.imageUrl)
+                    if (imageUrl.isNotBlank()) {
+                        Log.d("ShopScreen", "Loading product image: $imageUrl")
+                        AsyncImage(
+                            model = imageUrl,
+                            contentDescription = product.name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            error = ColorPainter(Color.DarkGray),
+                            placeholder = ColorPainter(Color.LightGray.copy(alpha = 0.3f))
+                        )
+                    } else {
+                        Log.w("ShopScreen", "Empty image URL for product: ${product.name}")
+                        Icon(
+                            Icons.Default.ShoppingBag,
+                            contentDescription = null,
+                            tint = Color.Gray.copy(alpha = 0.5f),
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
                 }
 
                 Column(

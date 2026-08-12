@@ -93,6 +93,15 @@ class SettingsViewModel(
         }
     }
 
+    fun clearProfile() {
+        _userName.value = ""
+        _userAge.value = null
+        _avatarUrl.value = null
+        _dailyNotes.value = emptyList()
+        _isUpdatingProfile.value = false
+        currentUid = null
+    }
+
     fun loadSettings(context: Context, currentUserEmail: String?, uid: String? = null) {
         val canUseProfile = isRegularAuthorizedUser(currentUserEmail, uid)
         currentUid = if (canUseProfile) uid else null
