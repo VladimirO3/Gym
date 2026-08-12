@@ -134,12 +134,12 @@ class ChatRepository(
         }
     }
 
-    suspend fun getUnreadCount(): Map<String, Int> {
+    suspend fun getUnreadCount(): Map<String, Int>? {
         return try {
             apiService.getUnreadCount()
         } catch (e: Exception) {
-            Log.e("ChatRepository", "Failed to get unread count", e)
-            emptyMap()
+            Log.e("ChatRepository", "Failed to get unread count: ${e.message}")
+            null
         }
     }
 
@@ -161,11 +161,17 @@ class ChatRepository(
 
     suspend fun deleteUser(uid: String): Boolean {
         try {
-            Log.d("ChatRepository", "Admin action: Deleting user $uid")
+            Log.d("ChatRepository", "Admin action: Deleting user. UID: $uid")
             
-            // 1. Отправляем запрос на сервер
-            val response = apiService.deleteUser(uid, uid)
-            Log.i("ChatRepository", "VPS User deletion confirmed for $uid")
+            // 1. Отправляем запрос на сервер. 
+            if (uid.contains("@")) {
+                // Если UID является email-адресом, используем специализированный эндпоинт
+                apiService.deleteUserByEmail(uid)
+            } else {
+                // Иначе используем стандартный REST-путь с ID
+                apiService.deleteUser(uid, uid)
+            }
+            Log.i("ChatRepository", "VPS User deletion success for $uid")
 
             // 2. Только после подтверждения сервера чистим локальный кэш
             chatDao.deleteUserByUid(uid)
@@ -176,12 +182,12 @@ class ChatRepository(
             
             return true
         } catch (e: Exception) {
-            Log.e("ChatRepository", "CRITICAL: VPS failed to delete user $uid.", e)
+            Log.e("ChatRepository", "FAILED to delete user $uid from VPS.", e)
             if (e is retrofit2.HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
-                Log.e("ChatRepository", "Server error body: $errorBody")
+                Log.e("ChatRepository", "Status Code: ${e.code()} | Error Body: $errorBody")
             }
-            return false // Возвращаем false при ошибке сервера
+            return false
         }
     }
 }

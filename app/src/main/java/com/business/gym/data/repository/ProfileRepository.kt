@@ -169,9 +169,10 @@ class ProfileRepository(
 
     suspend fun updatePrivacyPolicy(content: String) {
         try {
-            val body = content.toRequestBody("text/plain".toMediaTypeOrNull())
-            apiService.updatePrivacyPolicy(body)
-            Log.i("ProfileRepository", "Privacy policy updated on VPS")
+            val dateStr = java.time.LocalDate.now().toString()
+            Log.d("ProfileRepository", "Updating privacy policy on VPS. Date: $dateStr")
+            apiService.updatePrivacyPolicy(dateStr, content)
+            Log.i("ProfileRepository", "Privacy policy updated on VPS SUCCESS")
         } catch (e: Exception) {
             Log.e("ProfileRepository", "Failed to update privacy policy", e)
         }

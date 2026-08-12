@@ -233,19 +233,19 @@ fun UserListScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 4.dp)
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
                             .clickable { onUserSelected(user) },
                         colors = CardDefaults.cardColors(
                             containerColor = when {
                                 isSelected -> Color.Red.copy(alpha = 0.2f)
-                                hasNotification -> Color.Yellow.copy(alpha = 0.1f * pulseAlpha) // Пульсирующий фон
+                                hasNotification -> Color(0xFF5A1010) // Более насыщенный красный фон
                                 isUserAdmin -> Color.DarkGray.copy(alpha = 0.5f)
                                 else -> Color.Black.copy(alpha = 0.3f)
                             }
                         ),
                         border = when {
                             isSelected -> BorderStroke(2.dp, Color.Red)
-                            hasNotification -> BorderStroke(2.dp, Color.Yellow.copy(alpha = pulseAlpha)) // Пульсирующая рамка
+                            hasNotification -> BorderStroke(3.dp, Color.Red.copy(alpha = pulseAlpha)) // Толстая пульсирующая рамка
                             else -> BorderStroke(0.5.dp, Color.DarkGray)
                         }
                     ) {

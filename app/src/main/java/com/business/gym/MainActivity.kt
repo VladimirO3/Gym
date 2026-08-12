@@ -390,7 +390,11 @@ fun GymAppContent(
                                             BadgedBox(
                                                 badge = {
                                                     if (unreadCount > 0) {
-                                                        Badge(containerColor = Color.Red, contentColor = Color.White) {
+                                                        Badge(
+                                                            containerColor = Color.Red,
+                                                            contentColor = Color.White,
+                                                            modifier = Modifier.offset(x = 8.dp, y = (-4).dp)
+                                                        ) {
                                                             Text(if (unreadCount > 99) "99+" else "$unreadCount")
                                                         }
                                                     }
@@ -493,17 +497,29 @@ fun GymAppContent(
                                                         .filter { it.key != chatViewModel.selectedUser.value?.uid }
                                                         .values.sumOf { if (it == 999999) 0 else it }
                                                     
-                                                    BadgedBox(
-                                                        badge = {
-                                                            if (unreadCount > 0) {
-                                                                Badge(containerColor = Color.Red, contentColor = Color.White) {
-                                                                    Text(if (unreadCount > 99) "99+" else "$unreadCount")
-                                                                }
-                                                            }
+                                            BadgedBox(
+                                                badge = {
+                                                    if (unreadCount > 0) {
+                                                        Badge(
+                                                            containerColor = Color.Red,
+                                                            contentColor = Color.White,
+                                                            modifier = Modifier.offset(x = 4.dp, y = (-4).dp)
+                                                        ) {
+                                                            Text(
+                                                                text = if (unreadCount > 99) "99+" else "$unreadCount",
+                                                                fontSize = 10.sp,
+                                                                fontWeight = FontWeight.Bold
+                                                            )
                                                         }
-                                                    ) {
-                                                        Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp))
                                                     }
+                                                }
+                                            ) {
+                                                Icon(
+                                                    tab.icon, 
+                                                    contentDescription = tab.title, 
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
                                                 } else {
                                                     Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp))
                                                 }

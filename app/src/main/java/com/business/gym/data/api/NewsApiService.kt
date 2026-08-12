@@ -226,7 +226,13 @@ interface NewsApiService {
     @DELETE("admin/users/{uid}")
     suspend fun deleteUser(
         @Path("uid") uid: String,
-        @Query("uid") uidQuery: String? = null // Добавляем как Query-параметр на случай, если сервер ожидает его там
+        @Query("uid") uidQuery: String? = null,
+        @Query("email") emailQuery: String? = null
+    ): okhttp3.ResponseBody
+
+    @DELETE("admin/users")
+    suspend fun deleteUserByEmail(
+        @Query("email") email: String
     ): okhttp3.ResponseBody
 
     // --- НОВОСТИ ---
@@ -350,10 +356,11 @@ interface NewsApiService {
     @GET("content/privacy")
     suspend fun getPrivacyPolicy(): Map<String, String>
 
-    @Multipart
+    @FormUrlEncoded
     @POST("admin/content/privacy")
     suspend fun updatePrivacyPolicy(
-        @Part("content") content: RequestBody
+        @Field("date") date: String,
+        @Field("content") content: String
     ): okhttp3.ResponseBody
 
     companion object {
