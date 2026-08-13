@@ -260,7 +260,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Login error: ${e.message}", e)
                 _isLoading.value = false
-                _error.value = "Ошибка входа: ${e.localizedMessage ?: "проверьте данные"}"
+                
+                if (e is retrofit2.HttpException) {
+                    when (e.code()) {
+                        401, 404 -> _error.value = "Такого пользователя не существует или он был удален"
+                        403 -> _error.value = "Ваша учетная запись заблокирована или ожидает подтверждения"
+                        else -> _error.value = "Ошибка сервера: ${e.code()}"
+                    }
+                } else {
+                    _error.value = "Ошибка входа: проверьте интернет-соединение"
+                }
             }
         }
     }
@@ -322,7 +331,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "OTP verify error: ${e.message}", e)
                 _isLoading.value = false
-                _error.value = "Неверный код или ошибка связи: ${e.localizedMessage}"
+                
+                if (e is retrofit2.HttpException) {
+                    when (e.code()) {
+                        401, 404 -> _error.value = "Такого пользователя не существует или он был удален"
+                        403 -> _error.value = "Ошибка кода или пользователь заблокирован"
+                        else -> _error.value = "Ошибка сервера: ${e.code()}"
+                    }
+                } else {
+                    _error.value = "Неверный код или ошибка связи"
+                }
             }
         }
     }
@@ -391,6 +409,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     val status = response["status"]
                     if (status != lastKnownStatus && lastKnownStatus != null) {
                         if (status == "deleted") {
+                            viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                android.widget.Toast.makeText(
+                                    getApplication(), 
+                                    "Ваш аккаунт был удален администратором", 
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
                             signOut()
                             break
                         }
