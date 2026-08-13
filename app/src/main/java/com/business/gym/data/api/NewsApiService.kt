@@ -315,6 +315,11 @@ interface NewsApiService {
     @GET("profile")
     suspend fun getProfile(): ProfileResponse
 
+    @GET("profile")
+    suspend fun getProfileWithToken(
+        @Header("Authorization") authHeader: String
+    ): ProfileResponse
+
     @Multipart
     @POST("profile/avatar")
     suspend fun uploadAvatar(

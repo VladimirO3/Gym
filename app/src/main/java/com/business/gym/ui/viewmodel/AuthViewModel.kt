@@ -12,7 +12,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.business.gym.data.api.NewsApiService
 import com.business.gym.data.api.LocalUser
-import com.business.gym.data.api.LoginRequest
 import kotlinx.coroutines.launch
 
 /**
@@ -243,19 +242,30 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 Log.d("AuthViewModel", "Signing in with email: $emailValue")
                 val response = localApiService.login(emailValue, passwordValue)
-                _jwtToken.value = response.token
-                _refreshToken.value = response.refreshToken
                 
-                // Устанавливаем данные пользователя СРАЗУ для перехода на главный экран
-                _currentUserEmail.value = emailValue
-                _currentUid.value = emailValue
+                // НЕ сохраняем сессию до подтверждения профиля, чтобы избежать входа несуществующих пользователей
+                val token = response.token
+                val refresh = response.refreshToken
+                
+                // Проверяем профиль ПЕРЕД окончательным входом
+                try {
+                    val profile = localApiService.getProfileWithToken("Bearer $token")
+                    val profileUid = profile.uid ?: emailValue
+                    
+                    _jwtToken.value = token
+                    _refreshToken.value = refresh
+                    _currentUserEmail.value = profile.email
+                    _currentUid.value = profileUid
 
-                saveSession(getApplication(), emailValue, null, response.token, response.refreshToken, uid = emailValue)
-                saveCredentials(emailValue, passwordValue) 
-                
-                fetchAndSaveProfile { email ->
+                    saveSession(getApplication(), profile.email, null, token, refresh, profileUid)
+                    saveCredentials(emailValue, passwordValue)
+                    
                     _isLoading.value = false
-                    onSuccess(email)
+                    onSuccess(profile.email)
+                } catch (pe: Exception) {
+                    Log.e("AuthViewModel", "Profile validation failed after login", pe)
+                    _isLoading.value = false
+                    _error.value = "Ошибка проверки профиля. Возможно, аккаунт еще не активирован."
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Login error: ${e.message}", e)
@@ -314,19 +324,28 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val response = localApiService.verifyOtp(email = email, phone = phone, otp = code)
-                _jwtToken.value = response.token
-                _refreshToken.value = response.refreshToken
-                
-                val temporaryUid = email ?: phone ?: "user"
-                _currentUserEmail.value = email ?: phone
-                _currentUid.value = temporaryUid
-                
-                saveSession(getApplication(), email, phone, response.token, response.refreshToken, uid = temporaryUid)
-                if (email != null) saveCredentials(email, "")
+                val token = response.token
+                val refresh = response.refreshToken
 
-                fetchAndSaveProfile { userEmail ->
+                // Проверка профиля перед входом
+                try {
+                    val profile = localApiService.getProfileWithToken("Bearer $token")
+                    val profileUid = profile.uid ?: email ?: phone ?: "user"
+
+                    _jwtToken.value = token
+                    _refreshToken.value = refresh
+                    _currentUserEmail.value = profile.email
+                    _currentUid.value = profileUid
+
+                    saveSession(getApplication(), profile.email, phone, token, refresh, profileUid)
+                    if (email != null) saveCredentials(email, "")
+
                     _isLoading.value = false
-                    onSuccess(userEmail)
+                    onSuccess(profile.email)
+                } catch (pe: Exception) {
+                    Log.e("AuthViewModel", "Profile validation failed after OTP verify", pe)
+                    _isLoading.value = false
+                    _error.value = "Ошибка проверки профиля. Возможно, аккаунт удален или не подтвержден."
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "OTP verify error: ${e.message}", e)
