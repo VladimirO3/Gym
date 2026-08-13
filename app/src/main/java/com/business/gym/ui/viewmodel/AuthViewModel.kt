@@ -218,22 +218,23 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 Log.d("AuthViewModel", "Fetching profile from server...")
                 val profile = localApiService.getProfile()
-                var profileUid = profile.uid
+                
+                // Умный поиск UID: приоритет UID > ID > Email
+                var profileUid = profile.uid ?: profile.id?.toString() ?: profile.email
                 
                 // Резервный ID для админа, если сервер не прислал его
-                if (profileUid == null && isStaticAdmin(profile.email)) {
+                if (profileUid.isBlank() && isStaticAdmin(profile.email)) {
                     profileUid = "1"
                     Log.d("AuthViewModel", "Using fallback UID '1' for static admin")
                 }
                 
-                if (profileUid != null) {
-                    Log.d("AuthViewModel", "Profile UID received: $profileUid")
+                if (profileUid.isNotBlank()) {
+                    Log.d("AuthViewModel", "Profile UID resolved: $profileUid")
                     // Сохраняем проверенные данные в сессию
                     saveSession(getApplication(), profile.email, null, _jwtToken.value!!, _refreshToken.value, profileUid)
                     onSuccess(profile.email)
                 } else {
-                    Log.e("AuthViewModel", "User is not fully registered (UID is null on server)")
-                    // Принудительная очистка, если профиль не полон
+                    Log.e("AuthViewModel", "User ID is empty after fetching profile")
                     clearSession(getApplication())
                     signOut()
                 }
@@ -271,16 +272,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 // Проверяем профиль ПЕРЕД окончательным входом
                 try {
                     val profile = localApiService.getProfileWithToken("Bearer $token")
-                    var profileUid = profile.uid
                     
-                    // Резервный ID для админа
-                    if (profileUid == null && isStaticAdmin(emailValue)) {
+                    // Умный поиск UID: приоритет UID > ID > Email
+                    var profileUid = profile.uid ?: profile.id?.toString() ?: profile.email
+                    
+                    // Резервный ID для админа, если все равно пусто (маловероятно)
+                    if (profileUid.isBlank() && isStaticAdmin(emailValue)) {
                         profileUid = "1"
                     }
                     
-                    if (profileUid == null) {
+                    if (profileUid.isBlank()) {
                         _isLoading.value = false
-                        _error.value = "Ошибка: UID пользователя не получен с сервера."
+                        _error.value = "Ошибка: ID пользователя не получен с сервера."
                         return@launch
                     }
                     
@@ -377,16 +380,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 // Проверка профиля перед входом
                 try {
                     val profile = localApiService.getProfileWithToken("Bearer $token")
-                    var profileUid = profile.uid
+                    
+                    // Умный поиск UID: приоритет UID > ID > Email
+                    var profileUid = profile.uid ?: profile.id?.toString() ?: profile.email
 
                     // Резервный ID для админа
-                    if (profileUid == null && isStaticAdmin(email ?: phone)) {
+                    if (profileUid.isBlank() && isStaticAdmin(email ?: phone)) {
                         profileUid = "1"
                     }
 
-                    if (profileUid == null) {
+                    if (profileUid.isBlank()) {
                         _isLoading.value = false
-                        _error.value = "Ошибка: UID пользователя не получен с сервера."
+                        _error.value = "Ошибка: ID пользователя не получен с сервера."
                         return@launch
                     }
 

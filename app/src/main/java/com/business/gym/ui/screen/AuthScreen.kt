@@ -54,45 +54,11 @@ fun AuthScreen(
     val privacyAgreed by viewModel.privacyAgreed
 
     val context = LocalContext.current
-    var showIpDialog by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
     var showAgreement by remember { mutableStateOf(false) }
 
     if (showAgreement) {
         AgreementDialog(onDismiss = { showAgreement = false })
-    }
-
-    if (showIpDialog && settingsViewModel != null) {
-        var ipInput by remember { mutableStateOf(settingsViewModel.serverIp.value) }
-        AlertDialog(
-            onDismissRequest = { showIpDialog = false },
-            title = { Text(stringResource(R.string.auth_server_settings)) },
-            text = {
-                Column {
-                    Text(stringResource(R.string.auth_server_ip_hint), fontSize = 12.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = ipInput,
-                        onValueChange = { ipInput = it },
-                        label = { Text(stringResource(R.string.auth_ip_label)) },
-                        singleLine = true
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    settingsViewModel.setServerIp(context, null, ipInput)
-                    showIpDialog = false
-                }) {
-                    Text(stringResource(R.string.btn_save))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showIpDialog = false }) {
-                    Text(stringResource(R.string.btn_cancel))
-                }
-            }
-        )
     }
 
     Box(modifier = Modifier.fillMaxSize().imePadding()) {
@@ -446,16 +412,6 @@ fun AuthScreen(
                         Text(stringResource(R.string.auth_already_have), color = Color.Gray)
                     }
                 }
-            }
-        }
-
-        // Кнопка настроек IP в углу
-        if (settingsViewModel != null) {
-            IconButton(
-                onClick = { showIpDialog = true },
-                modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
-            ) {
-                Icon(Icons.Default.Settings, contentDescription = "Server Settings", tint = Color.Gray.copy(alpha = 0.5f))
             }
         }
     }

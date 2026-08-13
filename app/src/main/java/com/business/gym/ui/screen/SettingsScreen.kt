@@ -66,6 +66,7 @@ fun SettingsScreen(
     var nameInput by remember { mutableStateOf(userName) }
     var ageInput by remember { mutableStateOf(userAge?.toString() ?: "") }
     var isEditMode by remember { mutableStateOf(false) }
+    var showIpDialog by remember { mutableStateOf(false) }
     val canEditProfile = currentUserEmail != null && !isAdmin && !isGuest
 
     LaunchedEffect(userName, userAge) {
@@ -74,6 +75,39 @@ fun SettingsScreen(
         if (userName.isNotBlank()) {
             isEditMode = false
         }
+    }
+
+    if (showIpDialog) {
+        var ipInput by remember { mutableStateOf(viewModel.serverIp.value) }
+        AlertDialog(
+            onDismissRequest = { showIpDialog = false },
+            title = { Text(stringResource(R.string.auth_server_settings)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.auth_server_ip_hint), fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = ipInput,
+                        onValueChange = { ipInput = it },
+                        label = { Text(stringResource(R.string.auth_ip_label)) },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.setServerIp(context, null, ipInput)
+                    showIpDialog = false
+                }) {
+                    Text(stringResource(R.string.btn_save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showIpDialog = false }) {
+                    Text(stringResource(R.string.btn_cancel))
+                }
+            }
+        )
     }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -328,13 +362,22 @@ fun SettingsScreen(
 
         if (isAdmin) {
             Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                text = "Заявки на регистрацию (Admin)", 
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.Red,
+            Row(
                 modifier = contentModifier,
-                textAlign = TextAlign.Center
-            )
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Заявки на регистрацию (Admin)", 
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.Red,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = { showIpDialog = true }) {
+                    Icon(Icons.Default.Settings, contentDescription = "Server Settings", tint = Color.Gray)
+                }
+            }
             
             val pendingUsers by authViewModel.pendingUsers
             LaunchedEffect(Unit) {
