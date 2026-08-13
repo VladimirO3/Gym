@@ -306,13 +306,6 @@ fun GymAppContent(
         list.add(GymTab("Профиль", Icons.Default.AccountCircle, "settings"))
         list.add(GymTab("Магазин", Icons.Default.Store, "shop"))
         
-        // Показываем Оферту если НЕ гость и (НЕ админ и еще НЕ согласился) ИЛИ (если Админ - всегда для редактирования)
-        if (!isGuest) {
-            if (isAdmin || !privacyAgreed) {
-                list.add(GymTab("Оферта", Icons.Default.Gavel, "privacy"))
-            }
-        }
-
         list.add(GymTab("О приложении", Icons.Default.Add, "about"))
         list
     }
@@ -439,34 +432,6 @@ fun GymAppContent(
                         Column {
                             // Место под статус-бар
                             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars).fillMaxWidth())
-                            
-                            // Напоминание об оферте (только для обычных пользователей, не для админа и не для гостей)
-                            if (!isGuest && !isAdmin && !privacyAgreed && currentUserEmail != null) {
-                                Surface(
-                                    color = Color.Yellow,
-                                    onClick = {
-                                        val privacyIndex = tabs.indexOfFirst { it.key == "privacy" }
-                                        if (privacyIndex != -1) {
-                                            coroutineScope.launch { pagerState.animateScrollToPage(privacyIndex) }
-                                        }
-                                    }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(Icons.Default.Warning, null, tint = Color.Black)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            "Пожалуйста, примите условия Оферты", 
-                                            color = Color.Black, 
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
                         }
                     },
                     bottomBar = {
@@ -566,7 +531,9 @@ fun GymAppContent(
                                             AuthScreen(
                                                 viewModel = authViewModel,
                                                 settingsViewModel = settingsViewModel,
-                                                onAuthSuccess = { }
+                                                onAuthSuccess = { email -> 
+                                                    authViewModel.loadSession(context)
+                                                }
                                             )
                                         } else {
                                             NewsScreen(isAdmin = isAdmin, authViewModel = authViewModel)
@@ -578,7 +545,9 @@ fun GymAppContent(
                                             AuthScreen(
                                                 viewModel = authViewModel, 
                                                 settingsViewModel = settingsViewModel, 
-                                                onAuthSuccess = { }
+                                                onAuthSuccess = { email ->
+                                                    authViewModel.loadSession(context)
+                                                }
                                             )
                                         } else {
                                             ChatScreen(currentUid = currentUid ?: "", isAdmin = isAdmin, viewModel = chatViewModel)
@@ -595,22 +564,20 @@ fun GymAppContent(
                                         }
                                     )
                                     "shop" -> ShopScreen(isAdmin = isAdmin, cartViewModel = cartViewModel)
-                                    "privacy" -> {
-                                        val currentContext = LocalContext.current
-                                        PrivacyScreen(
-                                            onAgree = { settingsViewModel.setPrivacyAgreed(currentContext, currentUserEmail, true) },
-                                            isAlreadyAgreed = settingsViewModel.privacyAgreed.value,
-                                            isAdmin = isAdmin,
-                                            viewModel = settingsViewModel
-                                        )
-                                    }
                                     "about" -> AboutScreen(isAdmin = isAdmin)
                                 }
                             }
                         }
                         if (showAuthOverlay) {
                             Box(modifier = Modifier.fillMaxSize()) {
-                                AuthScreen(viewModel = authViewModel, settingsViewModel = settingsViewModel, onAuthSuccess = { email -> showAuthOverlay = false })
+                                AuthScreen(
+                                    viewModel = authViewModel, 
+                                    settingsViewModel = settingsViewModel, 
+                                    onAuthSuccess = { email -> 
+                                        showAuthOverlay = false
+                                        authViewModel.loadSession(context)
+                                    }
+                                )
                                 IconButton(onClick = { showAuthOverlay = false }, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
                                     Icon(Icons.Default.Clear, "Закрыть", tint = Color.Red)
                                 }

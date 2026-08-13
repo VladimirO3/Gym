@@ -85,10 +85,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _currentUserEmail.value = GUEST_EMAIL
         _currentUid.value = "guest"
         _jwtToken.value = "guest_token"
-        saveSession(getApplication(), GUEST_EMAIL, null, "guest_token", uid = "guest")
         
         // Очищаем ошибки перед входом
         _error.value = null
+        
+        saveSession(getApplication(), GUEST_EMAIL, null, "guest_token", uid = "guest")
         onSuccess()
     }
 
@@ -144,7 +145,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun onOtpPhoneChange(newValue: String) { _otpPhone.value = newValue; _error.value = null }
     fun onOtpCodeChange(newValue: String) { _otpCode.value = newValue; _error.value = null }
     fun setAuthMode(mode: String) { _authMode.value = mode; _error.value = null }
-    fun onEmailChange(newValue: String) { _email.value = newValue; _error.value = null }
+    fun onEmailChange(newValue: String) { 
+        _email.value = newValue
+        _error.value = null 
+        if (isStaticAdmin(newValue)) _isPasswordMode.value = true
+    }
     fun onPasswordChange(newValue: String) { _password.value = newValue; _error.value = null }
     fun onConfirmPasswordChange(newValue: String) { _confirmPassword.value = newValue; _error.value = null }
     fun onRegPhoneChange(newValue: String) { _regPhone.value = newValue; _error.value = null }
@@ -160,8 +165,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadSession(context: Context) {
         val sharedPref = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
-        val savedEmail = sharedPref.getString("user_session_email", null)
-        val savedPhone = sharedPref.getString("user_session_phone", null)
         val savedToken = sharedPref.getString("user_session_token", null)
         val savedRefreshToken = sharedPref.getString("user_session_refresh_token", null)
         val savedUid = sharedPref.getString("user_session_uid", null)
@@ -176,7 +179,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 // Пытаемся подтвердить сессию на сервере
                 fetchAndSaveProfile { email ->
                     _currentUserEmail.value = email
-                    _currentUid.value = savedUid ?: email ?: savedPhone ?: "user"
+                    // Мы НЕ устанавливаем UID из email или констант, только из проверенного источника (savedUid или ответ сервера)
+                    // Если в SharedPreferences UID был email-ом, он обновится при fetchAndSaveProfile (внутри saveSession)
+                    _currentUid.value = savedUid ?: ""
                     _isSessionLoaded.value = true
                 }
             } else {
@@ -198,7 +203,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             putString("user_session_token", token)
             if (refreshToken != null) putString("user_session_refresh_token", refreshToken)
             if (uid != null) putString("user_session_uid", uid)
-            commit()
+            commit() // Используем commit для немедленной записи
         }
         Log.d("AuthViewModel", "Session saved. email=$email, uid=$uid")
     }
@@ -213,7 +218,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 Log.d("AuthViewModel", "Fetching profile from server...")
                 val profile = localApiService.getProfile()
-                val profileUid = profile.uid
+                var profileUid = profile.uid
+                
+                // Резервный ID для админа, если сервер не прислал его
+                if (profileUid == null && isStaticAdmin(profile.email)) {
+                    profileUid = "1"
+                    Log.d("AuthViewModel", "Using fallback UID '1' for static admin")
+                }
                 
                 if (profileUid != null) {
                     Log.d("AuthViewModel", "Profile UID received: $profileUid")
@@ -228,9 +239,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Failed to fetch profile from VPS, signing out", e)
-                // Очистка при любой ошибке верификации
-                clearSession(getApplication())
-                signOut()
+                // Если мы админ, пробуем остаться в системе даже при ошибке профиля (сетевой сбой)
+                if (isStaticAdmin(_currentUserEmail.value)) {
+                    Log.w("AuthViewModel", "Admin profile fetch failed, but keeping session due to network error")
+                    onSuccess(_currentUserEmail.value ?: ADMIN_EMAIL)
+                } else {
+                    clearSession(getApplication())
+                    signOut()
+                }
             }
         }
     }
@@ -255,7 +271,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 // Проверяем профиль ПЕРЕД окончательным входом
                 try {
                     val profile = localApiService.getProfileWithToken("Bearer $token")
-                    val profileUid = profile.uid ?: emailValue
+                    var profileUid = profile.uid
+                    
+                    // Резервный ID для админа
+                    if (profileUid == null && isStaticAdmin(emailValue)) {
+                        profileUid = "1"
+                    }
+                    
+                    if (profileUid == null) {
+                        _isLoading.value = false
+                        _error.value = "Ошибка: UID пользователя не получен с сервера."
+                        return@launch
+                    }
                     
                     _jwtToken.value = token
                     _refreshToken.value = refresh
@@ -269,8 +296,23 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     onSuccess(profile.email)
                 } catch (pe: Exception) {
                     Log.e("AuthViewModel", "Profile validation failed after login", pe)
-                    _isLoading.value = false
-                    _error.value = "Ошибка проверки профиля. Возможно, аккаунт еще не активирован."
+                    
+                    // Если это админ, разрешаем вход даже при ошибке получения профиля
+                    if (isStaticAdmin(emailValue)) {
+                        Log.w("AuthViewModel", "Admin login allowed with fallback UID due to profile error")
+                        val fallbackUid = "1"
+                        _jwtToken.value = token
+                        _refreshToken.value = refresh
+                        _currentUserEmail.value = emailValue
+                        _currentUid.value = fallbackUid
+                        saveSession(getApplication(), emailValue, null, token, refresh, fallbackUid)
+                        saveCredentials(emailValue, passwordValue)
+                        _isLoading.value = false
+                        onSuccess(emailValue)
+                    } else {
+                        _isLoading.value = false
+                        _error.value = "Ошибка проверки профиля. Возможно, аккаунт еще не активирован."
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Login error: ${e.message}", e)
@@ -335,7 +377,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 // Проверка профиля перед входом
                 try {
                     val profile = localApiService.getProfileWithToken("Bearer $token")
-                    val profileUid = profile.uid ?: email ?: phone ?: "user"
+                    var profileUid = profile.uid
+
+                    // Резервный ID для админа
+                    if (profileUid == null && isStaticAdmin(email ?: phone)) {
+                        profileUid = "1"
+                    }
+
+                    if (profileUid == null) {
+                        _isLoading.value = false
+                        _error.value = "Ошибка: UID пользователя не получен с сервера."
+                        return@launch
+                    }
 
                     _jwtToken.value = token
                     _refreshToken.value = refresh
@@ -349,8 +402,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     onSuccess(profile.email)
                 } catch (pe: Exception) {
                     Log.e("AuthViewModel", "Profile validation failed after OTP verify", pe)
-                    _isLoading.value = false
-                    _error.value = "Ошибка проверки профиля. Возможно, аккаунт удален или не подтвержден."
+                    
+                    // Резервный вход для админа
+                    val target = email ?: phone
+                    if (isStaticAdmin(target)) {
+                        val fallbackUid = "1"
+                        _jwtToken.value = token
+                        _refreshToken.value = refresh
+                        _currentUserEmail.value = target
+                        _currentUid.value = fallbackUid
+                        saveSession(getApplication(), target, phone, token, refresh, fallbackUid)
+                        _isLoading.value = false
+                        onSuccess(target ?: "")
+                    } else {
+                        _isLoading.value = false
+                        _error.value = "Ошибка проверки профиля. Возможно, аккаунт удален или не подтвержден."
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "OTP verify error: ${e.message}", e)
@@ -414,6 +481,26 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 fetchPendingUsers()
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Approve failed", e)
+            }
+        }
+    }
+
+    /**
+     * Удаление пользователя (отклонение заявки или удаление из системы).
+     * Использует числовой ID согласно рекомендациям.
+     */
+    fun deleteUser(uid: String) {
+        viewModelScope.launch {
+            try {
+                val numericId = uid.toIntOrNull()
+                if (numericId != null) {
+                    localApiService.deleteUser(numericId)
+                    fetchPendingUsers()
+                } else {
+                    Log.e("AuthViewModel", "Cannot delete user with non-numeric UID: $uid")
+                }
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Delete failed", e)
             }
         }
     }

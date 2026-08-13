@@ -70,6 +70,7 @@ fun ChatScreen(
     
     // Загрузка пользователей (только из локального сервера)
     LaunchedEffect(currentUid, isAdmin, jwtToken) {
+        android.util.Log.d("ChatScreen", "LaunchedEffect triggered: uid=$currentUid, isAdmin=$isAdmin, hasToken=${jwtToken != null}")
         if (jwtToken != null) {
             viewModel.fetchLocalUsers(jwtToken!!, force = true)
         } else if (currentUid.isNotBlank() && !AuthViewModel.isStaticAdmin(currentUid)) {
@@ -202,10 +203,12 @@ fun UserListScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (users.isEmpty()) {
+            android.util.Log.d("ChatScreen", "User list is empty in UI")
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Text(text = stringResource(R.string.chat_no_one), color = Color.Gray)
             }
         } else {
+            android.util.Log.d("ChatScreen", "Displaying ${users.size} users")
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)

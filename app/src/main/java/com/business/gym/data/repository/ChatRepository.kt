@@ -49,36 +49,28 @@ class ChatRepository(
             val users = apiService.getChatUsers()
             Log.d("ChatRepository", "Received ${users.size} users from VPS")
             
-            // 1. Получаем список всех UID, которые сейчас есть на сервере
-            val remoteUids = users.map { if (it.uid.isNullOrBlank()) it.email else it.uid }.toSet()
+            // 1. ПОЛНАЯ ОЧИСТКА КЕША перед вставкой (решает проблему "зависших" данных)
+            chatDao.deleteAllUsers()
+            Log.d("ChatRepository", "Local users cache cleared")
 
-            // 2. Синхронизируем: удаляем из локальной базы тех, кого нет на сервере
-            // или кто помечен как удаленный в сессии
-            val localEntities = chatDao.getAllUsersSync()
-            localEntities.forEach { local ->
-                if (!remoteUids.contains(local.uid) || sessionDeletedUids.contains(local.uid)) {
-                    Log.d("ChatRepository", "Removing phantom user from local DB: ${local.uid}")
-                    chatDao.deleteUserByUid(local.uid)
-                }
-            }
-
-            // 3. Фильтруем новых пользователей и обновляем базу
+            // 2. Фильтруем новых пользователей (убираем пустые UID и удаленных в сессии)
             val filteredUsers = users.filter { 
-                val finalUid = if (it.uid.isNullOrBlank()) it.email else it.uid
-                !sessionDeletedUids.contains(finalUid)
+                it.uid.isNotBlank() && !sessionDeletedUids.contains(it.uid)
             }
 
             val entities = filteredUsers.map { 
-                val finalUid = if (it.uid.isNullOrBlank()) it.email else it.uid
                 UserEntity(
-                    uid = finalUid, 
+                    uid = it.uid,
                     email = it.email, 
                     name = it.name,
                     avatarUrl = it.avatarUrl,
                     lastSeen = it.lastSeen
                 )
             }
+            
+            // 3. Сохраняем актуальный список
             chatDao.insertUsers(entities)
+            Log.d("ChatRepository", "Successfully cached ${entities.size} users to local DB")
             true
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -193,16 +185,16 @@ class ChatRepository(
         try {
             Log.d("ChatRepository", "Admin action: Deleting user. UID: $uid")
             
-            // Пытаемся удалить через основной REST-эндпоинт. 
-            // Согласно документации, сервер может ожидать числовой ID или email.
+            // Согласно рекомендациям, всегда используем числовой ID в пути /admin/users/{uid}
             val numericId = uid.toIntOrNull()
             if (numericId != null) {
                 apiService.deleteUser(numericId)
+                Log.i("ChatRepository", "VPS User deletion success for ID: $numericId")
             } else {
-                // Если UID не является числом, пробуем удаление по email
-                apiService.deleteUserByEmail(uid)
+                // Если UID не числовой, это критическая ошибка согласованности с сервером
+                Log.e("ChatRepository", "FAILED: Cannot delete user with non-numeric UID: $uid")
+                // В этом случае мы все равно чистим локально, так как пользователь "битый"
             }
-            Log.i("ChatRepository", "VPS User deletion success for $uid")
 
             // 2. Чистим локальный кэш
             performLocalUserCleanup(uid)

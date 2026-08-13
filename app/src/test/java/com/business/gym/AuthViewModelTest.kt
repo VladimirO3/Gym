@@ -50,7 +50,10 @@ class AuthViewModelTest {
         // Проверка логики определения администратора по email
         val adminEmail = AuthViewModel.ADMIN_EMAIL
         assertTrue(AuthViewModel.isStaticAdmin(adminEmail))
+        assertTrue(AuthViewModel.isStaticAdmin(" $adminEmail ")) // Проверка обрезки пробелов
+        assertTrue(AuthViewModel.isStaticAdmin(adminEmail.uppercase())) // Проверка регистра
         assertFalse(AuthViewModel.isStaticAdmin("regular@user.com"))
+        assertFalse(AuthViewModel.isStaticAdmin(null))
     }
     
     private fun assertTrue(condition: Boolean) = assert(condition)

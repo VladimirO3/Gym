@@ -228,11 +228,6 @@ interface NewsApiService {
         @Path("userId") userId: Int
     ): okhttp3.ResponseBody
 
-    @DELETE("admin/users/email/{email}")
-    suspend fun deleteUserByEmail(
-        @Path("email") email: String
-    ): okhttp3.ResponseBody
-
     // --- НОВОСТИ ---
     @GET("news")
     suspend fun getLocalNews(): List<LocalNews>

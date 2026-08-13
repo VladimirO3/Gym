@@ -1,11 +1,14 @@
 package com.business.gym.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -14,12 +17,18 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.business.gym.R
 import com.business.gym.ui.viewmodel.AuthViewModel
@@ -47,23 +56,10 @@ fun AuthScreen(
     val context = LocalContext.current
     var showIpDialog by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
-    var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showAgreement by remember { mutableStateOf(false) }
 
-    if (showPrivacyDialog) {
-        AlertDialog(
-            onDismissRequest = { showPrivacyDialog = false },
-            title = { Text(stringResource(R.string.privacy_title)) },
-            text = { 
-                Box(modifier = Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
-                    Text(stringResource(R.string.privacy_content)) 
-                }
-            },
-            confirmButton = {
-                Button(onClick = { showPrivacyDialog = false }) {
-                    Text("ОК")
-                }
-            }
-        )
+    if (showAgreement) {
+        AgreementDialog(onDismiss = { showAgreement = false })
     }
 
     if (showIpDialog && settingsViewModel != null) {
@@ -350,28 +346,33 @@ fun AuthScreen(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
                 ) {
                     Checkbox(
                         checked = privacyAgreed,
                         onCheckedChange = { viewModel.onPrivacyAgreementChange(it) },
                         colors = CheckboxDefaults.colors(checkedColor = Color.Red)
                     )
-                    Text(
-                        text = "Я согласен с ",
-                        color = Color.Gray,
-                        fontSize = 12.sp
-                    )
-                    TextButton(
-                        onClick = { showPrivacyDialog = true },
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text(
-                            text = "политикой конфиденциальности",
-                            color = Color.Red,
-                            fontSize = 12.sp
-                        )
+                    
+                    val annotatedString = buildAnnotatedString {
+                        append("Я принимаю ")
+                        pushStringAnnotation(tag = "agreement", annotation = "agreement")
+                        withStyle(style = SpanStyle(color = Color.Red, fontWeight = FontWeight.Bold)) {
+                            append("условия соглашения об электронном взаимодействии и сервисах")
+                        }
+                        pop()
                     }
+
+                    ClickableText(
+                        text = annotatedString,
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray),
+                        onClick = { offset ->
+                            annotatedString.getStringAnnotations(tag = "agreement", start = offset, end = offset)
+                                .firstOrNull()?.let {
+                                    showAgreement = true
+                                }
+                        }
+                    )
                 }
             }
 
@@ -455,6 +456,75 @@ fun AuthScreen(
                 modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
             ) {
                 Icon(Icons.Default.Settings, contentDescription = "Server Settings", tint = Color.Gray.copy(alpha = 0.5f))
+            }
+        }
+    }
+}
+
+@Composable
+fun AgreementDialog(onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Соглашение об электронном взаимодействии",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Red,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Clear, contentDescription = "Close", tint = Color.Gray)
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = """
+                            1. ПРЕДМЕТ СОГЛАШЕНИЯ
+                            Настоящее Соглашение определяет условия использования электронных сервисов приложения GYM ABS.
+                            
+                            2. ЭЛЕКТРОННОЕ ВЗАИМОДЕЙСТВИЕ
+                            Пользователь соглашается на получение уведомлений, сообщений и информации в электронном виде через приложение или по указанным при регистрации контактным данным.
+                            
+                            3. ПЕРСОНАЛЬНЫЕ ДАННЫЕ
+                            Регистрируясь в приложении, Пользователь дает согласие на обработку своих персональных данных для обеспечения функционирования сервисов.
+                            
+                            4. ОБЯЗАННОСТИ ПОЛЬЗОВАТЕЛЯ
+                            Пользователь обязуется предоставлять достоверную информацию и не использовать сервисы в противоправных целях.
+                            
+                            5. ОТВЕТСТВЕННОСТЬ
+                            Администрация приложения не несет ответственности за временные технические сбои, вызванные внешними факторами или действиями третьих лиц.
+                            
+                            6. ИЗМЕНЕНИЕ УСЛОВИЙ
+                            Администрация оставляет за собой право изменять условия настоящего Соглашения с уведомлением пользователей.
+                        """.trimIndent(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        lineHeight = 20.sp,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
             }
         }
     }

@@ -78,17 +78,27 @@ class ChatViewModel(
         // Подписка на список пользователей из локальной базы данных (Room)
         viewModelScope.launch {
             repository.allUsers.collect { localUsers ->
+                Log.d("ChatViewModel", "Observed ${localUsers.size} users from repository")
                 // Получаем текущий email для фильтрации "себя"
                 val sharedPref = getApplication<com.business.gym.GymApplication>()
                     .getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
                 val currentEmail = sharedPref.getString("user_session_email", "") ?: ""
                 val currentUidFromPrefs = sharedPref.getString("user_session_uid", "") ?: ""
+                
+                Log.d("ChatViewModel", "Filtering users. Self: email=$currentEmail, uid=$currentUidFromPrefs")
 
                 val profiles = localUsers
                     .filter { 
-                        val isSelf = it.email.trim().lowercase() == currentEmail.trim().lowercase() || 
-                                   it.uid == currentUidFromPrefs
-                        !isSelf && !deletedUserUids.contains(it.uid)
+                        // Фильтруем "себя", только если данные не пустые
+                        val isSelf = (currentEmail.isNotBlank() && it.email.isNotBlank() && it.email.trim().lowercase() == currentEmail.trim().lowercase()) || 
+                                   (currentUidFromPrefs.isNotBlank() && it.uid.isNotBlank() && it.uid == currentUidFromPrefs)
+                        
+                        val isDeleted = deletedUserUids.contains(it.uid)
+                        
+                        if (isSelf) Log.d("ChatViewModel", "Filtered out self: ${it.email} / ${it.uid}")
+                        if (isDeleted) Log.d("ChatViewModel", "Filtered out deleted: ${it.uid}")
+
+                        !isSelf && !isDeleted
                     }
                     .map { 
                         UserProfile(
@@ -101,6 +111,8 @@ class ChatViewModel(
                     }
                     .toMutableList()
                 
+                Log.d("ChatViewModel", "After filtering, profiles count: ${profiles.size}")
+                
                 // Если мы не администратор, гарантируем наличие администратора в списке
                 val isMeAdmin = AuthViewModel.isStaticAdmin(currentEmail)
                 if (!isMeAdmin) {
@@ -109,6 +121,7 @@ class ChatViewModel(
                         profiles.remove(adminInList)
                         profiles.add(0, adminInList.copy(name = "Администратор"))
                     } else {
+                        Log.d("ChatViewModel", "Admin not found in list, adding manually")
                         profiles.add(0, UserProfile(
                             uid = AuthViewModel.ADMIN_EMAIL,
                             email = AuthViewModel.ADMIN_EMAIL,
@@ -118,6 +131,7 @@ class ChatViewModel(
                 }
                 
                 _users.value = profiles
+                Log.d("ChatViewModel", "State _users updated with ${profiles.size} items")
             }
         }
     }

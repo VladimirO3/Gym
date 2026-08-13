@@ -364,12 +364,20 @@ fun SettingsScreen(
                                 Text(user.name, fontWeight = FontWeight.Bold, color = Color.White)
                                 Text(user.email, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                             }
-                            Button(
-                                onClick = { authViewModel.approveUser(user.uid) },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                            ) {
-                                Text("Одобрить", color = Color.Black, fontSize = 12.sp)
+                            Row {
+                                Button(
+                                    onClick = { authViewModel.approveUser(user.uid) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Одобрить", color = Color.Black, fontSize = 12.sp)
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                IconButton(
+                                    onClick = { authViewModel.deleteUser(user.uid) }
+                                ) {
+                                    Icon(Icons.Default.Delete, "Отклонить", tint = Color.Red)
+                                }
                             }
                         }
                     }

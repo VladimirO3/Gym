@@ -17,7 +17,6 @@ sealed class Screen(val route: String) {
     object Chat : Screen("chat")
     object Settings : Screen("settings")
     object About : Screen("about")
-    object Privacy : Screen("privacy")
     object Auth : Screen("auth")
 }
 
@@ -70,12 +69,6 @@ fun GymNavGraph(
         }
         composable(Screen.About.route) {
             AboutScreen(isAdmin = isAdmin)
-        }
-        composable(Screen.Privacy.route) {
-            PrivacyScreen(
-                onAgree = onPrivacyAgree,
-                isAlreadyAgreed = settingsViewModel.privacyAgreed.value
-            )
         }
         composable(Screen.Auth.route) {
             AuthScreen(onAuthSuccess = onAuthSuccess)
