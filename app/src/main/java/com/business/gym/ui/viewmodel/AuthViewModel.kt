@@ -167,17 +167,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val savedUid = sharedPref.getString("user_session_uid", null)
         
         if (savedToken != null) {
-            _currentUserEmail.value = savedEmail
+            // Загружаем токен в память, но НЕ устанавливаем email до проверки профиля
             _jwtToken.value = savedToken
             _refreshToken.value = savedRefreshToken
-            // Fallback: UID -> Email -> Phone -> "user"
-            _currentUid.value = savedUid ?: savedEmail ?: savedPhone ?: "user"
             _isGuest.value = savedToken == "guest_token"
             
-            // Если токен валиден, пробуем подтянуть свежий профиль (и реальный UID)
             if (savedToken != "guest_token") {
-                fetchAndSaveProfile { _isSessionLoaded.value = true }
+                // Пытаемся подтвердить сессию на сервере
+                fetchAndSaveProfile { email ->
+                    _currentUserEmail.value = email
+                    _currentUid.value = savedUid ?: email ?: savedPhone ?: "user"
+                    _isSessionLoaded.value = true
+                }
             } else {
+                // Для гостя сессия всегда валидна
+                _currentUserEmail.value = GUEST_EMAIL
+                _currentUid.value = "guest"
                 _isSessionLoaded.value = true
             }
         } else {
@@ -212,20 +217,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 
                 if (profileUid != null) {
                     Log.d("AuthViewModel", "Profile UID received: $profileUid")
-                    _currentUid.value = profileUid
-                    _currentUserEmail.value = profile.email
+                    // Сохраняем проверенные данные в сессию
                     saveSession(getApplication(), profile.email, null, _jwtToken.value!!, _refreshToken.value, profileUid)
                     onSuccess(profile.email)
                 } else {
-                    // Если сервер прислал null UID, используем текущее значение (email/fallback) и сохраняем его
-                    val currentId = _currentUid.value
-                    Log.w("AuthViewModel", "Profile UID is null from server, keeping temporary ID: $currentId")
-                    saveSession(getApplication(), profile.email, null, _jwtToken.value!!, _refreshToken.value, currentId)
-                    onSuccess(profile.email)
+                    Log.e("AuthViewModel", "User is not fully registered (UID is null on server)")
+                    // Принудительная очистка, если профиль не полон
+                    clearSession(getApplication())
+                    signOut()
                 }
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Failed to fetch profile from VPS", e)
-                onSuccess(_currentUserEmail.value ?: "")
+                Log.e("AuthViewModel", "Failed to fetch profile from VPS, signing out", e)
+                // Очистка при любой ошибке верификации
+                clearSession(getApplication())
+                signOut()
             }
         }
     }

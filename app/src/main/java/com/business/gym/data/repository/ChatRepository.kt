@@ -49,14 +49,26 @@ class ChatRepository(
             val users = apiService.getChatUsers()
             Log.d("ChatRepository", "Received ${users.size} users from VPS")
             
-            // Фильтруем пользователей, которые были удалены в этой сессии
+            // 1. Получаем список всех UID, которые сейчас есть на сервере
+            val remoteUids = users.map { if (it.uid.isNullOrBlank()) it.email else it.uid }.toSet()
+
+            // 2. Синхронизируем: удаляем из локальной базы тех, кого нет на сервере
+            // или кто помечен как удаленный в сессии
+            val localEntities = chatDao.getAllUsersSync()
+            localEntities.forEach { local ->
+                if (!remoteUids.contains(local.uid) || sessionDeletedUids.contains(local.uid)) {
+                    Log.d("ChatRepository", "Removing phantom user from local DB: ${local.uid}")
+                    chatDao.deleteUserByUid(local.uid)
+                }
+            }
+
+            // 3. Фильтруем новых пользователей и обновляем базу
             val filteredUsers = users.filter { 
                 val finalUid = if (it.uid.isNullOrBlank()) it.email else it.uid
                 !sessionDeletedUids.contains(finalUid)
             }
 
-            val entities = filteredUsers.map {
-                // Гарантируем наличие UID (если пустой, используем email)
+            val entities = filteredUsers.map { 
                 val finalUid = if (it.uid.isNullOrBlank()) it.email else it.uid
                 UserEntity(
                     uid = finalUid, 
@@ -66,7 +78,6 @@ class ChatRepository(
                     lastSeen = it.lastSeen
                 )
             }
-            chatDao.deleteAllUsers()
             chatDao.insertUsers(entities)
             true
         } catch (e: Exception) {

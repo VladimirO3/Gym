@@ -445,9 +445,9 @@ interface NewsApiService {
                     val token = sharedPref.getString("user_session_token", null)
                     
                     // Добавляем токен для всех запросов к API, 
-                    // кроме тех, где он уже есть или если это гость
+                    // кроме тех, где он уже есть в заголовках или в URL, или если это гость
                     val isGuestToken = token == "guest_token"
-                    val hasAuth = request.header("Authorization") != null
+                    val hasAuth = request.header("Authorization") != null || request.url.queryParameter("token") != null
                     
                     val newRequest = if (!hasAuth && token != null && !isGuestToken) {
                         Log.d("NewsApiService", "Adding Authorization header to: $url")
