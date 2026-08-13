@@ -366,7 +366,7 @@ fun SettingsScreen(
                             }
                             Row {
                                 Button(
-                                    onClick = { authViewModel.approveUser(user.uid) },
+                                    onClick = { authViewModel.approveUser(user) },
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                                 ) {
@@ -374,7 +374,7 @@ fun SettingsScreen(
                                 }
                                 Spacer(Modifier.width(8.dp))
                                 IconButton(
-                                    onClick = { authViewModel.deleteUser(user.uid) }
+                                    onClick = { authViewModel.deleteUser(user) }
                                 ) {
                                     Icon(Icons.Default.Delete, "Отклонить", tint = Color.Red)
                                 }

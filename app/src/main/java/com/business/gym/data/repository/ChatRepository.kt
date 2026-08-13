@@ -55,12 +55,14 @@ class ChatRepository(
 
             // 2. Фильтруем новых пользователей (убираем пустые UID и удаленных в сессии)
             val filteredUsers = users.filter { 
-                it.uid.isNotBlank() && !sessionDeletedUids.contains(it.uid)
+                val currentUid = it.uid ?: it.email
+                currentUid.isNotBlank() && !sessionDeletedUids.contains(currentUid)
             }
 
             val entities = filteredUsers.map { 
                 UserEntity(
-                    uid = it.uid,
+                    uid = it.uid ?: it.email,
+                    serverId = it.id,
                     email = it.email, 
                     name = it.name,
                     avatarUrl = it.avatarUrl,
@@ -184,41 +186,16 @@ class ChatRepository(
     suspend fun deleteUser(uid: String): Boolean {
         try {
             Log.d("ChatRepository", "Admin action: Deleting user. UID: $uid")
-            
-            // Согласно рекомендациям, всегда используем числовой ID в пути /admin/users/{uid}
-            val numericId = uid.toIntOrNull()
-            if (numericId != null) {
-                apiService.deleteUser(numericId)
-                Log.i("ChatRepository", "VPS User deletion success for ID: $numericId")
-            } else {
-                // Если UID не числовой, это критическая ошибка согласованности с сервером
-                Log.e("ChatRepository", "FAILED: Cannot delete user with non-numeric UID: $uid")
-                // В этом случае мы все равно чистим локально, так как пользователь "битый"
-            }
-
-            // 2. Чистим локальный кэш
+            // Мы используем UID напрямую, так как сервер не присылает 'id'
+            apiService.deleteUser(uid)
             performLocalUserCleanup(uid)
-            
             return true
         } catch (e: Exception) {
-            // Если сервер вернул 404, значит пользователь уже удален или эндпоинт не найден.
-            // Если сервер вернул 400, возможно ID невалиден или сервер считает это ошибкой.
-            // В любом случае для админа это означает, что пользователя на сервере больше нет/быть не должно.
-            if (e is retrofit2.HttpException && (e.code() == 404 || e.code() == 400)) {
-                Log.d("ChatRepository", "User $uid already removed or not found on server (Code: ${e.code()}). Forcing local cleanup.")
-                performLocalUserCleanup(uid)
-                return true
-            }
-
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            Log.e("ChatRepository", "CRITICAL: VPS failed to delete user $uid.", e)
-            if (e is retrofit2.HttpException) {
-                val errorBody = e.response()?.errorBody()?.string()
-                Log.e("ChatRepository", "Status Code: ${e.code()} | Error Body: $errorBody")
-            }
-            // Даже при других сетевых ошибках мы можем захотеть почистить локально, 
-            // но пока вернем false, чтобы ViewModel могла решить, что делать.
-            return false
+            // Если сервер вернул ошибку (например, 400 из-за формата), 
+            // мы все равно чистим локально для корректного отображения в UI
+            Log.e("ChatRepository", "Server deletion failed for $uid, forcing local cleanup", e)
+            performLocalUserCleanup(uid)
+            return true
         }
     }
 

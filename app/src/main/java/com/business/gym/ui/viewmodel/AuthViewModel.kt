@@ -474,10 +474,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun approveUser(userUid: String) {
+    fun approveUser(user: LocalUser) {
         viewModelScope.launch {
             try {
-                localApiService.approveUser(userUid = userUid)
+                // Используем числовой ID, если он есть, иначе UID
+                val idToApprove = user.id?.toString() ?: user.uid ?: ""
+                if (idToApprove.isBlank()) return@launch
+                
+                localApiService.approveUser(userUid = idToApprove)
                 fetchPendingUsers()
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Approve failed", e)
@@ -487,18 +491,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Удаление пользователя (отклонение заявки или удаление из системы).
-     * Использует числовой ID согласно рекомендациям.
      */
-    fun deleteUser(uid: String) {
+    fun deleteUser(user: LocalUser) {
         viewModelScope.launch {
             try {
-                val numericId = uid.toIntOrNull()
-                if (numericId != null) {
-                    localApiService.deleteUser(numericId)
-                    fetchPendingUsers()
-                } else {
-                    Log.e("AuthViewModel", "Cannot delete user with non-numeric UID: $uid")
-                }
+                // Используем числовой ID, если он есть, иначе UID
+                val idToDelete = user.id?.toString() ?: user.uid ?: ""
+                if (idToDelete.isBlank()) return@launch
+
+                localApiService.deleteUser(idToDelete)
+                fetchPendingUsers()
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Delete failed", e)
             }
@@ -532,7 +534,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                     lastKnownStatus = status
-                } catch (e: Exception) {}
+                } catch (e: Exception) {
+                    if (e is retrofit2.HttpException && e.code() == 401) {
+                        Log.w("AuthViewModel", "Status check returned 401, possible session expiry or invalid token")
+                    }
+                }
                 kotlinx.coroutines.delay(15000)
             }
         }

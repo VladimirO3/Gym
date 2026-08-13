@@ -85,24 +85,25 @@ class ChatViewModel(
                 val currentEmail = sharedPref.getString("user_session_email", "") ?: ""
                 val currentUidFromPrefs = sharedPref.getString("user_session_uid", "") ?: ""
                 
-                Log.d("ChatViewModel", "Filtering users. Self: email=$currentEmail, uid=$currentUidFromPrefs")
+                Log.d("ChatViewModel", "Filtering ${localUsers.size} users. Self: email=$currentEmail, uid=$currentUidFromPrefs. DeletedUids: $deletedUserUids")
 
                 val profiles = localUsers
                     .filter { 
                         // Фильтруем "себя", только если данные не пустые
+                        val currentUid = it.uid ?: it.email
                         val isSelf = (currentEmail.isNotBlank() && it.email.isNotBlank() && it.email.trim().lowercase() == currentEmail.trim().lowercase()) || 
-                                   (currentUidFromPrefs.isNotBlank() && it.uid.isNotBlank() && it.uid == currentUidFromPrefs)
+                                   (currentUidFromPrefs.isNotBlank() && it.uid?.isNotBlank() == true && it.uid == currentUidFromPrefs)
                         
-                        val isDeleted = deletedUserUids.contains(it.uid)
+                        val isDeleted = deletedUserUids.contains(currentUid)
                         
                         if (isSelf) Log.d("ChatViewModel", "Filtered out self: ${it.email} / ${it.uid}")
-                        if (isDeleted) Log.d("ChatViewModel", "Filtered out deleted: ${it.uid}")
-
+                        if (isDeleted) Log.d("ChatViewModel", "Filtered out deleted: $currentUid")
+                        
                         !isSelf && !isDeleted
                     }
                     .map { 
                         UserProfile(
-                            uid = it.uid, 
+                            uid = it.uid ?: it.email,
                             email = it.email, 
                             name = it.name,
                             avatarUrl = it.avatarUrl,

@@ -58,7 +58,8 @@ data class LocalChatMessage(
  * Модель данных пользователя для локального чата.
  */
 data class LocalUser(
-    @SerializedName("uid", alternate = ["id", "user_id"]) val uid: String = "",
+    @SerializedName("id") val id: Int? = null,
+    @SerializedName("uid") val uid: String? = null,
     val email: String = "",
     val name: String = "",
     val age: Int? = null,
@@ -111,7 +112,8 @@ data class ProductResponse(
  * Модели для профиля и заметок.
  */
 data class ProfileResponse(
-    @SerializedName("uid", alternate = ["id", "user_id"]) val uid: String?, 
+    @SerializedName("id") val id: Int? = null,
+    @SerializedName("uid") val uid: String? = null, 
     val email: String,
     val name: String?,
     val age: Int?,
@@ -225,7 +227,7 @@ interface NewsApiService {
 
     @DELETE("admin/users/{userId}")
     suspend fun deleteUser(
-        @Path("userId") userId: Int
+        @Path("userId") userId: String
     ): okhttp3.ResponseBody
 
     // --- НОВОСТИ ---
@@ -457,6 +459,10 @@ interface NewsApiService {
                     Log.d("NewsApiService", "Request: ${request.method} ${request.url} -> Response Code: ${response.code}")
                     if (!response.isSuccessful) {
                         Log.e("NewsApiService", "Error body: ${response.peekBody(1024).string()}")
+                    } else if (url.contains("chat/users") || url.contains("profile")) {
+                        // Логируем успешные ответы для отладки структуры ID
+                        val body = response.peekBody(1024).string()
+                        Log.d("NewsApiService", "Success Response from $url: $body")
                     }
                     response
                 }
