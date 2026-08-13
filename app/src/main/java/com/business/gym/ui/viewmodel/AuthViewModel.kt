@@ -441,14 +441,30 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val phoneValue = _regPhone.value.trim()
         val passwordValue = _password.value
         val confirmValue = _confirmPassword.value
+        
+        // 1. Базовая валидация пустых полей
         if (emailValue.isBlank() || phoneValue.isBlank() || passwordValue.isBlank()) {
             _error.value = "Заполните все поля"
             return
         }
+        
+        // 2. Валидация формата Email
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(emailValue).matches()) {
+            _error.value = "Неверный формат Email"
+            return
+        }
+
+        // 3. Валидация длины пароля (например, минимум 6 символов)
+        if (passwordValue.length < 6) {
+            _error.value = "Пароль должен быть не менее 6 символов"
+            return
+        }
+
         if (passwordValue != confirmValue) {
             _error.value = "Пароли не совпадают"
             return
         }
+
         _isLoading.value = true
         viewModelScope.launch {
             try {
@@ -459,7 +475,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Reg error", e)
                 _isLoading.value = false
-                _error.value = "Ошибка регистрации."
+                
+                if (e is retrofit2.HttpException) {
+                    when (e.code()) {
+                        409 -> _error.value = "Пользователь с таким Email уже зарегистрирован"
+                        400 -> _error.value = "Ошибка в данных. Проверьте правильность заполнения"
+                        else -> _error.value = "Ошибка сервера: ${e.code()}"
+                    }
+                } else {
+                    _error.value = "Ошибка регистрации. Проверьте соединение"
+                }
             }
         }
     }

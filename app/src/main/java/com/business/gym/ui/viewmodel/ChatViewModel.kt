@@ -91,8 +91,16 @@ class ChatViewModel(
                     .filter { 
                         // Фильтруем "себя", только если данные не пустые
                         val currentUid = it.uid ?: it.email
-                        val isSelf = (currentEmail.isNotBlank() && it.email.isNotBlank() && it.email.trim().lowercase() == currentEmail.trim().lowercase()) || 
-                                   (currentUidFromPrefs.isNotBlank() && it.uid?.isNotBlank() == true && it.uid == currentUidFromPrefs)
+                        
+                        // Проверка 1: Совпадение по Email
+                        val isSameEmail = currentEmail.isNotBlank() && it.email.isNotBlank() && it.email.trim().lowercase() == currentEmail.trim().lowercase()
+                        // Проверка 2: Совпадение по UID (включая проверку на статический Email админа)
+                        val isSameUid = currentUidFromPrefs.isNotBlank() && it.uid?.isNotBlank() == true && it.uid == currentUidFromPrefs
+                        // Проверка 3: Если мы админ, фильтруем любые записи, похожие на Email админа
+                        val isMeAdmin = AuthViewModel.isStaticAdmin(currentEmail)
+                        val isUserAdminEntry = AuthViewModel.isStaticAdmin(it.email) || AuthViewModel.isStaticAdmin(it.uid)
+                        
+                        val isSelf = isSameEmail || isSameUid || (isMeAdmin && isUserAdminEntry)
                         
                         val isDeleted = deletedUserUids.contains(currentUid)
                         

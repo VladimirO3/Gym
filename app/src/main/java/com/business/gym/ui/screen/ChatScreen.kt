@@ -205,7 +205,7 @@ fun UserListScreen(
         if (users.isEmpty()) {
             android.util.Log.d("ChatScreen", "User list is empty in UI")
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Text(text = stringResource(R.string.chat_no_one), color = Color.Gray)
+                Text(text = "Тут скоро будет чат", color = Color.Gray)
             }
         } else {
             android.util.Log.d("ChatScreen", "Displaying ${users.size} users")
