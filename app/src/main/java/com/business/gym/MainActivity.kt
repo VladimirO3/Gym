@@ -306,15 +306,15 @@ fun GymAppContent(
     
     val tabs = remember(isGuest, privacyAgreed) {
         val list = mutableListOf<GymTab>()
-        list.add(GymTab("Новости", Icons.Default.Newspaper, "news"))
-        list.add(GymTab("Плейлист", Icons.Default.PlayArrow, "playlist"))
+        list.add(GymTab(context.getString(R.string.tab_news), Icons.Default.Newspaper, "news"))
+        list.add(GymTab(context.getString(R.string.tab_playlist), Icons.Default.PlayArrow, "playlist"))
         if (!isGuest) {
-            list.add(GymTab("Чат", Icons.AutoMirrored.Filled.Send, "chat"))
+            list.add(GymTab(context.getString(R.string.tab_chat), Icons.AutoMirrored.Filled.Send, "chat"))
         }
-        list.add(GymTab("Профиль", Icons.Default.AccountCircle, "settings"))
-        list.add(GymTab("Магазин", Icons.Default.Store, "shop"))
+        list.add(GymTab(context.getString(R.string.tab_settings), Icons.Default.AccountCircle, "settings"))
+        list.add(GymTab(context.getString(R.string.tab_shop), Icons.Default.Store, "shop"))
         
-        list.add(GymTab("О приложении", Icons.Default.Add, "about"))
+        list.add(GymTab(context.getString(R.string.tab_about), Icons.Default.Info, "about"))
         list
     }
 
