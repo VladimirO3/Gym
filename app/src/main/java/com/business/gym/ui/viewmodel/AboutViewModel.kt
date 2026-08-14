@@ -93,12 +93,14 @@ class AboutViewModel(
     }
 
     fun addCoach(name: String, description: String, imagePart: MultipartBody.Part?) {
+        android.util.Log.d("AboutViewModel", "addCoach called for: $name")
         viewModelScope.launch {
             coachRepository.addCoach(name, description, imagePart)
         }
     }
 
     fun updateCoach(id: String, name: String, description: String, imagePart: MultipartBody.Part?) {
+        android.util.Log.d("AboutViewModel", "updateCoach called for ID: $id")
         viewModelScope.launch {
             coachRepository.updateCoach(id, name, description, imagePart)
         }

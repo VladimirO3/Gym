@@ -77,4 +77,12 @@ object NotificationHelper {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(senderId?.hashCode() ?: 1)
     }
+
+    /**
+     * Удаляет все уведомления приложения.
+     */
+    fun cancelAllNotifications(context: Context) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.cancelAll()
+    }
 }

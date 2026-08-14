@@ -76,19 +76,30 @@ fun AboutScreen(
             coach = editingCoach,
             onDismiss = { showCoachDialog = false; editingCoach = null },
             onConfirm = { name: String, desc: String, uri: Uri? ->
+                android.util.Log.d("AboutScreen", "Coach dialog confirmed: $name")
                 try {
                     val imagePart = if (uri != null) {
+                        android.util.Log.d("AboutScreen", "Processing image URI: $uri")
                         val bytes = context.contentResolver.openInputStream(uri)?.readBytes()
                         if (bytes != null) {
+                            android.util.Log.d("AboutScreen", "Image bytes size: ${bytes.size}")
                             val mediaType = context.contentResolver.getType(uri)?.toMediaTypeOrNull()
                             val requestFile = bytes.toRequestBody(mediaType)
                             MultipartBody.Part.createFormData("file", "coach_image", requestFile)
-                        } else null
-                    } else null
+                        } else {
+                            android.util.Log.e("AboutScreen", "Failed to read image bytes")
+                            null
+                        }
+                    } else {
+                        android.util.Log.d("AboutScreen", "No image selected")
+                        null
+                    }
 
                     if (editingCoach != null) {
+                        android.util.Log.d("AboutScreen", "Updating existing coach: ${editingCoach!!.id}")
                         viewModel.updateCoach(editingCoach!!.id, name, desc, imagePart)
                     } else {
+                        android.util.Log.d("AboutScreen", "Adding new coach")
                         viewModel.addCoach(name, desc, imagePart)
                     }
                     showCoachDialog = false

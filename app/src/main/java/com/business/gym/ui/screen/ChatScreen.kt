@@ -28,6 +28,7 @@ import com.business.gym.data.model.ChatMessage
 import com.business.gym.ui.component.MessageBubble
 import com.business.gym.ui.viewmodel.AuthViewModel
 import com.business.gym.ui.viewmodel.ChatViewModel
+import com.business.gym.util.NotificationHelper
 
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
@@ -73,6 +74,8 @@ fun ChatScreen(
         android.util.Log.d("ChatScreen", "LaunchedEffect triggered: uid=$currentUid, isAdmin=$isAdmin, hasToken=${jwtToken != null}")
         if (jwtToken != null) {
             viewModel.fetchLocalUsers(jwtToken!!, force = true)
+            // При заходе в раздел чатов сбрасываем все уведомления в шторке
+            NotificationHelper.cancelAllNotifications(context)
         } else if (currentUid.isNotBlank() && !AuthViewModel.isStaticAdmin(currentUid)) {
              // Если токена нет, но мы не гость
              android.util.Log.w("ChatScreen", "JWT Token is null for UID: $currentUid")
