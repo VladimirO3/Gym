@@ -378,7 +378,7 @@ interface NewsApiService {
     suspend fun getCoaches(): List<CoachResponse>
 
     @Multipart
-    @POST("admin/coaches")
+    @POST("admin-coaches")
     suspend fun addCoach(
         @Part("name") name: RequestBody,
         @Part("description") description: RequestBody,
@@ -386,7 +386,7 @@ interface NewsApiService {
     ): okhttp3.ResponseBody
 
     @Multipart
-    @POST("admin/coaches/{id}")
+    @POST("admin-coaches/{id}")
     suspend fun updateCoach(
         @Path("id") id: String,
         @Part("name") name: RequestBody,
@@ -394,7 +394,7 @@ interface NewsApiService {
         @Part file: MultipartBody.Part? = null
     ): okhttp3.ResponseBody
 
-    @DELETE("admin/coaches/{id}")
+    @DELETE("admin-coaches/{id}")
     suspend fun deleteCoach(
         @Path("id") id: String
     ): okhttp3.ResponseBody

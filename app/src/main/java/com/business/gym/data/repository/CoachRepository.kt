@@ -40,26 +40,33 @@ class CoachRepository(
 
     suspend fun addCoach(name: String, description: String, imagePart: MultipartBody.Part?): Boolean {
         return try {
+            Log.d("CoachRepository", "Attempting to add coach: $name. Has image: ${imagePart != null}")
             val nameBody = name.toRequestBody("text/plain".toMediaTypeOrNull())
             val descBody = description.toRequestBody("text/plain".toMediaTypeOrNull())
-            apiService.addCoach(nameBody, descBody, imagePart)
+            val response = apiService.addCoach(nameBody, descBody, imagePart)
+            Log.d("CoachRepository", "Add coach success. Response: ${response.string()}")
             refreshCoaches()
             true
         } catch (e: Exception) {
-            Log.e("CoachRepository", "Failed to add coach", e)
+            Log.e("CoachRepository", "FAILED to add coach: $name", e)
+            if (e is retrofit2.HttpException) {
+                Log.e("CoachRepository", "HTTP Error ${e.code()}: ${e.response()?.errorBody()?.string()}")
+            }
             false
         }
     }
 
     suspend fun updateCoach(id: String, name: String, description: String, imagePart: MultipartBody.Part?): Boolean {
         return try {
+            Log.d("CoachRepository", "Attempting to update coach ID=$id to name: $name")
             val nameBody = name.toRequestBody("text/plain".toMediaTypeOrNull())
             val descBody = description.toRequestBody("text/plain".toMediaTypeOrNull())
             apiService.updateCoach(id, nameBody, descBody, imagePart)
+            Log.d("CoachRepository", "Update coach success for ID: $id")
             refreshCoaches()
             true
         } catch (e: Exception) {
-            Log.e("CoachRepository", "Failed to update coach", e)
+            Log.e("CoachRepository", "FAILED to update coach ID: $id", e)
             false
         }
     }
