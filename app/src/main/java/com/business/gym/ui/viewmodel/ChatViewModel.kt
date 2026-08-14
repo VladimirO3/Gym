@@ -196,6 +196,7 @@ class ChatViewModel(
                                     currentNotified[senderId] = count
                                     changed = true
                                 } else if (count == 0 && currentNotified.containsKey(senderId)) {
+                                    NotificationHelper.cancelNotification(getApplication(), senderId)
                                     currentNotified.remove(senderId)
                                     changed = true
                                 }
@@ -236,6 +237,8 @@ class ChatViewModel(
             val current = _notifiedCounts.value.toMutableMap()
             current[it.uid] = 999999 
             _notifiedCounts.value = current
+            // Отменяем системное уведомление для этого пользователя
+            NotificationHelper.cancelNotification(getApplication(), it.uid)
         }
         stopPolling()
         stopMessagesObservation()

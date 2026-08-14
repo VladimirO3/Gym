@@ -76,22 +76,27 @@ fun AboutScreen(
             coach = editingCoach,
             onDismiss = { showCoachDialog = false; editingCoach = null },
             onConfirm = { name: String, desc: String, uri: Uri? ->
-                val imagePart = if (uri != null) {
-                    val bytes = context.contentResolver.openInputStream(uri)?.readBytes()
-                    if (bytes != null) {
-                        val mediaType = context.contentResolver.getType(uri)?.toMediaTypeOrNull()
-                        val requestFile = bytes.toRequestBody(mediaType)
-                        MultipartBody.Part.createFormData("file", "coach_image", requestFile)
+                try {
+                    val imagePart = if (uri != null) {
+                        val bytes = context.contentResolver.openInputStream(uri)?.readBytes()
+                        if (bytes != null) {
+                            val mediaType = context.contentResolver.getType(uri)?.toMediaTypeOrNull()
+                            val requestFile = bytes.toRequestBody(mediaType)
+                            MultipartBody.Part.createFormData("file", "coach_image", requestFile)
+                        } else null
                     } else null
-                } else null
 
-                if (editingCoach != null) {
-                    viewModel.updateCoach(editingCoach!!.id, name, desc, imagePart)
-                } else {
-                    viewModel.addCoach(name, desc, imagePart)
+                    if (editingCoach != null) {
+                        viewModel.updateCoach(editingCoach!!.id, name, desc, imagePart)
+                    } else {
+                        viewModel.addCoach(name, desc, imagePart)
+                    }
+                    showCoachDialog = false
+                    editingCoach = null
+                } catch (e: Exception) {
+                    android.util.Log.e("AboutScreen", "Failed to process coach data", e)
+                    android.widget.Toast.makeText(context, "Ошибка при обработке фото", android.widget.Toast.LENGTH_SHORT).show()
                 }
-                showCoachDialog = false
-                editingCoach = null
             }
         )
     }

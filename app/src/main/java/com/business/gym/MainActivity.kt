@@ -304,17 +304,23 @@ fun GymAppContent(
     val isGuest by authViewModel.isGuest // Используем делегат для реактивности
     val privacyAgreed by settingsViewModel.privacyAgreed
     
-    val tabs = remember(isGuest, privacyAgreed) {
+    val newsTitle = stringResource(R.string.tab_news)
+    val playlistTitle = stringResource(R.string.tab_playlist)
+    val chatTitle = stringResource(R.string.tab_chat)
+    val settingsTitle = stringResource(R.string.tab_settings)
+    val shopTitle = stringResource(R.string.tab_shop)
+    val aboutTitle = stringResource(R.string.tab_about)
+
+    val tabs = remember(isGuest, privacyAgreed, newsTitle, playlistTitle, chatTitle, settingsTitle, shopTitle, aboutTitle) {
         val list = mutableListOf<GymTab>()
-        list.add(GymTab("Новости", Icons.Default.Newspaper, "news"))
-        list.add(GymTab("Плейлист", Icons.Default.PlayArrow, "playlist"))
+        list.add(GymTab(newsTitle, Icons.Default.Newspaper, "news"))
+        list.add(GymTab(playlistTitle, Icons.Default.PlayArrow, "playlist"))
         if (!isGuest) {
-            list.add(GymTab("Чат", Icons.AutoMirrored.Filled.Send, "chat"))
+            list.add(GymTab(chatTitle, Icons.AutoMirrored.Filled.Send, "chat"))
         }
-        list.add(GymTab("Профиль", Icons.Default.AccountCircle, "settings"))
-        list.add(GymTab("Магазин", Icons.Default.Store, "shop"))
-        
-        list.add(GymTab("О нас", Icons.Default.Info, "about"))
+        list.add(GymTab(settingsTitle, Icons.Default.AccountCircle, "settings"))
+        list.add(GymTab(shopTitle, Icons.Default.Store, "shop"))
+        list.add(GymTab(aboutTitle, Icons.Default.Info, "about"))
         list
     }
 

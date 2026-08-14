@@ -69,4 +69,12 @@ object NotificationHelper {
         // Отображение
         NotificationManagerCompat.from(context).notify(senderId?.hashCode() ?: 1, notification)
     }
+
+    /**
+     * Удаляет уведомление для конкретного отправителя.
+     */
+    fun cancelNotification(context: Context, senderId: String?) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.cancel(senderId?.hashCode() ?: 1)
+    }
 }
