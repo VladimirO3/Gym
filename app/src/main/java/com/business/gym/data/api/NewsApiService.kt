@@ -129,6 +129,16 @@ data class DailyNoteResponse(
 )
 
 /**
+ * Модель для тренеров.
+ */
+data class CoachResponse(
+    @SerializedName("id") val id: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("description") val description: String,
+    @SerializedName("image_url", alternate = ["imageUrl", "url"]) val imageUrl: String? = null
+)
+
+/**
  * Описание запросов к вашему собственному серверу (Ktor/Node.js/Python).
  */
 interface NewsApiService {
@@ -361,6 +371,32 @@ interface NewsApiService {
     suspend fun updatePrivacyPolicy(
         @Field("date") date: String,
         @Field("content") content: String
+    ): okhttp3.ResponseBody
+
+    // --- ТРЕНЕРЫ ---
+    @GET("coaches")
+    suspend fun getCoaches(): List<CoachResponse>
+
+    @Multipart
+    @POST("admin/coaches")
+    suspend fun addCoach(
+        @Part("name") name: RequestBody,
+        @Part("description") description: RequestBody,
+        @Part file: MultipartBody.Part? = null
+    ): okhttp3.ResponseBody
+
+    @Multipart
+    @POST("admin/coaches/{id}")
+    suspend fun updateCoach(
+        @Path("id") id: String,
+        @Part("name") name: RequestBody,
+        @Part("description") description: RequestBody,
+        @Part file: MultipartBody.Part? = null
+    ): okhttp3.ResponseBody
+
+    @DELETE("admin/coaches/{id}")
+    suspend fun deleteCoach(
+        @Path("id") id: String
     ): okhttp3.ResponseBody
 
     companion object {

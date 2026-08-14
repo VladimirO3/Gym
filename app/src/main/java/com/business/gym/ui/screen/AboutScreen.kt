@@ -28,6 +28,17 @@ import com.business.gym.R
 import com.business.gym.ui.viewmodel.AboutViewModel
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.draw.clip
+import com.business.gym.data.api.NewsApiService
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Person
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
@@ -48,6 +59,7 @@ fun AboutScreen(
     val aboutFooter by viewModel.aboutFooter
     val contactTitle by viewModel.contactTitle
     val contactPhone by viewModel.contactPhone
+    val coaches by viewModel.coaches
 
     val defaultTitle = stringResource(R.string.about_title)
     val defaultDescription = stringResource(R.string.about_description)
@@ -56,6 +68,33 @@ fun AboutScreen(
     val defaultContactTitle = stringResource(R.string.contact_title)
 
     var showEditor by remember { mutableStateOf(false) }
+    var showCoachDialog by remember { mutableStateOf(false) }
+    var editingCoach by remember { mutableStateOf<com.business.gym.data.local.entity.CoachEntity?>(null) }
+
+    if (showCoachDialog) {
+        CoachEditDialog(
+            coach = editingCoach,
+            onDismiss = { showCoachDialog = false; editingCoach = null },
+            onConfirm = { name: String, desc: String, uri: Uri? ->
+                val imagePart = if (uri != null) {
+                    val bytes = context.contentResolver.openInputStream(uri)?.readBytes()
+                    if (bytes != null) {
+                        val mediaType = context.contentResolver.getType(uri)?.toMediaTypeOrNull()
+                        val requestFile = bytes.toRequestBody(mediaType)
+                        MultipartBody.Part.createFormData("file", "coach_image", requestFile)
+                    } else null
+                } else null
+
+                if (editingCoach != null) {
+                    viewModel.updateCoach(editingCoach!!.id, name, desc, imagePart)
+                } else {
+                    viewModel.addCoach(name, desc, imagePart)
+                }
+                showCoachDialog = false
+                editingCoach = null
+            }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -266,6 +305,51 @@ fun AboutScreen(
 
         Spacer(modifier = Modifier.height(48.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f), modifier = contentModifier)
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // --- Coaches Section ---
+        Row(
+            modifier = contentModifier,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Наши тренеры",
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.Red,
+                fontWeight = FontWeight.Bold
+            )
+            if (isAdmin) {
+                IconButton(onClick = { showCoachDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Coach", tint = Color.Red)
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (coaches.isEmpty()) {
+            Text(
+                text = "Информация о тренерах скоро появится...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray,
+                modifier = contentModifier
+            )
+        } else {
+            coaches.forEach { coach ->
+                CoachCard(
+                    coach = coach,
+                    isAdmin = isAdmin,
+                    onEdit = { editingCoach = coach; showCoachDialog = true },
+                    onDelete = { viewModel.deleteCoach(coach.id) },
+                    modifier = contentModifier
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f), modifier = contentModifier)
         Spacer(modifier = Modifier.height(24.dp))
 
         // --- Связь с автором ---
@@ -347,4 +431,132 @@ fun AuthorContactIcon(
         Spacer(modifier = Modifier.height(4.dp))
         Text(text = label, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
     }
+}
+
+@Composable
+fun CoachCard(
+    coach: com.business.gym.data.local.entity.CoachEntity,
+    isAdmin: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.1f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.DarkGray),
+                contentAlignment = Alignment.Center
+            ) {
+                if (coach.imageUrl != null) {
+                    AsyncImage(
+                        model = NewsApiService.getFullUrl(context, coach.imageUrl),
+                        contentDescription = coach.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(Icons.Default.Person, null, tint = Color.Gray, modifier = Modifier.size(40.dp))
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = coach.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = coach.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.LightGray,
+                    maxLines = 3
+                )
+            }
+
+            if (isAdmin) {
+                Column {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, "Edit", tint = Color.Gray)
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, "Delete", tint = Color.Red.copy(alpha = 0.7f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CoachEditDialog(
+    coach: com.business.gym.data.local.entity.CoachEntity?,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, Uri?) -> Unit
+) {
+    var name by remember { mutableStateOf(coach?.name ?: "") }
+    var desc by remember { mutableStateOf(coach?.description ?: "") }
+    var selectedUri by remember { mutableStateOf<Uri?>(null) }
+
+    val pickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri -> selectedUri = uri }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (coach == null) "Добавить тренера" else "Редактировать тренера") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Имя") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = desc,
+                    onValueChange = { desc = it },
+                    label = { Text("Описание") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = { pickerLauncher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
+                ) {
+                    Text(if (selectedUri != null) "Фото выбрано" else "Выбрать фото")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(name, desc, selectedUri) },
+                enabled = name.isNotBlank() && desc.isNotBlank()
+            ) { Text("OK") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        }
+    )
 }

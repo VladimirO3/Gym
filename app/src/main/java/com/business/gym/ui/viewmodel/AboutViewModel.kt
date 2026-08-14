@@ -1,14 +1,26 @@
 package com.business.gym.ui.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.business.gym.data.local.GymDatabase
+import com.business.gym.data.local.entity.CoachEntity
+import com.business.gym.data.repository.CoachRepository
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import kotlinx.coroutines.launch
+import okhttp3.MultipartBody
 
-class AboutViewModel : ViewModel() {
+class AboutViewModel(
+    application: Application,
+    private val coachRepository: CoachRepository
+) : AndroidViewModel(application) {
     private val aboutDatabase = FirebaseDatabase.getInstance().getReference("info_about")
     private val contactDatabase = FirebaseDatabase.getInstance().getReference("info_contact")
 
@@ -30,9 +42,19 @@ class AboutViewModel : ViewModel() {
     private val _contactPhone = mutableStateOf("")
     val contactPhone: State<String> = _contactPhone
 
+    private val _coaches = mutableStateOf(listOf<CoachEntity>())
+    val coaches: State<List<CoachEntity>> = _coaches
+
     init {
         fetchAboutInfo()
         fetchContactInfo()
+        
+        viewModelScope.launch {
+            coachRepository.allCoaches.collect {
+                _coaches.value = it
+            }
+        }
+        refreshCoaches()
     }
 
     private fun fetchAboutInfo() {
@@ -63,4 +85,40 @@ class AboutViewModel : ViewModel() {
     fun updateAboutFooter(footer: String) = aboutDatabase.child("footer").setValue(footer)
     fun updateContactTitle(title: String) = contactDatabase.child("title").setValue(title)
     fun updateContactPhone(phone: String) = contactDatabase.child("phone").setValue(phone)
+
+    fun refreshCoaches() {
+        viewModelScope.launch {
+            coachRepository.refreshCoaches()
+        }
+    }
+
+    fun addCoach(name: String, description: String, imagePart: MultipartBody.Part?) {
+        viewModelScope.launch {
+            coachRepository.addCoach(name, description, imagePart)
+        }
+    }
+
+    fun updateCoach(id: String, name: String, description: String, imagePart: MultipartBody.Part?) {
+        viewModelScope.launch {
+            coachRepository.updateCoach(id, name, description, imagePart)
+        }
+    }
+
+    fun deleteCoach(id: String) {
+        viewModelScope.launch {
+            coachRepository.deleteCoach(id)
+        }
+    }
+
+    class Factory(private val application: Application) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(AboutViewModel::class.java)) {
+                val database = GymDatabase.getDatabase(application)
+                val repository = CoachRepository(database.coachDao(), application)
+                @Suppress("UNCHECKED_CAST")
+                return AboutViewModel(application, repository) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
+        }
+    }
 }

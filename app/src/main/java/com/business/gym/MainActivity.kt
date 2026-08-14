@@ -45,6 +45,7 @@ import com.business.gym.ui.theme.GymTheme
 import com.business.gym.ui.viewmodel.AuthViewModel
 import com.business.gym.ui.viewmodel.SettingsViewModel
 import com.business.gym.ui.viewmodel.CartViewModel
+import com.business.gym.ui.viewmodel.AboutViewModel
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.analytics
 import com.google.firebase.firestore.FirebaseFirestore
@@ -131,6 +132,9 @@ class MainActivity : AppCompatActivity() {
             val chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel = viewModel(
                 factory = com.business.gym.ui.viewmodel.ChatViewModel.Factory(application)
             )
+            val aboutViewModel: AboutViewModel = viewModel(
+                factory = AboutViewModel.Factory(application)
+            )
             
             LaunchedEffect(Unit) {
                 authViewModel.loadSession(context)
@@ -177,6 +181,7 @@ class MainActivity : AppCompatActivity() {
                         settingsViewModel = settingsViewModel, 
                         cartViewModel = cartViewModel,
                         chatViewModel = chatViewModel,
+                        aboutViewModel = aboutViewModel,
                         navigationRequest = navigationRequest.value,
                         onResetNavigationRequest = { navigationRequest.value = null },
                         onExitRequest = { showExit = true },
@@ -218,6 +223,7 @@ fun GymApp(
     settingsViewModel: SettingsViewModel,
     cartViewModel: CartViewModel,
     chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel,
+    aboutViewModel: AboutViewModel,
     navigationRequest: Pair<String, String?>?,
     onResetNavigationRequest: () -> Unit,
     onExitRequest: () -> Unit,
@@ -260,6 +266,7 @@ fun GymApp(
             settingsViewModel = settingsViewModel,
             cartViewModel = cartViewModel,
             chatViewModel = chatViewModel,
+            aboutViewModel = aboutViewModel,
             navigationRequest = navigationRequest,
             onResetNavigationRequest = onResetNavigationRequest,
             isDarkTheme = isDarkTheme,
@@ -286,6 +293,7 @@ fun GymAppContent(
     settingsViewModel: SettingsViewModel,
     cartViewModel: CartViewModel,
     chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel,
+    aboutViewModel: AboutViewModel,
     navigationRequest: Pair<String, String?>?,
     onResetNavigationRequest: () -> Unit,
     isDarkTheme: Boolean,
@@ -564,7 +572,7 @@ fun GymAppContent(
                                         }
                                     )
                                     "shop" -> ShopScreen(isAdmin = isAdmin, cartViewModel = cartViewModel)
-                                    "about" -> AboutScreen(isAdmin = isAdmin)
+                                    "about" -> AboutScreen(isAdmin = isAdmin, viewModel = aboutViewModel)
                                 }
                             }
                         }
@@ -597,6 +605,7 @@ fun GymAppPreview() {
     val authViewModel: AuthViewModel = viewModel()
     val cartViewModel: CartViewModel = viewModel()
     val chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel = viewModel()
+    val aboutViewModel: AboutViewModel = viewModel()
     GymTheme {
         GymAppContent(
             currentUserEmail = "test@example.com",
@@ -609,6 +618,7 @@ fun GymAppPreview() {
             settingsViewModel = settingsViewModel,
             cartViewModel = cartViewModel,
             chatViewModel = chatViewModel,
+            aboutViewModel = aboutViewModel,
             navigationRequest = null,
             onResetNavigationRequest = {},
             isDarkTheme = true,
