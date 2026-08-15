@@ -55,13 +55,14 @@ class ChatRepository(
 
             // 2. Фильтруем новых пользователей (убираем пустые UID и удаленных в сессии)
             val filteredUsers = users.filter { 
-                val currentUid = it.uid ?: it.email
+                val currentUid = it.uid ?: it.id?.toString() ?: it.email
                 currentUid.isNotBlank() && !sessionDeletedUids.contains(currentUid)
             }
 
             val entities = filteredUsers.map { 
+                val bestUid = it.uid ?: it.id?.toString() ?: it.email
                 UserEntity(
-                    uid = it.uid ?: it.email,
+                    uid = bestUid,
                     serverId = it.id,
                     email = it.email, 
                     name = it.name,
@@ -186,7 +187,7 @@ class ChatRepository(
     suspend fun deleteUser(uid: String): Boolean {
         try {
             Log.d("ChatRepository", "Admin action: Deleting user. UID: $uid")
-            // Мы используем UID напрямую, так как сервер не присылает 'id'
+            // Мы используем UID напрямую, так как сервер ожидает либо числовой ID, либо UID
             apiService.deleteUser(uid)
             performLocalUserCleanup(uid)
             return true

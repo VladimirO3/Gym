@@ -132,7 +132,7 @@ class ChatViewModel(
                     } else {
                         Log.d("ChatViewModel", "Admin not found in list, adding manually")
                         profiles.add(0, UserProfile(
-                            uid = AuthViewModel.ADMIN_EMAIL,
+                            uid = "1", // Используем статический ID для админа как fallback
                             email = AuthViewModel.ADMIN_EMAIL,
                             name = "Администратор"
                         ))
