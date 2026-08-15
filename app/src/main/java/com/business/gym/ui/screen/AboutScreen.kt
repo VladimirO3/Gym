@@ -348,7 +348,7 @@ fun AboutScreen(
                 }
                 IconButton(onClick = { viewModel.refreshCoaches() }) {
                     Icon(
-                        imageVector = androidx.compose.material.icons.filled.Refresh,
+                        imageVector = Icons.Default.Refresh,
                         contentDescription = "Refresh Coaches",
                         tint = Color.Gray
                     )
