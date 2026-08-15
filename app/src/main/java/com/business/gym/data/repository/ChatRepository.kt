@@ -34,6 +34,7 @@ class ChatRepository(
     val allUsers: Flow<List<LocalUser>> = chatDao.getAllUsers().map { entities ->
         entities.map { 
             LocalUser(
+                id = it.serverId,
                 uid = it.uid, 
                 email = it.email, 
                 name = it.name,
@@ -60,7 +61,10 @@ class ChatRepository(
             }
 
             val entities = filteredUsers.map { 
-                val bestUid = it.uid ?: it.id?.toString() ?: it.email
+                // ПРИОРИТЕТ: сначала используем числовой ID (он безопасен для URL путей), 
+                // затем строковый UID, и в последнюю очередь email.
+                // Это решает проблему 404 при наличии точек в email/uid в GET-запросах.
+                val bestUid = it.id?.toString() ?: it.uid ?: it.email
                 UserEntity(
                     uid = bestUid,
                     serverId = it.id,
@@ -134,7 +138,13 @@ class ChatRepository(
             
             val response = apiService.sendChatMessage(receiverIdBody, textBody)
             Log.d("ChatRepository", "Message send result: $response")
-            refreshMessages(token, receiverId)
+            
+            // Ошибка обновления истории не должна мешать подтверждению отправки
+            try {
+                refreshMessages(token, receiverId)
+            } catch (e: Exception) {
+                Log.e("ChatRepository", "Non-fatal: Failed to refresh messages after send", e)
+            }
             true
         } catch (e: Exception) {
             Log.e("ChatRepository", "CRITICAL ERROR: Failed to send message to peer=$receiverId", e)
@@ -151,7 +161,13 @@ class ChatRepository(
             val receiverIdBody = receiverId.toRequestBody("text/plain".toMediaTypeOrNull())
             val textBody = text.toRequestBody("text/plain".toMediaTypeOrNull())
             apiService.sendChatMedia(receiverIdBody, textBody, filePart)
-            refreshMessages(token, receiverId)
+            
+            // Ошибка обновления истории не должна мешать подтверждению отправки
+            try {
+                refreshMessages(token, receiverId)
+            } catch (e: Exception) {
+                Log.e("ChatRepository", "Non-fatal: Failed to refresh media messages", e)
+            }
             true
         } catch (e: Exception) {
             Log.e("ChatRepository", "Failed to send media message to peer=$receiverId", e)

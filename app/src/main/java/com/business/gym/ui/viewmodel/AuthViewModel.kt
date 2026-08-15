@@ -219,8 +219,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d("AuthViewModel", "Fetching profile from server...")
                 val profile = localApiService.getProfile()
                 
-                // Умный поиск UID: приоритет UID > ID > Email
-                var profileUid = profile.uid ?: profile.id?.toString() ?: profile.email
+                // Умный поиск UID: приоритет ID > UID > Email
+                // Используем ID как основной UID, так как числовые идентификаторы надежнее работают в путях URL
+                var profileUid = profile.id?.toString() ?: profile.uid ?: profile.email
                 
                 // Резервный ID для админа, если сервер не прислал его
                 if (profileUid.isBlank() && isStaticAdmin(profile.email)) {
@@ -273,8 +274,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 try {
                     val profile = localApiService.getProfileWithToken("Bearer $token")
                     
-                    // Умный поиск UID: приоритет UID > ID > Email
-                    var profileUid = profile.uid ?: profile.id?.toString() ?: profile.email
+                    // Умный поиск UID: приоритет ID > UID > Email
+                    var profileUid = profile.id?.toString() ?: profile.uid ?: profile.email
                     
                     // Резервный ID для админа, если все равно пусто (маловероятно)
                     if (profileUid.isBlank() && isStaticAdmin(emailValue)) {
@@ -381,8 +382,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 try {
                     val profile = localApiService.getProfileWithToken("Bearer $token")
                     
-                    // Умный поиск UID: приоритет UID > ID > Email
-                    var profileUid = profile.uid ?: profile.id?.toString() ?: profile.email
+                    // Умный поиск UID: приоритет ID > UID > Email
+                    var profileUid = profile.id?.toString() ?: profile.uid ?: profile.email
 
                     // Резервный ID для админа
                     if (profileUid.isBlank() && isStaticAdmin(email ?: phone)) {
