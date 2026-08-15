@@ -45,13 +45,17 @@ class AboutViewModel(
     private val _coaches = mutableStateOf(listOf<CoachEntity>())
     val coaches: State<List<CoachEntity>> = _coaches
 
+    private val _isRefreshing = mutableStateOf(false)
+    val isRefreshing: State<Boolean> = _isRefreshing
+
     init {
         fetchAboutInfo()
         fetchContactInfo()
         
         viewModelScope.launch {
-            coachRepository.allCoaches.collect {
-                _coaches.value = it
+            coachRepository.allCoaches.collect { list ->
+                android.util.Log.d("AboutViewModel", "Coaches from Room updated: ${list.size}")
+                _coaches.value = list
             }
         }
         refreshCoaches()
@@ -87,8 +91,12 @@ class AboutViewModel(
     fun updateContactPhone(phone: String) = contactDatabase.child("phone").setValue(phone)
 
     fun refreshCoaches() {
+        android.util.Log.d("AboutViewModel", "Manual refreshCoaches() triggered")
         viewModelScope.launch {
-            coachRepository.refreshCoaches()
+            _isRefreshing.value = true
+            val result = coachRepository.refreshCoaches()
+            android.util.Log.d("AboutViewModel", "refreshCoaches result: $result")
+            _isRefreshing.value = false
         }
     }
 

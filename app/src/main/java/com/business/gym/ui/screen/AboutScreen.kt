@@ -36,6 +36,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -60,6 +61,7 @@ fun AboutScreen(
     val contactTitle by viewModel.contactTitle
     val contactPhone by viewModel.contactPhone
     val coaches by viewModel.coaches
+    val isRefreshing by viewModel.isRefreshing
 
     val defaultTitle = stringResource(R.string.about_title)
     val defaultDescription = stringResource(R.string.about_description)
@@ -335,9 +337,26 @@ fun AboutScreen(
                 color = Color.Red,
                 fontWeight = FontWeight.Bold
             )
-            if (isAdmin) {
-                IconButton(onClick = { showCoachDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Coach", tint = Color.Red)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isRefreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.Red,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                IconButton(onClick = { viewModel.refreshCoaches() }) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.filled.Refresh,
+                        contentDescription = "Refresh Coaches",
+                        tint = Color.Gray
+                    )
+                }
+                if (isAdmin) {
+                    IconButton(onClick = { showCoachDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Coach", tint = Color.Red)
+                    }
                 }
             }
         }

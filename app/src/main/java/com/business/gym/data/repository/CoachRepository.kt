@@ -20,7 +20,9 @@ class CoachRepository(
 
     suspend fun refreshCoaches(): Boolean {
         return try {
+            Log.d("CoachRepository", "Refreshing coaches from API...")
             val response = apiService.getCoaches()
+            Log.d("CoachRepository", "Received ${response.size} coaches from server")
             val entities = response.map {
                 CoachEntity(
                     id = it.id,
@@ -31,9 +33,10 @@ class CoachRepository(
             }
             coachDao.deleteAllCoaches()
             coachDao.insertCoaches(entities)
+            Log.d("CoachRepository", "Saved ${entities.size} coaches to Room")
             true
         } catch (e: Exception) {
-            Log.e("CoachRepository", "Failed to refresh coaches", e)
+            Log.e("CoachRepository", "FAILED to refresh coaches: ${e.message}", e)
             false
         }
     }

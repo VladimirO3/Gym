@@ -310,6 +310,10 @@ class ChatViewModel(
         if (hasFetchedUsers && !force) return
         _error.value = null
         Log.d("ChatViewModel", "fetchLocalUsers called with token: ${token.take(8)}...")
+        
+        // Очищаем уведомления при обновлении списка пользователей
+        NotificationHelper.cancelAllNotifications(getApplication())
+
         viewModelScope.launch {
             val success = repository.refreshUsers(token)
             if (success) {
