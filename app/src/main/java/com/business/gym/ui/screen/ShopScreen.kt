@@ -82,12 +82,12 @@ fun ShopScreen(
             product = editingProduct!!,
             onDismiss = { editingProduct = null },
             onSave = { name, price, desc, uri ->
-                shopViewModel.updateProduct(context, editingProduct!!.id, name, price, desc, uri) {
+                shopViewModel.updateProduct(context, editingProduct!!.id.toIntId(), name, price, desc, uri) {
                     editingProduct = null
                 }
             },
             onDeletePhoto = {
-                shopViewModel.deleteProductPhoto(editingProduct!!.id) {
+                shopViewModel.deleteProductPhoto(editingProduct!!.id.toIntId()) {
                     editingProduct = null
                 }
             }
@@ -186,7 +186,7 @@ fun ShopScreen(
                     modifier = Modifier.fillMaxWidth().weight(1f)
                 ) {
                     items(products) { product ->
-                        val cartItem = cartViewModel.cartItems.value.find { it.first.id == product.id }
+                        val cartItem = cartViewModel.cartItems.value.find { it.first.id == product.id.toIntId() }
                         val countInCart = cartItem?.second ?: 0
 
                         ShopProductCard(
@@ -195,25 +195,19 @@ fun ShopScreen(
                             isAdmin = isAdmin,
                             onClick = { selectedProductForDetail = product },
                             onAddToCart = { 
-                                cartViewModel.addToCart(context, ProductPlaceholder(
-                                    product.id, product.name, product.price, product.description, product.imageUrl
-                                )) 
+                                cartViewModel.addToCart(context, product.toPlaceholder()) 
                             },
                             onRemoveFromCart = { 
-                                cartViewModel.removeFromCart(context, ProductPlaceholder(
-                                    product.id, product.name, product.price, product.description, product.imageUrl
-                                )) 
+                                cartViewModel.removeFromCart(context, product.toPlaceholder()) 
                             },
                             onBuyNow = {
                                 if (countInCart == 0) {
-                                    cartViewModel.addToCart(context, ProductPlaceholder(
-                                        product.id, product.name, product.price, product.description, product.imageUrl
-                                    ))
+                                    cartViewModel.addToCart(context, product.toPlaceholder())
                                 }
                                 isShowingCart = true
                             },
                             onEdit = { editingProduct = product },
-                            onDelete = { shopViewModel.deleteProduct(product.id) }
+                            onDelete = { shopViewModel.deleteProduct(product.id.toIntId()) }
                         )
                     }
                 }
@@ -423,7 +417,7 @@ fun ShopProductCard(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = product.name,
+                        text = product.name.orEmpty(),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
@@ -432,7 +426,7 @@ fun ShopProductCard(
                     )
                     
                     Text(
-                        text = product.price,
+                        text = product.price.orEmpty(),
                         style = MaterialTheme.typography.titleLarge,
                         color = Color.Red,
                         fontWeight = FontWeight.ExtraBold,
@@ -440,7 +434,7 @@ fun ShopProductCard(
                     )
                     
                     Text(
-                        text = product.description,
+                        text = product.description.orEmpty(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -561,9 +555,9 @@ fun ProductDetailScreen(
                 }
 
                 Column(modifier = Modifier.padding(24.dp).weight(1f).verticalScroll(rememberScrollState())) {
-                    Text(text = product.name, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                    Text(text = product.price, style = MaterialTheme.typography.headlineMedium, color = Color.Red, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(vertical = 8.dp))
-                    Text(text = product.description, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = product.name.orEmpty(), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                    Text(text = product.price.orEmpty(), style = MaterialTheme.typography.headlineMedium, color = Color.Red, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(vertical = 8.dp))
+                    Text(text = product.description.orEmpty(), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
                 Row(
@@ -577,17 +571,17 @@ fun ProductDetailScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(onClick = { cartViewModel.removeFromCart(context, ProductPlaceholder(product.id, product.name, product.price, product.description, product.imageUrl)) }) {
+                            IconButton(onClick = { cartViewModel.removeFromCart(context, product.toPlaceholder()) }) {
                                 Icon(Icons.Default.Remove, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(text = "$countInCart", fontWeight = FontWeight.Bold)
-                            IconButton(onClick = { cartViewModel.addToCart(context, ProductPlaceholder(product.id, product.name, product.price, product.description, product.imageUrl)) }) {
+                            IconButton(onClick = { cartViewModel.addToCart(context, product.toPlaceholder()) }) {
                                 Icon(Icons.Default.Add, null, tint = Color.Red)
                             }
                         }
                     } else {
                         Button(
-                            onClick = { cartViewModel.addToCart(context, ProductPlaceholder(product.id, product.name, product.price, product.description, product.imageUrl)) },
+                            onClick = { cartViewModel.addToCart(context, product.toPlaceholder()) },
                             modifier = Modifier.weight(1f).height(50.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                             shape = RoundedCornerShape(12.dp)
@@ -619,9 +613,9 @@ fun ProductEditDialog(
     onSave: (String, String, String, Uri?) -> Unit,
     onDeletePhoto: () -> Unit
 ) {
-    var name by remember { mutableStateOf(product.name) }
-    var price by remember { mutableStateOf(product.price) }
-    var desc by remember { mutableStateOf(product.description) }
+    var name by remember { mutableStateOf(product.name.orEmpty()) }
+    var price by remember { mutableStateOf(product.price.orEmpty()) }
+    var desc by remember { mutableStateOf(product.description.orEmpty()) }
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     val context = LocalContext.current
     
@@ -658,7 +652,7 @@ fun ProductEditDialog(
                     }
                 }
                 
-                if (product.imageUrl.isNotBlank() && selectedUri == null) {
+                if (!product.imageUrl.isNullOrBlank() && selectedUri == null) {
                     TextButton(
                         onClick = onDeletePhoto,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -741,6 +735,24 @@ fun ProductAddDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Отмена") }
         }
+    )
+}
+
+private fun Any?.toIntId(): Int {
+    return when (this) {
+        is Number -> this.toInt()
+        is String -> this.toIntOrNull() ?: 0
+        else -> 0
+    }
+}
+
+private fun ProductResponse.toPlaceholder(): ProductPlaceholder {
+    return ProductPlaceholder(
+        id = this.id.toIntId(),
+        name = this.name.orEmpty(),
+        price = this.price.orEmpty(),
+        description = this.description.orEmpty(),
+        imageUrl = this.imageUrl.orEmpty()
     )
 }
 

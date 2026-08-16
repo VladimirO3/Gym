@@ -21,7 +21,7 @@ import com.business.gym.data.local.entity.*
         CartItemEntity::class,
         CoachEntity::class
     ], 
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 abstract class GymDatabase : RoomDatabase() {

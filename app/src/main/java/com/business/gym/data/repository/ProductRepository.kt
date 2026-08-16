@@ -20,17 +20,41 @@ class ProductRepository(
 
     suspend fun refreshProducts() {
         try {
+            Log.d("ProductRepository", "Requesting products from API...")
             val response = api.getProducts()
-            Log.d("ProductRepository", "Received ${response.size} products from server")
-            val entities = response.map {
-                Log.d("ProductRepository", "Product: ${it.name}, ImagePath: ${it.imageUrl}")
-                ProductEntity(it.id, it.name, it.price, it.description, it.imageUrl)
+            
+            if (response.isEmpty()) {
+                Log.w("ProductRepository", "Server returned an EMPTY product list.")
+            } else {
+                Log.d("ProductRepository", "Received ${response.size} products from server")
             }
-            productDao.deleteAllProducts()
-            productDao.insertProducts(entities)
-            Log.d("ProductRepository", "Products refreshed from server: ${entities.size}")
+
+            val entities = response.map {
+                Log.d("ProductRepository", "Mapping product: ID=${it.id}, Name=${it.name}, Price=${it.price}, Image=${it.imageUrl}")
+                val safeId = when (val id = it.id) {
+                    is Double -> id.toInt()
+                    is Int -> id
+                    is String -> id.toIntOrNull() ?: 0
+                    else -> 0
+                }
+                ProductEntity(
+                    safeId,
+                    it.name ?: "Без названия", 
+                    it.price ?: "0 ₽", 
+                    it.description ?: "", 
+                    it.imageUrl ?: ""
+                )
+            }
+            productDao.updateData(entities)
+            Log.d("ProductRepository", "Products successfully updated in DB: ${entities.size} items")
         } catch (e: Exception) {
-            Log.e("ProductRepository", "Failed to refresh products", e)
+            Log.e("ProductRepository", "CRITICAL: Failed to refresh products", e)
+            if (e is retrofit2.HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                Log.e("ProductRepository", "HTTP Error: ${e.code()}, Body: $errorBody")
+            } else {
+                Log.e("ProductRepository", "Generic error during refresh: ${e.message}")
+            }
         }
     }
 

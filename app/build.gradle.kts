@@ -41,6 +41,7 @@ android {
 }
 
 dependencies {
+	implementation(libs.firebase.crashlytics.buildtools)
 	coreLibraryDesugaring(libs.desugarlibs)
 	implementation(platform(libs.androidx.compose.bom))
 	implementation(libs.androidx.activity.compose)
@@ -95,4 +96,24 @@ dependencies {
 	androidTestImplementation(libs.androidx.junit)
 	debugImplementation(libs.androidx.compose.ui.test.manifest)
 	debugImplementation(libs.androidx.compose.ui.tooling)
+
+	val ktor_version = "2.3.12"
+	implementation("io.ktor:ktor-client-core:$ktor_version")
+	implementation("io.ktor:ktor-client-okhttp:$ktor_version")
+	implementation("io.ktor:ktor-client-websockets:$ktor_version")
+	implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
+	implementation("io.ktor:ktor-serialization-gson:$ktor_version")
+	implementation("io.ktor:ktor-client-cio:$ktor_version")
+	// Retrofit для HTTP запросов
+	implementation("com.squareup.retrofit2:retrofit:2.9.0")
+	implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+
+	// OkHttp для перехвата запросов (добавление токена)
+	implementation("com.squareup.okhttp3:okhttp:4.11.0")
+
+	// Coroutines для асинхронности
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+	// Glide или Coil для загрузки изображений из /uploads
+	implementation("io.coil-kt:coil:2.4.0")
 }

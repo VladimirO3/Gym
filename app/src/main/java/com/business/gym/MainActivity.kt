@@ -46,20 +46,34 @@ import com.business.gym.ui.viewmodel.AuthViewModel
 import com.business.gym.ui.viewmodel.SettingsViewModel
 import com.business.gym.ui.viewmodel.CartViewModel
 import com.business.gym.ui.viewmodel.AboutViewModel
+import com.business.gym.util.AuthUtils
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.analytics
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreSettings
-import com.google.firebase.Firebase
 import android.os.Build
 import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
+import android.net.http.HttpResponseCache.install
 import android.widget.Toast
-import com.google.firebase.database.FirebaseDatabase
+import androidx.lifecycle.lifecycleScope
+
 import com.business.gym.data.api.NewsApiService
 import kotlinx.coroutines.launch
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+
+import kotlinx.coroutines.Dispatchers
+import okhttp3.OkHttp
+import okhttp3.internal.http.HttpMethod
+import kotlinx.coroutines.*         // launch, withContext, Dispatchers
+import io.ktor.client.*
+import io.ktor.client.engine.okhttp.*
+import io.ktor.client.plugins.websocket.*
+import io.ktor.client.request.*
+import io.ktor.http.*
+import io.ktor.websocket.*
+import io.ktor.client.engine.cio.CIO
+import io.ktor.http.HttpHeaders
+
 
 class MainActivity : AppCompatActivity() {
     private var exoPlayer: ExoPlayer? = null
@@ -72,6 +86,10 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Уведомления отключены", Toast.LENGTH_SHORT).show()
             }
         }
+    // 1. Объявляем клиент как свойство класса
+    private val client = HttpClient(CIO) {
+        install(WebSockets)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,20 +98,11 @@ class MainActivity : AppCompatActivity() {
         try {
             enableEdgeToEdge() 
             handleIntent(intent)
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
         } catch (e: Exception) {
-            android.util.Log.e("MainActivity", "Init error", e)
+            android.util.Log.e("MainActivity", "Basic init error", e)
         }
 
-        try {
-            firebaseAnalytics = Firebase.analytics
-        } catch (e: Exception) {
-            android.util.Log.e("MainActivity", "Analytics error", e)
-        }
-
+        // Выносим инициализацию плеера из Composable для большей стабильности
         if (exoPlayer == null) {
             try {
                 val audioAttributes = AudioAttributes.Builder()
@@ -101,94 +110,95 @@ class MainActivity : AppCompatActivity() {
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                     .build()
 
-                exoPlayer = ExoPlayer.Builder(this)
+                val player = ExoPlayer.Builder(this)
                     .setAudioAttributes(audioAttributes, true)
                     .setMediaSourceFactory(NewsApiService.getMediaSourceFactory(this))
                     .build()
 
-                mediaSession = MediaSession.Builder(this, exoPlayer!!)
+                mediaSession = MediaSession.Builder(this, player)
                     .setId("GymAppSession_${System.currentTimeMillis()}")
                     .build()
+                
+                exoPlayer = player
             } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "Player init error", e)
+                android.util.Log.e("MainActivity", "ExoPlayer setup failed", e)
             }
         }
 
-        setContent {
-            var showSplash by rememberSaveable { mutableStateOf(true) }
-            var showExit by remember { mutableStateOf(false) }
-            val context = LocalContext.current
-            val application = context.applicationContext as android.app.Application
-            
-            val authViewModel: AuthViewModel = viewModel(
-                factory = AuthViewModel.Factory(application)
-            )
-            val settingsViewModel: SettingsViewModel = viewModel(
-                factory = SettingsViewModel.Factory(application)
-            )
-            val cartViewModel: CartViewModel = viewModel(
-                factory = CartViewModel.Factory(application)
-            )
-            val chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel = viewModel(
-                factory = com.business.gym.ui.viewmodel.ChatViewModel.Factory(application)
-            )
-            val aboutViewModel: AboutViewModel = viewModel(
-                factory = AboutViewModel.Factory(application)
-            )
-            
-            LaunchedEffect(Unit) {
-                authViewModel.loadSession(context)
-            }
-
-            val currentUserEmail by authViewModel.currentUserEmail
-            val currentUid by authViewModel.currentUid
-            val jwtToken by authViewModel.jwtToken
-
-            LaunchedEffect(currentUserEmail, currentUid) {
-                if (!currentUid.isNullOrBlank()) {
-                    settingsViewModel.loadSettings(context, currentUserEmail, currentUid)
-                }
-            }
-
-            LaunchedEffect(jwtToken, currentUid) {
-                if (jwtToken != null) {
-                    cartViewModel.init(context, jwtToken, currentUid)
-                    chatViewModel.startGlobalNotificationPolling(jwtToken)
-                    authViewModel.startStatusPolling(context)
-                }
-            }
-
-            if (showSplash) {
-                SplashScreen(onFinished = { showSplash = false })
-            } else if (showExit) {
-                ExitScreen(onFinished = { (context as? android.app.Activity)?.finish() })
-            } else {
-                val player = exoPlayer ?: remember {
-                    ExoPlayer.Builder(context).build()
-                }
+        try {
+            setContent {
+                android.util.Log.d("MainActivity", "setContent block started")
+                var showSplash by rememberSaveable { mutableStateOf(true) }
+                var showExit by remember { mutableStateOf(false) }
+                val context = LocalContext.current
                 
-                val themeMode by settingsViewModel.themeMode
-                val useDarkTheme = when (themeMode) {
-                    "light" -> false
-                    "dark" -> true
-                    else -> isSystemInDarkTheme()
+                // ViewModels инициализируем один раз
+                val application = context.applicationContext as android.app.Application
+                val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory(application))
+                val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory(application))
+                val cartViewModel: CartViewModel = viewModel(factory = CartViewModel.Factory(application))
+                val chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel = viewModel(factory = com.business.gym.ui.viewmodel.ChatViewModel.Factory(application))
+                val aboutViewModel: AboutViewModel = viewModel(factory = AboutViewModel.Factory(application))
+
+                LaunchedEffect(Unit) {
+                    authViewModel.loadSession(context)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
                 }
 
-                GymTheme(darkTheme = useDarkTheme) {
-                    GymApp(
-                        exoPlayer = player, 
-                        authViewModel = authViewModel, 
-                        settingsViewModel = settingsViewModel, 
-                        cartViewModel = cartViewModel,
-                        chatViewModel = chatViewModel,
-                        aboutViewModel = aboutViewModel,
-                        navigationRequest = navigationRequest.value,
-                        onResetNavigationRequest = { navigationRequest.value = null },
-                        onExitRequest = { showExit = true },
-                        isDarkTheme = useDarkTheme
-                    )
+                val currentUserEmail by authViewModel.currentUserEmail
+                val currentUid by authViewModel.currentUid
+                val jwtToken by authViewModel.jwtToken
+
+                LaunchedEffect(currentUserEmail, currentUid) {
+                    if (!currentUid.isNullOrBlank()) {
+                        settingsViewModel.loadSettings(context, currentUserEmail, currentUid)
+                    }
+                }
+
+                LaunchedEffect(jwtToken, currentUid) {
+                    if (jwtToken != null) {
+                        cartViewModel.init(context, jwtToken, currentUid)
+                        chatViewModel.startGlobalNotificationPolling(jwtToken)
+                        authViewModel.startStatusPolling(context)
+                    }
+                }
+
+                if (showSplash) {
+                    SplashScreen(onFinished = { 
+                        android.util.Log.d("MainActivity", "Splash finished")
+                        showSplash = false 
+                    })
+                } else if (showExit) {
+                    ExitScreen(onFinished = { (context as? android.app.Activity)?.finish() })
+                } else {
+                    val player = exoPlayer ?: remember { ExoPlayer.Builder(context).build() }
+                    val themeMode by settingsViewModel.themeMode
+                    val useDarkTheme = when (themeMode) {
+                        "light" -> false
+                        "dark" -> true
+                        else -> isSystemInDarkTheme()
+                    }
+
+                    GymTheme(darkTheme = useDarkTheme) {
+                        GymApp(
+                            exoPlayer = player, 
+                            authViewModel = authViewModel, 
+                            settingsViewModel = settingsViewModel, 
+                            cartViewModel = cartViewModel,
+                            chatViewModel = chatViewModel,
+                            aboutViewModel = aboutViewModel,
+                            navigationRequest = navigationRequest.value,
+                            onResetNavigationRequest = { navigationRequest.value = null },
+                            onExitRequest = { showExit = true },
+                            isDarkTheme = useDarkTheme
+                        )
+                    }
                 }
             }
+        } catch (e: Throwable) {
+            android.util.Log.e("MainActivity", "FATAL crash in setContent", e)
         }
     }
 
@@ -206,9 +216,42 @@ class MainActivity : AppCompatActivity() {
             navigationRequest.value = navigateTo to senderId
         }
     }
+    // 2. Метод для запуска чата (полностью исправленный)
+    private fun startChat(token: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                client.webSocket(
+                    host = "5.35.98.149",
+                    port = 5557,
+                    path = "/chat",
+                    request = {
+                        header(HttpHeaders.Authorization, "Bearer $token")
+                    }
+                ) {
+                    println("Соединение установлено!")
+                    // Отправка (убедитесь, что chatCipher доступен)
+                    // send(Frame.Text(chatCipher.encrypt("Привет, админ!")))
+
+                    for (frame in incoming) {
+                        if (frame is Frame.Text) {
+                            val encryptedText = frame.readText()
+                            // val decrypted = chatCipher.decrypt(encryptedText)
+                            withContext(Dispatchers.Main) {
+                                println("Сообщение: $encryptedText")
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                println("Ошибка WebSocket: ${e.message}")
+            }
+        }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
+        // Закрываем клиент и плеер
+        client.close()
         mediaSession?.release()
         exoPlayer?.release()
         mediaSession = null
@@ -280,7 +323,6 @@ data class GymTab(
     val icon: ImageVector,
     val key: String
 )
-
 @Composable
 fun GymAppContent(
     currentUserEmail: String?,
@@ -334,7 +376,7 @@ fun GymAppContent(
                 if (chatIndex != -1) {
                     pagerState.scrollToPage(chatIndex)
                     if (id != null) {
-                        val user = chatViewModel.users.value.find { it.uid == id }
+                        val user = chatViewModel.users.value.find { it.uid == id || it.email == id }
                         if (user != null) {
                             chatViewModel.selectUser(user, currentUid ?: "", jwtToken)
                         }
@@ -362,11 +404,15 @@ fun GymAppContent(
                         contentColor = Color.White,
                         modifier = Modifier.width(80.dp),
                         header = {
-                            Icon(Icons.Default.FitnessCenter, null, tint = Color.Red, modifier = Modifier.size(40.dp).padding(vertical = 8.dp))
+                            Icon(Icons.Default.FitnessCenter, null, tint = Color.Red, modifier = Modifier
+                                .size(40.dp)
+                                .padding(vertical = 8.dp))
                         }
                     ) {
                         Column(
-                            modifier = Modifier.fillMaxHeight().verticalScroll(rememberScrollState()),
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .verticalScroll(rememberScrollState()),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             tabs.forEachIndexed { index, tab ->
@@ -445,7 +491,9 @@ fun GymAppContent(
                     topBar = { 
                         Column {
                             // Место под статус-бар
-                            Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars).fillMaxWidth())
+                            Spacer(Modifier
+                                .windowInsetsTopHeight(WindowInsets.statusBars)
+                                .fillMaxWidth())
                         }
                     },
                     bottomBar = {
@@ -592,7 +640,9 @@ fun GymAppContent(
                                         authViewModel.loadSession(context)
                                     }
                                 )
-                                IconButton(onClick = { showAuthOverlay = false }, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
+                                IconButton(onClick = { showAuthOverlay = false }, modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(16.dp)) {
                                     Icon(Icons.Default.Clear, "Закрыть", tint = Color.Red)
                                 }
                             }
@@ -613,11 +663,13 @@ fun GymAppPreview() {
     val chatViewModel: com.business.gym.ui.viewmodel.ChatViewModel = viewModel()
     val aboutViewModel: AboutViewModel = viewModel()
     GymTheme {
+        val context = LocalContext.current
+        val dummyPlayer = remember { ExoPlayer.Builder(context).build() }
         GymAppContent(
             currentUserEmail = "test@example.com",
             currentUid = "123",
             isAdmin = false,
-            exoPlayer = ExoPlayer.Builder(LocalContext.current).build(),
+            exoPlayer = dummyPlayer,
             onSignOut = {},
             onSaveSession = {},
             onExitRequest = {},

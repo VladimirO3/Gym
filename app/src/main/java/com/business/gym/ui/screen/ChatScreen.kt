@@ -43,6 +43,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import coil.compose.AsyncImage
 import com.business.gym.data.api.NewsApiService
+import com.business.gym.util.AuthUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -76,7 +77,7 @@ fun ChatScreen(
             viewModel.fetchLocalUsers(jwtToken!!, force = true)
             // При заходе в раздел чатов сбрасываем все уведомления в шторке
             NotificationHelper.cancelAllNotifications(context)
-        } else if (currentUid.isNotBlank() && !AuthViewModel.isStaticAdmin(currentUid)) {
+        } else if (currentUid.isNotBlank() && !AuthUtils.isStaticAdmin(currentUid)) {
              // Если токена нет, но мы не гость
              android.util.Log.w("ChatScreen", "JWT Token is null for UID: $currentUid")
         }
@@ -216,13 +217,13 @@ fun UserListScreen(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(users) { user ->
-                    val isUserAdmin = AuthViewModel.isStaticAdmin(user.email)
-                    val isSelected = selectedUser?.uid == user.uid
-                    
-                    // Проверяем уведомления по UID и по Email (на случай несовпадения форматов)
-                    val unreadCount = notifiedCounts[user.uid] ?: notifiedCounts[user.email] ?: 0
-                    val hasNotification = unreadCount > 0 && unreadCount != 999999
+                    items(users) { user ->
+                        val isUserAdmin = AuthUtils.isStaticAdmin(user.email) || user.uid == "1"
+                        val isSelected = selectedUser?.uid == user.uid
+                        
+                        // Проверяем уведомления по UID и по Email (на случай несовпадения форматов)
+                        val unreadCount = notifiedCounts[user.uid] ?: notifiedCounts[user.email] ?: notifiedCounts["1"].takeIf { isUserAdmin } ?: 0
+                        val hasNotification = unreadCount > 0 && unreadCount != 999999
 
                     // Анимация пульсации для новых сообщений
                     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -420,7 +421,7 @@ fun ConversationScreen(
             }
             
             Text(
-                text = if (AuthViewModel.isStaticAdmin(peer.email)) stringResource(R.string.auth_administrator) else peer.name,
+                text = if (AuthUtils.isStaticAdmin(peer.email)) stringResource(R.string.auth_administrator) else peer.name,
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color.Red,
                 fontWeight = FontWeight.Bold,

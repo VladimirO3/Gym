@@ -346,14 +346,14 @@ fun AboutScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                 }
-                IconButton(onClick = { viewModel.refreshCoaches() }) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh Coaches",
-                        tint = Color.Gray
-                    )
-                }
                 if (isAdmin) {
+                    IconButton(onClick = { viewModel.refreshCoaches() }) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh Coaches",
+                            tint = Color.Gray
+                        )
+                    }
                     IconButton(onClick = { showCoachDialog = true }) {
                         Icon(Icons.Default.Add, contentDescription = "Add Coach", tint = Color.Red)
                     }

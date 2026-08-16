@@ -13,6 +13,7 @@ import com.business.gym.data.local.GymDatabase
 import com.business.gym.data.model.ChatMessage
 import com.business.gym.data.model.UserProfile
 import com.business.gym.data.repository.ChatRepository
+import com.business.gym.util.AuthUtils
 import com.business.gym.util.NotificationHelper
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.delay
@@ -89,29 +90,21 @@ class ChatViewModel(
 
                 val profiles = localUsers
                     .filter { 
-                        // Фильтруем "себя", только если данные не пустые
-                        val currentUid = it.uid ?: it.email
-                        
-                        // Проверка 1: Совпадение по Email
+                        // Фильтруем "себя"
                         val isSameEmail = currentEmail.isNotBlank() && it.email.isNotBlank() && it.email.trim().lowercase() == currentEmail.trim().lowercase()
-                        // Проверка 2: Совпадение по UID (включая проверку на статический Email админа)
                         val isSameUid = currentUidFromPrefs.isNotBlank() && it.uid?.isNotBlank() == true && it.uid == currentUidFromPrefs
-                        // Проверка 3: Если мы админ, фильтруем любые записи, похожие на Email админа
-                        val isMeAdmin = AuthViewModel.isStaticAdmin(currentEmail)
-                        val isUserAdminEntry = AuthViewModel.isStaticAdmin(it.email) || AuthViewModel.isStaticAdmin(it.uid)
+                        val isSameId = currentUidFromPrefs.isNotBlank() && it.id?.isNotBlank() == true && it.id == currentUidFromPrefs
                         
-                        val isSelf = isSameEmail || isSameUid || (isMeAdmin && isUserAdminEntry)
+                        val isSelf = isSameEmail || isSameUid || isSameId
+                        val isDeleted = deletedUserUids.contains(it.uid) || (it.id != null && deletedUserUids.contains(it.id))
                         
-                        val isDeleted = deletedUserUids.contains(currentUid)
-                        
-                        if (isSelf) Log.d("ChatViewModel", "Filtered out self: ${it.email} / ${it.uid}")
-                        if (isDeleted) Log.d("ChatViewModel", "Filtered out deleted: $currentUid")
+                        if (isSelf) Log.d("ChatViewModel", "Filtered out self: email=${it.email}, uid=${it.uid}, id=${it.id}")
                         
                         !isSelf && !isDeleted
                     }
                     .map { 
                         UserProfile(
-                            uid = it.uid ?: it.email,
+                            uid = it.id ?: it.uid ?: it.email,
                             email = it.email, 
                             name = it.name,
                             avatarUrl = it.avatarUrl,
@@ -123,17 +116,17 @@ class ChatViewModel(
                 Log.d("ChatViewModel", "After filtering, profiles count: ${profiles.size}")
                 
                 // Если мы не администратор, гарантируем наличие администратора в списке
-                val isMeAdmin = AuthViewModel.isStaticAdmin(currentEmail)
+                val isMeAdmin = AuthUtils.isStaticAdmin(currentEmail)
                 if (!isMeAdmin) {
-                    val adminInList = profiles.find { AuthViewModel.isStaticAdmin(it.email) }
+                    val adminInList = profiles.find { AuthUtils.isStaticAdmin(it.email) }
                     if (adminInList != null) {
                         profiles.remove(adminInList)
                         profiles.add(0, adminInList.copy(name = "Администратор"))
                     } else {
                         Log.d("ChatViewModel", "Admin not found in list, adding manually")
                         profiles.add(0, UserProfile(
-                            uid = "1", // Используем статический ID для админа как fallback
-                            email = AuthViewModel.ADMIN_EMAIL,
+                            uid = "1",
+                            email = AuthUtils.ADMIN_EMAIL,
                             name = "Администратор"
                         ))
                     }
@@ -181,8 +174,10 @@ class ChatViewModel(
                                 Log.d("ChatViewModel", "Unread check: Sender=$senderId, Count=$count")
                                 val lastNotifiedCount = currentNotified[senderId] ?: 0
                                 
-                                // Проверяем наличие пользователя в нашем списке (по UID или Email)
-                                val userInList = _users.value.find { it.uid == senderId || it.email == senderId }
+                                // Проверяем наличие пользователя в нашем списке (по UID, ServerID или Email)
+                                val userInList = _users.value.find { 
+                                    it.uid == senderId || it.email == senderId
+                                }
                                 
                                 if (count > 0 && senderId != _selectedUser.value?.uid && count > lastNotifiedCount) {
                                     val senderName = userInList?.name ?: "Новое сообщение"
@@ -231,6 +226,7 @@ class ChatViewModel(
      * Выбор пользователя для начала переписки.
      */
     fun selectUser(user: UserProfile?, currentUid: String, token: String?) {
+        Log.d("ChatViewModel", "selectUser: ${user?.name} (uid=${user?.uid}), currentUid=$currentUid")
         _selectedUser.value = user
         user?.let { 
             // При выборе пользователя сбрасываем его флаг уведомления
@@ -333,6 +329,7 @@ class ChatViewModel(
             android.widget.Toast.makeText(context, "Ошибка: Вы не авторизованы", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
+        Log.d("ChatViewModel", "sendLocalMessage to $peerUid: $text")
         viewModelScope.launch {
             val success = repository.sendMessage(token, peerUid, text)
             if (!success) {

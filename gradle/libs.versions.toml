@@ -22,6 +22,7 @@ coil = "2.7.0"
 playServicesAuth = "21.3.0"
 mockito = "5.11.0"
 desugar_jdk_libs = "2.1.5"
+firebaseCrashlyticsBuildtools = "3.0.7"
 
 [libraries]
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
@@ -63,6 +64,7 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
 desugarlibs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
+firebase-crashlytics-buildtools = { group = "com.google.firebase", name = "firebase-crashlytics-buildtools", version.ref = "firebaseCrashlyticsBuildtools" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

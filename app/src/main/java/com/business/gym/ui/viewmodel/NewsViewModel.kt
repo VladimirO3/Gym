@@ -252,13 +252,22 @@ class NewsViewModel(
      * Отправка реакции (лайка) на новость.
      */
     fun reactToNews(id: String, type: String, token: String?) {
-        if (token == null || token == "guest_token") return
+        val sharedPref = getApplication<Application>().getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+        val savedToken = sharedPref.getString("user_session_token", null)
+        val effectiveToken = if (!token.isNullOrBlank()) token else savedToken
+
+        if (effectiveToken.isNullOrBlank() || effectiveToken == "guest_token") {
+            Log.w("NewsViewModel", "Cannot react to news: guest or no token")
+            return
+        }
+
         viewModelScope.launch {
             try {
-                repository.postReaction(token, id, type)
-                repository.refreshNews(token)
+                Log.d("NewsViewModel", "Sending reaction $type for news $id")
+                repository.postReaction(effectiveToken, id, type)
+                repository.refreshNews(effectiveToken)
             } catch (e: Exception) {
-                Log.e("NewsViewModel", "Failed to post reaction", e)
+                Log.e("NewsViewModel", "Failed to post reaction for news $id", e)
             }
         }
     }

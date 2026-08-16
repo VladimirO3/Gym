@@ -35,4 +35,16 @@ interface ChatDao {
 
     @Query("DELETE FROM users WHERE uid = :uid")
     suspend fun deleteUserByUid(uid: String)
+
+    @androidx.room.Transaction
+    suspend fun updateMessages(peerUid: String, messages: List<ChatMessageEntity>) {
+        deleteMessagesForPeer(peerUid)
+        insertMessages(messages)
+    }
+
+    @androidx.room.Transaction
+    suspend fun updateUsers(users: List<UserEntity>) {
+        deleteAllUsers()
+        insertUsers(users)
+    }
 }

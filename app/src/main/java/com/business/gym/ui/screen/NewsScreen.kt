@@ -66,6 +66,7 @@ fun NewsScreen(
     val columns = if (isWideScreen) 2 else 1
     
     val jwtToken by authViewModel.jwtToken
+    val isGuest by authViewModel.isGuest
 
     // Принудительно запрашиваем токен, если мы админ, но его нет
     LaunchedEffect(isAdmin, jwtToken) {
@@ -418,6 +419,7 @@ fun NewsScreen(
                     NewsMediaItem(
                         item = newsItem, 
                         isAdmin = isAdmin, 
+                        isGuest = isGuest,
                         onDelete = { viewModel.deleteLocalNewsItem(localItem.id, jwtToken) },
                         onReact = { type -> viewModel.reactToNews(localItem.id, type, jwtToken) }
                     )
@@ -435,7 +437,7 @@ fun NewsScreen(
                     )
                 }
                 items(newsItems) { item ->
-                    NewsMediaItem(item, isAdmin, onDelete = { viewModel.deleteNewsItem(item) })
+                    NewsMediaItem(item, isAdmin, isGuest = isGuest, onDelete = { viewModel.deleteNewsItem(item) })
                 }
             }
         }

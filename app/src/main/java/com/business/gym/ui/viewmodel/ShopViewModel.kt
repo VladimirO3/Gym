@@ -39,23 +39,28 @@ class ShopViewModel(
         // Подписка на локальную базу данных
         viewModelScope.launch {
             repository.allProducts.collect { entities ->
+                Log.d("ShopViewModel", "Updating products from local DB: ${entities.size} items")
                 _products.value = entities.map {
                     ProductResponse(it.id, it.name, it.price, it.description, it.imageUrl)
                 }
             }
         }
+        // Автоматическая загрузка при создании
+        fetchProducts()
     }
 
     /**
      * Загружает актуальный список товаров из API и сохраняет в кэш.
      */
     fun fetchProducts() {
+        if (_isLoading.value) return
         _isLoading.value = true
         viewModelScope.launch {
             try {
+                Log.d("ShopViewModel", "Fetching products from repository...")
                 repository.refreshProducts()
             } catch (e: Exception) {
-                Log.e("ShopViewModel", "Failed to fetch products", e)
+                Log.e("ShopViewModel", "CRITICAL: Fetch products failed", e)
             } finally {
                 _isLoading.value = false
             }

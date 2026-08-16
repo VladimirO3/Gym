@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-08-10T12:51:26.154497900Z">
+        <DropdownSelection timestamp="2026-08-15T06:46:03.755104300Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=R3CW507TX7P" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\shama\.android\avd\Samsung_Galaxy_Z_Flip_4.avd" />
             </handle>
           </Target>
         </DropdownSelection>

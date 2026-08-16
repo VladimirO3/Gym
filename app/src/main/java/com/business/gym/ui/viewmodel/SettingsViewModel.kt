@@ -16,6 +16,7 @@ import com.business.gym.data.local.GymDatabase
 import com.business.gym.data.local.entity.DailyNoteEntity
 import com.business.gym.data.local.entity.ProfileEntity
 import com.business.gym.data.repository.ProfileRepository
+import com.business.gym.util.AuthUtils
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -31,8 +32,8 @@ class SettingsViewModel(
     private val repository: ProfileRepository
 ) : AndroidViewModel(application) {
     companion object {
-        private const val ADMIN_EMAIL = "verso0100@gmail.com"
-        private const val GUEST_EMAIL = "guest@gym.app"
+        private const val ADMIN_EMAIL = AuthUtils.ADMIN_EMAIL
+        private const val GUEST_EMAIL = AuthUtils.GUEST_EMAIL
     }
 
     private val _themeMode = mutableStateOf("system")
@@ -126,7 +127,7 @@ class SettingsViewModel(
 
         uid?.let { id ->
             // Проверка на админа (админам не нужно принимать оферту)
-            val isAdmin = AuthViewModel.isStaticAdmin(currentUserEmail)
+            val isAdmin = AuthUtils.isStaticAdmin(currentUserEmail)
             if (isAdmin) {
                 _privacyAgreed.value = true
             }

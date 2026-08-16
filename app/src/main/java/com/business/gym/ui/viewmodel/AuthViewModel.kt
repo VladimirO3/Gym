@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.business.gym.data.api.NewsApiService
 import com.business.gym.data.api.LocalUser
+import com.business.gym.util.AuthUtils
 import kotlinx.coroutines.launch
 
 /**
@@ -70,11 +71,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val localApiService get() = NewsApiService.create(getApplication())
 
     companion object {
-        const val ADMIN_EMAIL = "verso0100@gmail.com"
-        const val GUEST_EMAIL = "guest@gym.app"
+        const val ADMIN_EMAIL = AuthUtils.ADMIN_EMAIL
+        const val GUEST_EMAIL = AuthUtils.GUEST_EMAIL
         
         fun isStaticAdmin(email: String?): Boolean {
-            return email?.trim()?.lowercase() == ADMIN_EMAIL.lowercase()
+            return AuthUtils.isStaticAdmin(email)
         }
     }
 

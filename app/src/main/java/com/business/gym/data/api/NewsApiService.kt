@@ -58,7 +58,7 @@ data class LocalChatMessage(
  * Модель данных пользователя для локального чата.
  */
 data class LocalUser(
-    @SerializedName("id") val id: Int? = null,
+    @SerializedName("id") val id: String? = null,
     @SerializedName("uid") val uid: String? = null,
     val email: String = "",
     val name: String = "",
@@ -91,28 +91,28 @@ data class CartItemRequest(
 data class CartItemResponse(
     @SerializedName("productId") val productId: Int,
     @SerializedName("quantity") val quantity: Int,
-    @SerializedName("name") val name: String,
-    @SerializedName("price") val price: String,
-    @SerializedName("description") val description: String,
-    @SerializedName("image_url", alternate = ["imageUrl", "url"]) val imageUrl: String = ""
+    @SerializedName("name") val name: String = "",
+    @SerializedName("price") val price: String = "",
+    @SerializedName("description") val description: String = "",
+    @SerializedName("image_url", alternate = ["imageUrl", "url", "image"]) val imageUrl: String = ""
 )
 
 /**
  * Модели для магазина.
  */
 data class ProductResponse(
-    @SerializedName("id") val id: Int,
-    @SerializedName("name") val name: String,
-    @SerializedName("price") val price: String,
-    @SerializedName("description") val description: String,
-    @SerializedName("image_url", alternate = ["imageUrl", "url"]) val imageUrl: String
+    @SerializedName("id") val id: Any, // Может быть Int или String
+    @SerializedName("name") val name: String? = "",
+    @SerializedName("price") val price: String? = "",
+    @SerializedName("description") val description: String? = "",
+    @SerializedName("image_url", alternate = ["imageUrl", "url", "image"]) val imageUrl: String? = ""
 )
 
 /**
  * Модели для профиля и заметок.
  */
 data class ProfileResponse(
-    @SerializedName("id") val id: Int? = null,
+    @SerializedName("id") val id: String? = null,
     @SerializedName("uid") val uid: String? = null, 
     val email: String,
     val name: String?,
@@ -136,6 +136,10 @@ data class CoachResponse(
     @SerializedName("name") val name: String,
     @SerializedName("description") val description: String,
     @SerializedName("image_url", alternate = ["imageUrl", "url"]) val imageUrl: String? = null
+)
+
+data class MessageRequest(
+    @SerializedName("text", alternate = ["message", "content"]) val text: String
 )
 
 /**
@@ -237,7 +241,7 @@ interface NewsApiService {
 
     @DELETE("admin/users/{userId}")
     suspend fun deleteUser(
-        @Path("userId") userId: String
+        @Path(value = "userId", encoded = true) userId: String
     ): okhttp3.ResponseBody
 
     // --- НОВОСТИ ---
@@ -290,22 +294,21 @@ interface NewsApiService {
     // Получение истории сообщений с конкретным пользователем
     @GET("chat/messages/{peerUid}")
     suspend fun getChatMessages(
-        @Path("peerUid") peerUid: String,
+        @Path(value = "peerUid", encoded = true) peerUid: String,
         @Query("offset") offset: Int = 0
     ): List<LocalChatMessage>
 
     // Отправка сообщения
-    @Multipart
-    @POST("chat/send")
+    @POST("chat/messages/{peerUid}")
     suspend fun sendChatMessage(
-        @Part("peerUid") receiverId: RequestBody,
-        @Part("text") message: RequestBody
+        @Path(value = "peerUid", encoded = true) peerUid: String,
+        @Body request: MessageRequest
     ): Map<String, String>
 
     @Multipart
-    @POST("chat/send")
+    @POST("chat/messages/{peerUid}")
     suspend fun sendChatMedia(
-        @Part("peerUid") receiverId: RequestBody,
+        @Path(value = "peerUid", encoded = true) peerUid: String,
         @Part("text") message: RequestBody,
         @Part file: MultipartBody.Part
     ): Map<String, String>
@@ -315,7 +318,7 @@ interface NewsApiService {
 
     @DELETE("chat/messages/{peerUid}")
     suspend fun deleteChat(
-        @Path("peerUid") peerUid: String
+        @Path(value = "peerUid", encoded = true) peerUid: String
     ): okhttp3.ResponseBody
 
     // --- ПРОФИЛЬ ---
@@ -411,7 +414,17 @@ interface NewsApiService {
                 newUrl.startsWith("http://") || newUrl.startsWith("https://") -> newUrl
                 else -> "http://$newUrl"
             }
-            val finalUrl = if (formattedUrl.endsWith("/")) formattedUrl else "$formattedUrl/"
+            
+            // Проверка на наличие порта (ищем двоеточие после протокола)
+            val protocolEnd = formattedUrl.indexOf("//") + 2
+            val urlWithPort = if (!formattedUrl.substring(protocolEnd).contains(":")) {
+                val mainPart = formattedUrl.removeSuffix("/")
+                "$mainPart:5557/"
+            } else {
+                formattedUrl
+            }
+            
+            val finalUrl = if (urlWithPort.endsWith("/")) urlWithPort else "$urlWithPort/"
             
             Log.d("NewsApiService", "Updating Base URL to: $finalUrl (Previous: $currentBaseUrl)")
             
@@ -434,7 +447,11 @@ interface NewsApiService {
             val serverIp = settingsPref.getString("server_ip", "5.35.98.149:5557") ?: "5.35.98.149:5557"
             val cleanIp = serverIp.removePrefix("http://").removePrefix("https://").removeSuffix("/")
             
-            val base = "http://$cleanIp"
+            // Если в настройках прописан IP без порта, или если это IP из конфига,
+            // добавляем порт, если его нет.
+            val finalBase = if (!cleanIp.contains(":")) "$cleanIp:5557" else cleanIp
+            
+            val base = "http://$finalBase"
             val cleanRaw = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
             return base + cleanRaw
         }
@@ -482,7 +499,15 @@ interface NewsApiService {
                     val isGuestToken = token == "guest_token"
                     val hasAuth = request.header("Authorization") != null || request.url.queryParameter("token") != null
                     
-                    val newRequest = if (!hasAuth && token != null && !isGuestToken) {
+                    // МАГАЗИН ДОЛЖЕН БЫТЬ ДОСТУПЕН ДЛЯ ВСЕХ (БЕЗ ТОКЕНА ДЛЯ GET)
+                    val isPublicShopRequest = url.contains("shop/products") && request.method == "GET"
+                    val isChatUserRequest = url.contains("chat/users") && request.method == "GET"
+                    val isPublicRequest = isPublicShopRequest || isChatUserRequest
+                    
+                    val newRequest = if (!isPublicRequest && !hasAuth && token != null && !isGuestToken) {
+                        if (url.contains("shop/products") || url.contains("chat/messages")) {
+                             Log.d("NewsApiService", "Authorized Request detected (Shop/Chat), adding Auth header. Token start: ${token.take(10)}")
+                        }
                         Log.d("NewsApiService", "Adding Authorization header to: $url")
                         request.newBuilder()
                             .header("Authorization", "Bearer $token")
@@ -495,8 +520,8 @@ interface NewsApiService {
                     Log.d("NewsApiService", "Request: ${request.method} ${request.url} -> Response Code: ${response.code}")
                     if (!response.isSuccessful) {
                         Log.e("NewsApiService", "Error body: ${response.peekBody(1024).string()}")
-                    } else if (url.contains("chat/users") || url.contains("profile")) {
-                        // Логируем успешные ответы для отладки структуры ID
+                    } else if (url.contains("chat/users") || url.contains("profile") || url.contains("shop/products")) {
+                        // Логируем успешные ответы для отладки структуры ID и магазина
                         val body = response.peekBody(1024).string()
                         Log.d("NewsApiService", "Success Response from $url: $body")
                     }

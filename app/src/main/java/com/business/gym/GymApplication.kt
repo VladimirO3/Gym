@@ -14,28 +14,36 @@ import com.google.firebase.firestore.FirebaseFirestoreSettings
  */
 class GymApplication : Application(), ImageLoaderFactory {
     companion object {
-        lateinit var instance: GymApplication
-            private set
+        private var _instance: GymApplication? = null
+        val instance: GymApplication
+            get() = _instance ?: throw IllegalStateException("GymApplication not initialized")
             
         private var firebasePersistenceConfigured = false
     }
 
     override fun onCreate() {
         super.onCreate()
-        instance = this
+        _instance = this
         android.util.Log.d("GymApplication", "onCreate started")
         
+        // Глобальный перехватчик ошибок для отладки вылетов при запуске
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            android.util.Log.e("GymApplication", "CRITICAL CRASH in thread ${thread.name}", throwable)
+            // Даем время логу записаться
+            try { Thread.sleep(2000) } catch (e: Exception) {}
+            // Мы не выходим здесь, чтобы системный обработчик тоже мог сработать
+        }
+        
         try {
-            com.google.firebase.FirebaseApp.initializeApp(this)
-            android.util.Log.d("GymApplication", "FirebaseApp initialized")
-            
+            // FirebaseApp обычно инициализируется автоматически через ContentProvider.
+            // Ручная инициализация может вызвать проблемы, если google-services.json не найден.
+            // Оставляем только настройку персистентности.
             if (!firebasePersistenceConfigured) {
                 configureFirebasePersistence()
                 firebasePersistenceConfigured = true
-                android.util.Log.d("GymApplication", "Firebase Persistence configured")
             }
         } catch (e: Exception) {
-            android.util.Log.e("GymApplication", "Firebase initialization failed", e)
+            android.util.Log.e("GymApplication", "Firebase configuration failed", e)
         }
     }
 

@@ -19,7 +19,7 @@ data class ChatMessageEntity(
 @Entity(tableName = "users")
 data class UserEntity(
     @PrimaryKey val uid: String,
-    val serverId: Int? = null,
+    val serverId: String? = null,
     val email: String,
     val name: String,
     val avatarUrl: String? = null,

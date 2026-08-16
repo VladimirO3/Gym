@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.business.gym.data.api.NewsApiService
 import com.business.gym.data.model.ChatMessage
-import com.business.gym.ui.viewmodel.AuthViewModel
+import com.business.gym.util.AuthUtils
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.layout.ContentScale
@@ -34,8 +34,12 @@ import androidx.compose.runtime.*
  */
 @Composable
 fun MessageBubble(message: ChatMessage, currentUid: String, currentUserEmail: String?) {
-    val isMe = message.senderId == currentUid || (currentUserEmail != null && message.senderId == currentUserEmail)
-    val isSenderAdmin = AuthViewModel.isStaticAdmin(message.senderId)
+    // ВАЖНО: При сравнении ID учитываем, что сервер может прислать как email, так и числовой ID
+    val isMe = message.senderId == currentUid || 
+               (currentUserEmail != null && message.senderId.trim().lowercase() == currentUserEmail.trim().lowercase()) ||
+               (message.senderId == "1" && AuthUtils.isStaticAdmin(currentUserEmail))
+               
+    val isSenderAdmin = AuthUtils.isStaticAdmin(message.senderId) || message.senderId == "1"
     
     // Выравнивание: Мои сообщения СПРАВА, чужие СЛЕВА
     // Если я Админ, мои сообщения справа. Если я Пользователь, мои сообщения справа.

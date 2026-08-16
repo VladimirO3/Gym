@@ -8,6 +8,7 @@ import com.business.gym.data.local.GymDatabase
 import com.business.gym.data.local.dao.ChatDao
 import com.business.gym.data.local.entity.ChatMessageEntity
 import com.business.gym.data.local.entity.UserEntity
+import com.business.gym.util.AuthUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -19,6 +20,20 @@ class ChatRepository(
 ) {
     private val db by lazy { GymDatabase.getDatabase(context) }
     private val apiService get() = NewsApiService.create(context)
+
+    /**
+     * Возвращает UID, пригодный для использования в API запросах.
+     * Если это email администратора, подменяет его на ID "1".
+     */
+    private fun getApiUid(uid: String): String {
+        // Если входной параметр уже является числовым ID "1", возвращаем его как есть.
+        // Это важно, когда из UI приходит уже обработанный UID администратора.
+        if (uid == "1") return "1"
+
+        val result = if (AuthUtils.isStaticAdmin(uid)) "1" else uid
+        Log.d("ChatRepository", "getApiUid: input=$uid -> output=$result")
+        return result
+    }
 
     // Список UID, удаленных в текущей сессии, чтобы они не возвращались при синхронизации
     private val sessionDeletedUids = mutableSetOf<String>()
@@ -56,15 +71,20 @@ class ChatRepository(
 
             // 2. Фильтруем новых пользователей (убираем пустые UID и удаленных в сессии)
             val filteredUsers = users.filter { 
-                val currentUid = it.uid ?: it.id?.toString() ?: it.email
+                val currentUid = it.id?.toString() ?: it.uid ?: it.email
+                Log.d("ChatRepository", "User in list from server: name=${it.name}, email=${it.email}, id=${it.id}, uid=${it.uid}")
                 currentUid.isNotBlank() && !sessionDeletedUids.contains(currentUid)
             }
 
             val entities = filteredUsers.map { 
-                // ПРИОРИТЕТ: сначала используем числовой ID (он безопасен для URL путей), 
+                // ПРИОРИТЕТ: сначала используем ID (он безопасен для URL путей), 
                 // затем строковый UID, и в последнюю очередь email.
-                // Это решает проблему 404 при наличии точек в email/uid в GET-запросах.
-                val bestUid = it.id?.toString() ?: it.uid ?: it.email
+                val bestUid = when {
+                    !it.id.isNullOrBlank() -> it.id
+                    !it.uid.isNullOrBlank() -> it.uid
+                    else -> it.email
+                }
+                
                 UserEntity(
                     uid = bestUid,
                     serverId = it.id,
@@ -75,8 +95,8 @@ class ChatRepository(
                 )
             }
             
-            // 3. Сохраняем актуальный список
-            chatDao.insertUsers(entities)
+            // 3. Сохраняем актуальный список через транзакцию (атомарно)
+            chatDao.updateUsers(entities)
             Log.d("ChatRepository", "Successfully cached ${entities.size} users to local DB")
             true
         } catch (e: Exception) {
@@ -105,7 +125,12 @@ class ChatRepository(
 
     suspend fun refreshMessages(token: String, peerUid: String): Boolean {
         return try {
-            val messages = apiService.getChatMessages(peerUid)
+            val apiUid = getApiUid(peerUid)
+            // Кодируем UID для безопасной передачи в URL (особенно если это email с точками)
+            val encodedPeer = android.net.Uri.encode(apiUid)
+            Log.d("ChatRepository", "Refreshing messages for peerUid=$peerUid (apiUid=$apiUid, encoded=$encodedPeer)")
+            val messages = apiService.getChatMessages(encodedPeer)
+            Log.d("ChatRepository", "Received ${messages.size} messages for peer $peerUid")
             val entities = messages.map { 
                 ChatMessageEntity(
                     id = it.id, 
@@ -119,8 +144,7 @@ class ChatRepository(
                     mediaType = it.mediaType
                 ) 
             }
-            chatDao.deleteMessagesForPeer(peerUid)
-            chatDao.insertMessages(entities)
+            chatDao.updateMessages(peerUid, entities)
             true
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -131,12 +155,11 @@ class ChatRepository(
 
     suspend fun sendMessage(token: String, receiverId: String, message: String): Boolean {
         return try {
-            Log.d("ChatRepository", "Sending message via Multipart. peerUid: $receiverId, text: $message")
+            val apiUid = getApiUid(receiverId)
+            val encodedPeer = android.net.Uri.encode(apiUid)
+            Log.d("ChatRepository", "Sending message to peer: $apiUid (encoded: $encodedPeer)")
             
-            val receiverIdBody = receiverId.toRequestBody("text/plain".toMediaTypeOrNull())
-            val textBody = message.toRequestBody("text/plain".toMediaTypeOrNull())
-            
-            val response = apiService.sendChatMessage(receiverIdBody, textBody)
+            val response = apiService.sendChatMessage(encodedPeer, com.business.gym.data.api.MessageRequest(message))
             Log.d("ChatRepository", "Message send result: $response")
             
             // Ошибка обновления истории не должна мешать подтверждению отправки
@@ -158,9 +181,10 @@ class ChatRepository(
 
     suspend fun sendMediaMessage(token: String, receiverId: String, text: String, filePart: okhttp3.MultipartBody.Part): Boolean {
         return try {
-            val receiverIdBody = receiverId.toRequestBody("text/plain".toMediaTypeOrNull())
+            val apiUid = getApiUid(receiverId)
+            val encodedPeer = android.net.Uri.encode(apiUid)
             val textBody = text.toRequestBody("text/plain".toMediaTypeOrNull())
-            apiService.sendChatMedia(receiverIdBody, textBody, filePart)
+            apiService.sendChatMedia(encodedPeer, textBody, filePart)
             
             // Ошибка обновления истории не должна мешать подтверждению отправки
             try {
@@ -191,8 +215,9 @@ class ChatRepository(
             chatDao.deleteMessagesForPeer(peerUid)
             localDeleted = true
             
-            // Затем пытаемся удалить на сервере
-            apiService.deleteChat(peerUid)
+            // Затем пытаемся удалить на сервере (с кодированием UID)
+            val encodedPeer = android.net.Uri.encode(getApiUid(peerUid))
+            apiService.deleteChat(encodedPeer)
             return true
         } catch (e: Exception) {
             Log.e("ChatRepository", "Server deletion failed for peer=$peerUid, but local might be cleared", e)
@@ -203,8 +228,9 @@ class ChatRepository(
     suspend fun deleteUser(uid: String): Boolean {
         try {
             Log.d("ChatRepository", "Admin action: Deleting user. UID: $uid")
-            // Мы используем UID напрямую, так как сервер ожидает либо числовой ID, либо UID
-            apiService.deleteUser(uid)
+            // Мы кодируем UID, так как сервер ожидает его в пути
+            val encodedUid = android.net.Uri.encode(getApiUid(uid))
+            apiService.deleteUser(encodedUid)
             performLocalUserCleanup(uid)
             return true
         } catch (e: Exception) {
