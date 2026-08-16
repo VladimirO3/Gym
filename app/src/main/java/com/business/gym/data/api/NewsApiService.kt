@@ -27,6 +27,7 @@ data class LocalNews(
     @SerializedName("url", alternate = ["media_url", "mediaUrl"]) val mediaUrl: String = "",
     @SerializedName("type", alternate = ["media_type", "mediaType"]) val mediaType: String = "image",
     @SerializedName("created_at", alternate = ["createdAt"]) val createdAt: String = "",
+    @SerializedName("user_reaction", alternate = ["userReaction", "my_reaction", "myReaction"]) val userReaction: String? = null,
     @SerializedName("reactions") val reactions: Map<String, Int> = emptyMap()
 )
 

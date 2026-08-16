@@ -156,85 +156,32 @@ fun NewsMediaItem(
                     // Реакции (для всех, кроме гостей)
                     if (!isGuest) {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val totalReactions = item.reactions.values.sum()
-                            var showReactionPicker by remember { mutableStateOf(false) }
+                            reactionList.forEach { (emoji, key) ->
+                                val count = item.reactions[key] ?: 0
+                                val isSelected = (key == item.userReaction)
 
-                            if (totalReactions == 0) {
-                                // Если реакций нет — показываем все иконки в ряд
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                Surface(
+                                    onClick = { onReact(key) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) Color.Red.copy(alpha = 0.15f) else Color.Transparent,
+                                    border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color.Red) else null
                                 ) {
-                                    reactionList.forEach { (emoji, key) ->
-                                        Text(
-                                            text = emoji,
-                                            fontSize = 18.sp,
-                                            modifier = Modifier
-                                                .clickable { onReact(key) }
-                                                .padding(vertical = 4.dp)
-                                        )
-                                    }
-                                }
-                            } else {
-                                // Если реакции есть — показываем все типы реакций, которые были выбраны
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    reactionList.forEach { (emoji, key) ->
-                                        val count = item.reactions[key] ?: 0
-                                        if (count > 0) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier
-                                                    .clickable { onReact(key) }
-                                                    .padding(vertical = 4.dp)
-                                            ) {
-                                                Text(text = emoji, fontSize = 18.sp)
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text(
-                                                    text = count.toString(),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = Color.Red,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                        }
-                                    }
-                                    Text(
-                                        text = "➕",
-                                        fontSize = 14.sp,
-                                        modifier = Modifier
-                                            .clickable { showReactionPicker = true }
-                                            .padding(vertical = 4.dp, horizontal = 2.dp)
-                                    )
-                                }
-                            }
-
-                            // Мини-диалог выбора реакции
-                            if (showReactionPicker) {
-                                androidx.compose.ui.window.Dialog(onDismissRequest = { showReactionPicker = false }) {
-                                    Card(
-                                        colors = CardDefaults.cardColors(containerColor = Color.DarkGray),
-                                        shape = RoundedCornerShape(16.dp)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(16.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                        ) {
-                                            reactionList.forEach { (emoji, key) ->
-                                                Text(
-                                                    text = emoji,
-                                                    fontSize = 24.sp,
-                                                    modifier = Modifier.clickable {
-                                                        onReact(key)
-                                                        showReactionPicker = false
-                                                    }
-                                                )
-                                            }
+                                        Text(text = emoji, fontSize = 16.sp)
+                                        if (count > 0) {
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text(
+                                                text = count.toString(),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (isSelected) Color.Red else MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
                                         }
                                     }
                                 }

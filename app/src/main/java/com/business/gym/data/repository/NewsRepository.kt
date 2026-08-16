@@ -26,6 +26,7 @@ class NewsRepository(
                 mediaUrl = it.mediaUrl, 
                 mediaType = it.mediaType,
                 createdAt = it.createdAt,
+                userReaction = it.userReaction,
                 reactions = mapOf(
                     "fire" to it.fireCount,
                     "heart" to it.heartCount,
@@ -56,6 +57,7 @@ class NewsRepository(
                     mediaUrl = it.mediaUrl, 
                     mediaType = it.mediaType,
                     createdAt = it.createdAt,
+                    userReaction = it.userReaction,
                     fireCount = it.reactions["fire"] ?: 0,
                     heartCount = it.reactions["heart"] ?: 0,
                     muscleCount = it.reactions["muscle"] ?: 0,
