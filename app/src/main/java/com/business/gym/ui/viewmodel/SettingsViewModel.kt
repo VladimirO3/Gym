@@ -68,9 +68,8 @@ class SettingsViewModel(
     private var currentUid: String? = null
 
     private fun isRegularAuthorizedUser(email: String?, uid: String?): Boolean {
-        if (email.isNullOrBlank() || uid.isNullOrBlank()) return false
+        if (email.isNullOrBlank()) return false
         val normalized = email.trim().lowercase()
-        // Теперь разрешаем профиль для всех, кроме Гостей, чтобы Admin тоже мог принять Оферту
         return normalized != GUEST_EMAIL.lowercase()
     }
 
@@ -110,14 +109,19 @@ class SettingsViewModel(
 
     fun loadSettings(context: Context, currentUserEmail: String?, uid: String? = null) {
         val canUseProfile = isRegularAuthorizedUser(currentUserEmail, uid)
-        currentUid = if (canUseProfile) uid else null
+        val effectiveUid = when {
+            !uid.isNullOrBlank() -> uid
+            !currentUserEmail.isNullOrBlank() -> currentUserEmail
+            else -> null
+        }
+        currentUid = if (canUseProfile) effectiveUid else null
         val globalPref = context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
         
         _themeMode.value = globalPref.getString("theme_mode", "system") ?: "system"
         val savedLang = globalPref.getString("lang", "system") ?: "system"
         applyLanguage(savedLang)
 
-        if (!canUseProfile) {
+        if (!canUseProfile || effectiveUid == null) {
             _userName.value = ""
             _userAge.value = null
             _avatarUrl.value = null
@@ -125,54 +129,51 @@ class SettingsViewModel(
             return
         }
 
-        uid?.let { id ->
-            // Проверка на админа (админам не нужно принимать оферту)
-            val isAdmin = AuthUtils.isStaticAdmin(currentUserEmail)
+        val id = effectiveUid
+        // Проверка на админа (админам не нужно принимать оферту)
+        val isAdmin = AuthUtils.isStaticAdmin(currentUserEmail)
+        if (isAdmin) {
+            _privacyAgreed.value = true
+        }
+
+        // Принудительно запрашиваем актуальные данные профиля с VPS
+        viewModelScope.launch {
+            repository.refreshProfileFromServer(id)
             if (isAdmin) {
-                _privacyAgreed.value = true
+                repository.updatePrivacy(id, true)
             }
+        }
 
-            // Принудительно запрашиваем актуальные данные профиля с VPS
-            viewModelScope.launch {
-                repository.refreshProfileFromServer(id)
-                // Если админ, после загрузки с сервера гарантируем согласие в локальной БД
-                if (isAdmin) {
-                    repository.updatePrivacy(id, true)
+        // Подписка на локальный кэш профиля
+        viewModelScope.launch {
+            repository.getProfile(id).collect { profile ->
+                profile?.let {
+                    _privacyAgreed.value = if (isAdmin) true else it.privacyAgreed
+                    if (it.name.isNotBlank()) _userName.value = it.name
+                    if (it.age != null) _userAge.value = it.age
+                    if (!it.avatarUrl.isNullOrBlank()) _avatarUrl.value = it.avatarUrl
+                    
+                    if (it.themeMode != _themeMode.value) _themeMode.value = it.themeMode
+                } ?: run {
+                    repository.saveProfile(ProfileEntity(
+                        uid = id, 
+                        email = currentUserEmail ?: "", 
+                        name = "",
+                        themeMode = _themeMode.value,
+                        privacyAgreed = isAdmin
+                    ))
                 }
             }
+        }
 
-            // Подписка на локальный кэш профиля
-            viewModelScope.launch {
-                repository.getProfile(id).collect { profile ->
-                    profile?.let {
-                        _privacyAgreed.value = if (isAdmin) true else it.privacyAgreed
-                        _userName.value = it.name
-                        _userAge.value = it.age
-                        _avatarUrl.value = it.avatarUrl
-                        
-                        // Синхронизируем локальные настройки темы и языка, если они пришли с сервера
-                        if (it.themeMode != _themeMode.value) _themeMode.value = it.themeMode
-                    } ?: run {
-                        repository.saveProfile(ProfileEntity(
-                            uid = id, 
-                            email = currentUserEmail ?: "", 
-                            name = "",
-                            themeMode = _themeMode.value,
-                            privacyAgreed = isAdmin // Для админа ставим true сразу
-                        ))
-                    }
-                }
-            }
+        // Загрузка заметок календаря с сервера, затем подписка на локальные
+        viewModelScope.launch {
+            repository.refreshNotesFromServer(id)
+        }
 
-            // Загрузка заметок календаря с сервера, затем подписка на локальные
-            viewModelScope.launch {
-                repository.refreshNotesFromServer(id)
-            }
-
-            viewModelScope.launch {
-                repository.getAllNotes(id).collect { notes ->
-                    _dailyNotes.value = notes
-                }
+        viewModelScope.launch {
+            repository.getAllNotes(id).collect { notes ->
+                _dailyNotes.value = notes
             }
         }
     }
