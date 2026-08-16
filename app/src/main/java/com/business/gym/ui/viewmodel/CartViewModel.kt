@@ -105,8 +105,12 @@ class CartViewModel(
      * Синхронизирует текущее локальное состояние корзины с сервером и Room.
      */
     private fun syncCartWithServer(context: android.content.Context) {
-        val token = currentToken
-        val userId = currentUserId
+        val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
+        val savedToken = sharedPref.getString("user_session_token", null)
+        val savedUid = sharedPref.getString("user_session_uid", null) ?: sharedPref.getString("user_session_email", null)
+
+        val token = currentToken ?: savedToken
+        val userId = currentUserId ?: savedUid
         
         if (token == null || token == "guest_token") return
         
@@ -121,10 +125,10 @@ class CartViewModel(
             }
         }
 
-        // Затем на сервер с задержкой
+        // Затем на сервер с минимальной задержкой
         syncJob?.cancel()
         syncJob = viewModelScope.launch {
-            delay(1500)
+            delay(300)
             try {
                 val api = NewsApiService.create(context)
                 val request = _cartItems.value.map { (product, count) ->
