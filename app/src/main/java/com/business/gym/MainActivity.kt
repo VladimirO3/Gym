@@ -31,7 +31,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -73,11 +72,17 @@ import io.ktor.http.*
 import io.ktor.websocket.*
 import io.ktor.client.engine.cio.CIO
 import io.ktor.http.HttpHeaders
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import android.content.ComponentName
+import com.business.gym.service.PlaybackService
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
 
 
 class MainActivity : AppCompatActivity() {
-    private var exoPlayer: ExoPlayer? = null
-    private var mediaSession: MediaSession? = null
+    private var controllerFuture: ListenableFuture<MediaController>? = null
     private var firebaseAnalytics: FirebaseAnalytics? = null
 
     private val requestNotificationPermissionLauncher =
@@ -102,29 +107,9 @@ class MainActivity : AppCompatActivity() {
             android.util.Log.e("MainActivity", "Basic init error", e)
         }
 
-        // Выносим инициализацию плеера из Composable для большей стабильности
-        if (exoPlayer == null) {
-            try {
-                val audioAttributes = AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .build()
-
-                val player = ExoPlayer.Builder(this)
-                    .setAudioAttributes(audioAttributes, true)
-                    .setMediaSourceFactory(NewsApiService.getMediaSourceFactory(this))
-                    .build()
-
-                mediaSession = MediaSession.Builder(this, player)
-                    .setId("GymAppSession_${System.currentTimeMillis()}")
-                    .build()
-                
-                exoPlayer = player
-            } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "ExoPlayer setup failed", e)
-            }
-        }
-
+        val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+        controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
+        
         try {
             setContent {
                 android.util.Log.d("MainActivity", "setContent block started")
@@ -171,29 +156,51 @@ class MainActivity : AppCompatActivity() {
                         showSplash = false 
                     })
                 } else if (showExit) {
-                    ExitScreen(onFinished = { (context as? android.app.Activity)?.finish() })
+                    ExitScreen(onFinished = { 
+                        // Полное закрытие приложения и всех его служб (включая плеер и фоновые процессы).
+                        // Использование finishAffinity() гарантирует, что приложение будет выгружено из памяти.
+                        finishAffinity()
+                    })
                 } else {
-                    val player = exoPlayer ?: remember { ExoPlayer.Builder(context).build() }
-                    val themeMode by settingsViewModel.themeMode
-                    val useDarkTheme = when (themeMode) {
-                        "light" -> false
-                        "dark" -> true
-                        else -> isSystemInDarkTheme()
+                    val controllerState = remember { mutableStateOf<MediaController?>(null) }
+                    
+                    DisposableEffect(Unit) {
+                        controllerFuture?.addListener({
+                            controllerState.value = controllerFuture?.get()
+                        }, MoreExecutors.directExecutor())
+                        onDispose { }
                     }
 
-                    GymTheme(darkTheme = useDarkTheme) {
-                        GymApp(
-                            exoPlayer = player, 
-                            authViewModel = authViewModel, 
-                            settingsViewModel = settingsViewModel, 
-                            cartViewModel = cartViewModel,
-                            chatViewModel = chatViewModel,
-                            aboutViewModel = aboutViewModel,
-                            navigationRequest = navigationRequest.value,
-                            onResetNavigationRequest = { navigationRequest.value = null },
-                            onExitRequest = { showExit = true },
-                            isDarkTheme = useDarkTheme
-                        )
+                    val player = controllerState.value
+                    if (player == null) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color.Red)
+                        }
+                    } else {
+                        val themeMode by settingsViewModel.themeMode
+                        val useDarkTheme = when (themeMode) {
+                            "light" -> false
+                            "dark" -> true
+                            else -> isSystemInDarkTheme()
+                        }
+
+                        GymTheme(darkTheme = useDarkTheme) {
+                            GymApp(
+                                player = player, 
+                                authViewModel = authViewModel, 
+                                settingsViewModel = settingsViewModel, 
+                                cartViewModel = cartViewModel,
+                                chatViewModel = chatViewModel,
+                                aboutViewModel = aboutViewModel,
+                                navigationRequest = navigationRequest.value,
+                                onResetNavigationRequest = { navigationRequest.value = null },
+                                onExitRequest = { 
+                                    player.stop() // Немедленно останавливаем музыку при запросе выхода
+                                    showExit = true 
+                                },
+                                isDarkTheme = useDarkTheme
+                            )
+                        }
                     }
                 }
             }
@@ -252,16 +259,13 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         // Закрываем клиент и плеер
         client.close()
-        mediaSession?.release()
-        exoPlayer?.release()
-        mediaSession = null
-        exoPlayer = null
+        controllerFuture?.let { MediaController.releaseFuture(it) }
     }
 }
 
 @Composable
 fun GymApp(
-    exoPlayer: ExoPlayer,
+    player: Player,
     authViewModel: AuthViewModel,
     settingsViewModel: SettingsViewModel,
     cartViewModel: CartViewModel,
@@ -289,10 +293,10 @@ fun GymApp(
             currentUserEmail = currentUserEmail,
             currentUid = currentUid ?: "", 
             isAdmin = isAdmin,
-            exoPlayer = exoPlayer,
+            player = player,
             onSignOut = { onSignOutAction ->
                 // Остановка и очистка данных
-                exoPlayer.stop()
+                player.stop()
                 chatViewModel.clearAll()
                 settingsViewModel.clearProfile()
                 cartViewModel.clearCart(context, sync = false)
@@ -328,7 +332,7 @@ fun GymAppContent(
     currentUserEmail: String?,
     currentUid: String,
     isAdmin: Boolean,
-    exoPlayer: ExoPlayer,
+    player: Player,
     onSignOut: (suspend () -> Unit) -> Unit,
     onSaveSession: (String) -> Unit,
     onExitRequest: () -> Unit,
@@ -601,7 +605,7 @@ fun GymAppContent(
                                             NewsScreen(isAdmin = isAdmin, authViewModel = authViewModel)
                                         }
                                     }
-                                    "playlist" -> PlaylistScreen(exoPlayer = exoPlayer, isAdmin = isAdmin)
+                                    "playlist" -> PlaylistScreen(player = player, isAdmin = isAdmin)
                                     "chat" -> {
                                         if (currentUserEmail == null || isGuest) {
                                             AuthScreen(
@@ -625,7 +629,11 @@ fun GymAppContent(
                                             if (shopIndex != -1) coroutineScope.launch { pagerState.animateScrollToPage(shopIndex) }
                                         }
                                     )
-                                    "shop" -> ShopScreen(isAdmin = isAdmin, cartViewModel = cartViewModel)
+                                    "shop" -> ShopScreen(
+                                        isAdmin = isAdmin, 
+                                        cartViewModel = cartViewModel,
+                                        authViewModel = authViewModel
+                                    )
                                     "about" -> AboutScreen(isAdmin = isAdmin, viewModel = aboutViewModel)
                                 }
                             }
@@ -664,12 +672,12 @@ fun GymAppPreview() {
     val aboutViewModel: AboutViewModel = viewModel()
     GymTheme {
         val context = LocalContext.current
-        val dummyPlayer = remember { ExoPlayer.Builder(context).build() }
+        val dummyPlayer = remember { androidx.media3.exoplayer.ExoPlayer.Builder(context).build() }
         GymAppContent(
             currentUserEmail = "test@example.com",
             currentUid = "123",
             isAdmin = false,
-            exoPlayer = dummyPlayer,
+            player = dummyPlayer,
             onSignOut = {},
             onSaveSession = {},
             onExitRequest = {},

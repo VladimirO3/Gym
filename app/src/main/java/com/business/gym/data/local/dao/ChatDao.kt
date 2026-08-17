@@ -27,6 +27,9 @@ interface ChatDao {
     @Query("SELECT * FROM users")
     suspend fun getAllUsersSync(): List<UserEntity>
 
+    @Query("SELECT * FROM users WHERE uid = :search OR email = :search LIMIT 1")
+    suspend fun findUserByUidOrEmail(search: String): UserEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUsers(users: List<UserEntity>)
     

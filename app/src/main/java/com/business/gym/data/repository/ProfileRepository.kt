@@ -47,6 +47,7 @@ class ProfileRepository(
                 lang = remote.lang ?: "system",
                 privacyAgreed = remote.privacyAgreed ?: false
             )
+            Log.d("ProfileRepository", "Saving profile to Room. AvatarURL: ${entity.avatarUrl}")
             profileDao.insertProfile(entity)
         } catch (e: Exception) {
             Log.e("ProfileRepository", "CRITICAL: Failed to refresh profile. Error: ${e.message}", e)
@@ -160,6 +161,7 @@ class ProfileRepository(
             val themeBody = (current?.themeMode ?: "system").toRequestBody("text/plain".toMediaTypeOrNull())
             val langBody = (current?.lang ?: "system").toRequestBody("text/plain".toMediaTypeOrNull())
             val privacyBody = (current?.privacyAgreed ?: false).toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val avatarBody = current?.avatarUrl?.toRequestBody("text/plain".toMediaTypeOrNull())
 
             Log.d("ProfileRepository", "Updating profile info on VPS for UID: $uid (Name: $name, Age: $ageValue)")
             apiService.updateProfile(
@@ -167,7 +169,8 @@ class ProfileRepository(
                 age = ageBody,
                 theme = themeBody,
                 lang = langBody,
-                privacyAgreed = privacyBody
+                privacyAgreed = privacyBody,
+                avatarUrl = avatarBody
             )
             Log.i("ProfileRepository", "VPS profile info update SUCCESS")
         } catch (e: Exception) {
@@ -177,6 +180,7 @@ class ProfileRepository(
     }
 
     suspend fun updateAvatarUrl(uid: String, url: String?) {
+        Log.d("ProfileRepository", "Updating avatarUrl in Room for UID: $uid to: $url")
         profileDao.updateAvatarUrl(uid, url)
     }
 

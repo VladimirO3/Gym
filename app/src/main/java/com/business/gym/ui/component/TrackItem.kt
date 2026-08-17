@@ -34,8 +34,10 @@ fun TrackItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onPlayPause),
-        // Подсветка выбранного трека через цвет контейнера
-        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent
+        // Подсветка выбранного трека через цвет контейнера и рамку
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent,
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color.Red) else null,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -66,7 +68,8 @@ fun TrackItem(
             Text(
                 text = track.name,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = if (isSelected) Color.Red else MaterialTheme.colorScheme.onBackground,
+                fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal,
                 modifier = Modifier.weight(1f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

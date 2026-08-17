@@ -33,6 +33,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.BorderStroke
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.business.gym.data.api.NewsApiService
 import java.time.LocalDate
 import java.time.YearMonth
@@ -172,12 +174,28 @@ fun SettingsScreen(
                             .then(if (isEditMode || userName.isBlank()) Modifier.clickable { photoPickerLauncher.launch("image/*") } else Modifier),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (avatarUrl != null) {
+                        if (!avatarUrl.isNullOrBlank()) {
+                            val fullAvatarUrl = remember(avatarUrl) {
+                                NewsApiService.getFullUrl(context, avatarUrl)
+                            }
                             AsyncImage(
-                                model = NewsApiService.getFullUrl(context, avatarUrl),
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(fullAvatarUrl)
+                                    .setHeader("Authorization", "Bearer $jwtToken")
+                                    .setHeader("Cache-Control", "no-cache")
+                                    .crossfade(true)
+                                    .build(),
                                 contentDescription = "Avatar",
                                 modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
+                                contentScale = ContentScale.Crop,
+                                error = coil.compose.rememberAsyncImagePainter(model = Icons.Default.Person),
+                                placeholder = coil.compose.rememberAsyncImagePainter(model = Icons.Default.Person),
+                                onError = { state ->
+                                    android.util.Log.e("SettingsScreen", "Coil Error for $fullAvatarUrl: ${state.result.throwable.message}")
+                                },
+                                onSuccess = {
+                                    android.util.Log.i("SettingsScreen", "Coil Success for $fullAvatarUrl")
+                                }
                             )
                         } else {
                             Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(50.dp), tint = Color.White)

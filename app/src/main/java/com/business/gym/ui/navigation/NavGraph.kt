@@ -42,7 +42,7 @@ fun GymNavGraph(
             NewsScreen(isAdmin = isAdmin)
         }
         composable(Screen.Playlist.route) {
-            PlaylistScreen(exoPlayer = exoPlayer, isAdmin = isAdmin)
+            PlaylistScreen(player = exoPlayer, isAdmin = isAdmin)
         }
         composable(Screen.Chat.route) {
             if (currentUserEmail == null) {
@@ -64,7 +64,8 @@ fun GymNavGraph(
             SettingsScreen(
                 currentUserEmail = currentUserEmail, 
                 onLogout = onLogout,
-                onGoToCart = {}
+                onGoToCart = {},
+                viewModel = settingsViewModel
             )
         }
         composable(Screen.About.route) {

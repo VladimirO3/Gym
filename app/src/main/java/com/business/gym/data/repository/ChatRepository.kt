@@ -23,16 +23,26 @@ class ChatRepository(
 
     /**
      * Возвращает UID, пригодный для использования в API запросах.
-     * Если это email администратора, подменяет его на ID "1".
+     * Пытается найти числовой ID в локальной базе данных, если передан email.
      */
-    private fun getApiUid(uid: String): String {
+    private suspend fun getApiUid(uid: String): String {
         // Если входной параметр уже является числовым ID "1", возвращаем его как есть.
-        // Это важно, когда из UI приходит уже обработанный UID администратора.
         if (uid == "1") return "1"
 
-        val result = if (AuthUtils.isStaticAdmin(uid)) "1" else uid
-        Log.d("ChatRepository", "getApiUid: input=$uid -> output=$result")
-        return result
+        if (AuthUtils.isStaticAdmin(uid)) return "1"
+        
+        // Попытка разрешить email -> id через локальную БД
+        try {
+            val user = chatDao.findUserByUidOrEmail(uid)
+            if (user != null && !user.serverId.isNullOrBlank()) {
+                Log.d("ChatRepository", "Resolved $uid to serverId: ${user.serverId}")
+                return user.serverId
+            }
+        } catch (e: Exception) {
+            Log.w("ChatRepository", "Error finding user in DB for ID resolution", e)
+        }
+
+        return uid
     }
 
     // Список UID, удаленных в текущей сессии, чтобы они не возвращались при синхронизации
@@ -85,6 +95,7 @@ class ChatRepository(
                     else -> it.email
                 }
                 
+                Log.d("ChatRepository", "Mapping chat user with avatar: ${it.name}, url=${it.avatarUrl}")
                 UserEntity(
                     uid = bestUid,
                     serverId = it.id,
@@ -216,7 +227,8 @@ class ChatRepository(
             localDeleted = true
             
             // Затем пытаемся удалить на сервере (с кодированием UID)
-            val encodedPeer = android.net.Uri.encode(getApiUid(peerUid))
+            val apiUid = getApiUid(peerUid)
+            val encodedPeer = android.net.Uri.encode(apiUid)
             apiService.deleteChat(encodedPeer)
             return true
         } catch (e: Exception) {
@@ -229,7 +241,8 @@ class ChatRepository(
         try {
             Log.d("ChatRepository", "Admin action: Deleting user. UID: $uid")
             // Мы кодируем UID, так как сервер ожидает его в пути
-            val encodedUid = android.net.Uri.encode(getApiUid(uid))
+            val apiUid = getApiUid(uid)
+            val encodedUid = android.net.Uri.encode(apiUid)
             apiService.deleteUser(encodedUid)
             performLocalUserCleanup(uid)
             return true

@@ -42,6 +42,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.business.gym.data.api.NewsApiService
 import com.business.gym.util.AuthUtils
 import java.text.SimpleDateFormat
@@ -98,7 +99,8 @@ fun ChatScreen(
                         selectedUser = selectedUser,
                         notifiedCounts = notifiedCounts,
                         isAdmin = isAdmin,
-                        onDeleteUser = { viewModel.deleteUser(context, it, jwtToken) }
+                        onDeleteUser = { viewModel.deleteUser(context, it, jwtToken) },
+                        jwtToken = jwtToken
                     )
                 }
                 VerticalDivider(color = Color.DarkGray)
@@ -138,7 +140,8 @@ fun ChatScreen(
                     modifier = modifier,
                     notifiedCounts = notifiedCounts,
                     isAdmin = isAdmin,
-                    onDeleteUser = { viewModel.deleteUser(context, it, jwtToken) }
+                    onDeleteUser = { viewModel.deleteUser(context, it, jwtToken) },
+                    jwtToken = jwtToken
                 )
             } else {
                 ConversationScreen(
@@ -170,7 +173,8 @@ fun UserListScreen(
     selectedUser: UserProfile? = null,
     notifiedCounts: Map<String, Int> = emptyMap(),
     isAdmin: Boolean = false,
-    onDeleteUser: (String) -> Unit = {}
+    onDeleteUser: (String) -> Unit = {},
+    jwtToken: String? = null
 ) {
     var userToDelete by remember { mutableStateOf<UserProfile?>(null) }
 
@@ -268,7 +272,11 @@ fun UserListScreen(
                                 
                                 if (!avatarUrl.isNullOrBlank()) {
                                     AsyncImage(
-                                        model = fullAvatarUrl,
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(fullAvatarUrl)
+                                            .setHeader("Authorization", "Bearer $jwtToken")
+                                            .crossfade(true)
+                                            .build(),
                                         contentDescription = "Avatar",
                                         modifier = Modifier.size(40.dp).clip(CircleShape),
                                         contentScale = androidx.compose.ui.layout.ContentScale.Crop

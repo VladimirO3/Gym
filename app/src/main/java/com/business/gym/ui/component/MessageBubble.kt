@@ -52,7 +52,11 @@ fun MessageBubble(message: ChatMessage, currentUid: String, currentUserEmail: St
         Color.DarkGray.copy(alpha = 0.8f)
     }
 
-    val label = if (isSenderAdmin) "Администратор" else "Пользователь"
+    val label = when {
+        message.senderName.isNotBlank() -> message.senderName
+        isSenderAdmin -> "Администратор"
+        else -> "Пользователь"
+    }
     // Подсветка имени: красный для админа, голубой для пользователя
     val labelColor = if (isSenderAdmin) Color.Red else Color.Cyan
 

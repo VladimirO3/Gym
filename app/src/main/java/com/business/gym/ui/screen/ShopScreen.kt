@@ -49,6 +49,9 @@ fun ShopScreen(
     cartViewModel: CartViewModel = viewModel(
         factory = CartViewModel.Factory(LocalContext.current.applicationContext as android.app.Application)
     ),
+    authViewModel: com.business.gym.ui.viewmodel.AuthViewModel = viewModel(
+        factory = com.business.gym.ui.viewmodel.AuthViewModel.Factory(LocalContext.current.applicationContext as android.app.Application)
+    ),
     onGoToCart: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -62,6 +65,15 @@ fun ShopScreen(
     val isLoading by shopViewModel.isLoading
     
     var isShowingCart by remember { mutableStateOf(false) }
+
+    val jwtToken by authViewModel.jwtToken
+    val currentUid by authViewModel.currentUid
+
+    LaunchedEffect(jwtToken, currentUid) {
+        if (jwtToken != null) {
+            cartViewModel.init(context, jwtToken, currentUid)
+        }
+    }
 
     LaunchedEffect(Unit) {
         shopViewModel.fetchProducts()

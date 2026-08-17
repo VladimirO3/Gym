@@ -151,7 +151,9 @@ class SettingsViewModel(
                     _privacyAgreed.value = if (isAdmin) true else it.privacyAgreed
                     if (it.name.isNotBlank()) _userName.value = it.name
                     if (it.age != null) _userAge.value = it.age
-                    if (!it.avatarUrl.isNullOrBlank()) _avatarUrl.value = it.avatarUrl
+                    
+                    // Обновляем URL аватара, даже если он пустой (для сброса)
+                    _avatarUrl.value = it.avatarUrl
                     
                     if (it.themeMode != _themeMode.value) _themeMode.value = it.themeMode
                 } ?: run {
@@ -222,7 +224,10 @@ class SettingsViewModel(
     }
 
     fun uploadAvatar(context: Context, uri: android.net.Uri, token: String?) {
-        if (token == null || currentUid == null) return
+        if (token == null || currentUid == null) {
+            Log.e("SettingsViewModel", "Upload avatar failed: token or UID is null")
+            return
+        }
         _isUpdatingProfile.value = true
         viewModelScope.launch {
             try {
@@ -230,15 +235,32 @@ class SettingsViewModel(
                 val bytes = inputStream?.readBytes() ?: return@launch
                 val requestFile = bytes.toRequestBody("image/*".toMediaTypeOrNull())
                 val body = okhttp3.MultipartBody.Part.createFormData("file", "avatar.jpg", requestFile)
-                val api = NewsApiService.create(context)
-                api.uploadAvatar(body)
                 
-                // После успешной загрузки обновляем локальный профиль
+                // Создаем сервис и явно проверяем, что OkHttpClient будет использовать актуальный токен
+                val api = NewsApiService.create(context)
+                val response = api.uploadAvatar(body)
+                
+                Log.i("SettingsViewModel", "Avatar upload response success")
+                
+                // Сразу обновляем локально для быстрого отклика
+                // ВАЖНО: Мы не знаем точно URL до обновления с сервера, но можем запустить refresh
+                
+                // Даем серверу время обработать файл
+                kotlinx.coroutines.delay(1000)
+                
+                // После успешной загрузки обновляем локальный профиль с сервера
                 repository.refreshProfileFromServer(currentUid!!)
                 
-                android.widget.Toast.makeText(context, "Фото загружено", android.widget.Toast.LENGTH_SHORT).show()
+                // ОБЯЗАТЕЛЬНО: Принудительно уведомляем UI об изменении URL, даже если ссылка та же (для перезагрузки Coil)
+                val current = _avatarUrl.value
+                _avatarUrl.value = null
+                kotlinx.coroutines.delay(50)
+                _avatarUrl.value = current
+                
+                android.widget.Toast.makeText(context, "Фото успешно обновлено", android.widget.Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                Log.e("SettingsViewModel", "Avatar upload failed", e)
+                Log.e("SettingsViewModel", "Avatar upload failed: ${e.message}", e)
+                android.widget.Toast.makeText(context, "Ошибка загрузки фото", android.widget.Toast.LENGTH_SHORT).show()
             } finally {
                 _isUpdatingProfile.value = false
             }

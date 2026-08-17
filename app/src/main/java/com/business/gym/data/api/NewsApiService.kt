@@ -85,12 +85,12 @@ data class LoginResponse(
  * Модели для корзины.
  */
 data class CartItemRequest(
-    @SerializedName("productId") val productId: Int,
+    @SerializedName("productId") val productId: Any, // Может быть Int или String
     @SerializedName("quantity") val quantity: Int
 )
 
 data class CartItemResponse(
-    @SerializedName("productId") val productId: Int,
+    @SerializedName("productId") val productId: Any, // Может быть Int или String
     @SerializedName("quantity") val quantity: Int,
     @SerializedName("name") val name: String = "",
     @SerializedName("price") val price: String = "",
@@ -344,7 +344,8 @@ interface NewsApiService {
         @Part("age") age: RequestBody?,
         @Part("theme") theme: RequestBody? = null,
         @Part("lang") lang: RequestBody? = null,
-        @Part("privacy_agreed") privacyAgreed: RequestBody? = null
+        @Part("privacy_agreed") privacyAgreed: RequestBody? = null,
+        @Part("avatar_url") avatarUrl: RequestBody? = null
     ): okhttp3.ResponseBody
 
     // --- ЗАМЕТКИ (КАЛЕНДАРЬ) ---
@@ -440,21 +441,26 @@ interface NewsApiService {
             if (rawUrl.isNullOrBlank()) return ""
             
             // Если это уже полный URL (начинается с http), возвращаем как есть.
-            // Это критически важно для сохранения query-параметров (токенов), 
-            // которые сервер теперь добавляет в поле url.
             if (rawUrl.startsWith("http")) return rawUrl
             
             val settingsPref = context.getSharedPreferences("settings_global", android.content.Context.MODE_PRIVATE)
             val serverIp = settingsPref.getString("server_ip", "5.35.98.149:5557") ?: "5.35.98.149:5557"
-            val cleanIp = serverIp.removePrefix("http://").removePrefix("https://").removeSuffix("/")
             
-            // Если в настройках прописан IP без порта, или если это IP из конфига,
-            // добавляем порт, если его нет.
+            // Очищаем IP от протоколов и лишних слешей
+            val cleanIp = serverIp.trim()
+                .removePrefix("http://")
+                .removePrefix("https://")
+                .removeSuffix("/")
+            
+            // Если в настройках прописан IP без порта, добавляем порт 5557 по умолчанию
             val finalBase = if (!cleanIp.contains(":")) "$cleanIp:5557" else cleanIp
             
             val base = "http://$finalBase"
             val cleanRaw = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
-            return base + cleanRaw
+            val result = base + cleanRaw
+            
+            android.util.Log.d("NewsApiService", "getFullUrl: raw=$rawUrl -> result=$result")
+            return result
         }
 
         private var cachedClient: okhttp3.OkHttpClient? = null
@@ -495,7 +501,7 @@ interface NewsApiService {
                     val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
                     val token = sharedPref.getString("user_session_token", null)
                     
-                    // Добавляем токен для всех запросов к API, 
+                    // Добавляем токен для всех запросов к API, включая медиа-файлы,
                     // кроме тех, где он уже есть в заголовках или в URL, или если это гость
                     val isGuestToken = token == "guest_token"
                     val hasAuth = request.header("Authorization") != null || request.url.queryParameter("token") != null
@@ -503,12 +509,18 @@ interface NewsApiService {
                     // МАГАЗИН ДОЛЖЕН БЫТЬ ДОСТУПЕН ДЛЯ ВСЕХ (БЕЗ ТОКЕНА ДЛЯ GET)
                     val isPublicShopRequest = url.contains("shop/products") && request.method == "GET"
                     val isChatUserRequest = url.contains("chat/users") && request.method == "GET"
+                    
+                    // Проверяем, является ли запрос запросом к медиа-файлу (аватару/фото). 
+                    // Это важно, так как папка /uploads/ на сервере защищена и требует авторизации Bearer.
+                    val isMediaRequest = url.contains("/uploads/")
+                    
                     val isPublicRequest = isPublicShopRequest || isChatUserRequest
                     
-                    val newRequest = if (!isPublicRequest && !hasAuth && token != null && !isGuestToken) {
-                        if (url.contains("shop/products") || url.contains("chat/messages")) {
-                             Log.d("NewsApiService", "Authorized Request detected (Shop/Chat), adding Auth header. Token start: ${token.take(10)}")
-                        }
+                    // Решаем, нужно ли добавлять токен:
+                    // 1. Это НЕ публичный запрос ИЛИ это запрос к защищенному медиа
+                    // 2. Токен отсутствует в текущих заголовках
+                    // 3. Токен физически существует и пользователь не "гость"
+                    val newRequest = if ((!isPublicRequest || isMediaRequest) && !hasAuth && token != null && !isGuestToken) {
                         Log.d("NewsApiService", "Adding Authorization header to: $url")
                         request.newBuilder()
                             .header("Authorization", "Bearer $token")

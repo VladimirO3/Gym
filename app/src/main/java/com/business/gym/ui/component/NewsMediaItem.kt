@@ -3,7 +3,6 @@ package com.business.gym.ui.component
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -110,7 +109,8 @@ fun NewsMediaItem(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(250.dp)
+                            .aspectRatio(16f / 9f) // Адаптивное соотношение сторон вместо фиксированной высоты
+                            .padding(horizontal = 4.dp)
                     ) {
                         if (item.type == "video") {
                             VideoPlayer(
@@ -158,105 +158,64 @@ fun NewsMediaItem(
 
                     // Реакции (для всех, кроме гостей)
                     if (!isGuest) {
-                        var showPicker by remember { mutableStateOf(false) }
                         val userReactionKey = item.userReaction
+                        val hasUserReacted = !userReactionKey.isNullOrBlank()
 
-                        // Отображаем выбранную реакцию или сумму реакций без огромных отступов
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(0.dp), // Эмодзи отображаются вплотную друг к другу
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val activeReactions = reactionList.filter { (_, key) ->
-                                (item.reactions[key] ?: 0) > 0 || key == userReactionKey
-                            }
-
-                            if (activeReactions.isEmpty()) {
-                                // Если реакции не поставлены — показываем компактную кнопку выборки
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                    modifier = Modifier
-                                        .combinedClickable(
-                                            onClick = { showPicker = true },
-                                            onLongClick = { showPicker = true }
-                                        )
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    ) {
-                                        Text(text = "🤍", fontSize = 16.sp)
-                                    }
-                                }
-                            } else {
-                                activeReactions.forEach { (emoji, key) ->
+                            if (!hasUserReacted) {
+                                // Если пользователь еще не отреагировал — показываем весь список эмодзи для быстрого выбора одним кликом
+                                reactionList.forEach { (emoji, key) ->
                                     val count = item.reactions[key] ?: 0
-                                    val isUserSelected = (key == userReactionKey)
-
                                     Surface(
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = if (isUserSelected) Color.Red.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                        border = if (isUserSelected) androidx.compose.foundation.BorderStroke(1.dp, Color.Red) else null,
-                                        modifier = Modifier
-                                            .combinedClickable(
-                                                onClick = {
-                                                    // Обычный клик — переключает или убирает реакцию
-                                                    onReact(key)
-                                                },
-                                                onLongClick = {
-                                                    // Долгое нажатие — показывает весь список
-                                                    showPicker = true
-                                                }
-                                            )
+                                        color = Color.Transparent, // Кнопки без фона для чистого вида
+                                        modifier = Modifier.clickable { onReact(key) }
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                                         ) {
                                             Text(text = emoji, fontSize = 16.sp)
                                             if (count > 0) {
-                                                Spacer(modifier = Modifier.width(3.dp))
+                                                Spacer(modifier = Modifier.width(2.dp))
                                                 Text(
                                                     text = count.toString(),
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = if (isUserSelected) Color.Red else MaterialTheme.colorScheme.onSurface,
-                                                    fontWeight = if (isUserSelected) FontWeight.Bold else FontWeight.Normal
+                                                    color = MaterialTheme.colorScheme.onSurface
                                                 )
                                             }
                                         }
                                     }
                                 }
-                            }
-                        }
+                            } else {
+                                // Если пользователь отреагировал — сворачиваем список и показываем только активные реакции (счетчик > 0)
+                                // или ту реакцию, которую выбрал сам текущий пользователь.
+                                reactionList.forEach { (emoji, key) ->
+                                    val count = item.reactions[key] ?: 0
+                                    val isUserSelected = (key == userReactionKey)
 
-                        // Выпадающий диалог при долгом удерживании для выбора любой реакции
-                        if (showPicker) {
-                            androidx.compose.ui.window.Dialog(onDismissRequest = { showPicker = false }) {
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    shape = RoundedCornerShape(20.dp),
-                                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        reactionList.forEach { (emoji, key) ->
-                                            val isSelected = (key == userReactionKey)
-                                            Box(
-                                                modifier = Modifier
-                                                    .background(
-                                                        color = if (isSelected) Color.Red.copy(alpha = 0.2f) else Color.Transparent,
-                                                        shape = RoundedCornerShape(12.dp)
-                                                    )
-                                                    .clickable {
-                                                        onReact(key)
-                                                        showPicker = false
-                                                    }
-                                                    .padding(8.dp)
+                                    if (count > 0 || isUserSelected) {
+                                        Surface(
+                                            color = Color.Transparent,
+                                            modifier = Modifier.clickable { onReact(key) }
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                                             ) {
-                                                Text(text = emoji, fontSize = 24.sp)
+                                                Text(text = emoji, fontSize = 16.sp)
+                                                if (count > 0) {
+                                                    Spacer(modifier = Modifier.width(2.dp))
+                                                    Text(
+                                                        text = count.toString(),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        // Подсвечиваем красным только цифру счетчика выбранной реакции
+                                                        color = if (isUserSelected) Color.Red else MaterialTheme.colorScheme.onSurface,
+                                                        fontWeight = if (isUserSelected) FontWeight.Bold else FontWeight.Normal
+                                                    )
+                                                }
                                             }
                                         }
                                     }

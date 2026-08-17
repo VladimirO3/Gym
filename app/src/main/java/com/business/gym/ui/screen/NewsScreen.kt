@@ -63,7 +63,9 @@ fun NewsScreen(
 
     val configuration = LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp > 600
-    val columns = if (isWideScreen) 2 else 1
+    // В альбомной ориентации или на планшетах тоже по 1 колонке для лучшего фокуса на контенте,
+    // но с ограничением максимальной ширины
+    val columns = 1
     
     val jwtToken by authViewModel.jwtToken
     val isGuest by authViewModel.isGuest
@@ -399,9 +401,11 @@ fun NewsScreen(
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .then(if (isWideScreen) Modifier.widthIn(max = 800.dp) else Modifier.fillMaxWidth()),
             contentPadding = PaddingValues(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // ПРИОРИТЕТ: Новости с вашего ТЕСТОВОГО сервера

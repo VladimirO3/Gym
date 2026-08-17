@@ -15,6 +15,9 @@ class CartViewModelTest {
 
     private lateinit var viewModel: CartViewModel
     private val mockContext = mock(Context::class.java)
+    private val mockApplication = mock(android.app.Application::class.java)
+    private val mockDao = mock(com.business.gym.data.local.dao.CartDao::class.java)
+    
     private val testProduct = ProductPlaceholder(
         id = 1,
         name = "Test Product",
@@ -25,7 +28,7 @@ class CartViewModelTest {
 
     @Before
     fun setup() {
-        viewModel = CartViewModel()
+        viewModel = CartViewModel(mockApplication, mockDao)
     }
 
     @Test
