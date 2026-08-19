@@ -35,7 +35,8 @@ fun NewsMediaItem(
     isAdmin: Boolean, 
     isGuest: Boolean = false,
     onDelete: () -> Unit,
-    onReact: (String) -> Unit = {}
+    onReact: (String) -> Unit = {},
+    onClick: () -> Unit = {}
 ) {
     // Считаем текстовой новостью, если URL пустой ИЛИ содержит заглушку /uploads/
     val isTextOnly = item.url.isNullOrBlank() || item.url.endsWith("/uploads/") || item.url == "/uploads"
@@ -60,7 +61,8 @@ fun NewsMediaItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp),
+            .padding(vertical = 12.dp)
+            .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(

@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.exoplayer.ExoPlayer
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.business.gym.R
 import com.business.gym.data.model.NewsItem
 import com.business.gym.data.api.NewsApiService
@@ -94,6 +97,124 @@ fun NewsScreen(
     var localContent by remember { mutableStateOf("") }
     var selectedMediaUri by remember { mutableStateOf<Uri?>(null) }
     var tempUri by remember { mutableStateOf<Uri?>(null) }
+    
+    var selectedNewsForFullScreen by remember { mutableStateOf<NewsItem?>(null) }
+
+    if (selectedNewsForFullScreen != null) {
+        val news = selectedNewsForFullScreen!!
+        val isTextOnly = news.url.isBlank() || news.url.endsWith("/uploads/") || news.url == "/uploads"
+        
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { selectedNewsForFullScreen = null },
+            properties = androidx.compose.ui.window.DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true
+            )
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                // Затемнение фона (Scrim)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.8f))
+                        .clickable { selectedNewsForFullScreen = null }
+                )
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(0.95f)
+                        .fillMaxHeight(0.85f)
+                        .then(if (isWideScreen) Modifier.width(600.dp) else Modifier),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                    color = Color(0xFF1A1A1A), // Темно-серый фон карточки
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Red.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            if (!isTextOnly) {
+                                if (news.type == "video") {
+                                    VideoPlayer(
+                                        videoUrl = news.url,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(16f / 9f),
+                                        autoPlay = true
+                                    )
+                                } else {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(news.url)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(16f / 9f),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                }
+                            }
+                            
+                            // Кнопка закрытия
+                            IconButton(
+                                onClick = { selectedNewsForFullScreen = null },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp)
+                                    .background(Color.Black.copy(alpha = 0.6f), androidx.compose.foundation.shape.CircleShape)
+                            ) {
+                                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                            }
+                        }
+
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            if (!news.title.isNullOrBlank()) {
+                                Text(
+                                    text = news.title,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = Color.Red,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                            if (!news.content.isNullOrBlank()) {
+                                Text(
+                                    text = news.content,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = Color.White,
+                                    lineHeight = 22.sp
+                                )
+                            }
+                            
+                            val dateText = remember(news.timestamp) {
+                                if (news.timestamp > 0) {
+                                    val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("ru"))
+                                    sdf.format(Date(news.timestamp))
+                                } else ""
+                            }
+                            
+                            if (dateText.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(20.dp))
+                                Text(
+                                    text = dateText,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     fun createTempFile(extension: String): File {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
@@ -426,7 +547,8 @@ fun NewsScreen(
                         isAdmin = isAdmin, 
                         isGuest = isGuest,
                         onDelete = { viewModel.deleteLocalNewsItem(localItem.id, jwtToken) },
-                        onReact = { type -> viewModel.reactToNews(localItem.id, type, jwtToken) }
+                        onReact = { type -> viewModel.reactToNews(localItem.id, type, jwtToken) },
+                        onClick = { selectedNewsForFullScreen = newsItem }
                     )
                 }
             }
@@ -442,7 +564,13 @@ fun NewsScreen(
                     )
                 }
                 items(newsItems) { item ->
-                    NewsMediaItem(item, isAdmin, isGuest = isGuest, onDelete = { viewModel.deleteNewsItem(item) })
+                    NewsMediaItem(
+                        item = item, 
+                        isAdmin = isAdmin, 
+                        isGuest = isGuest, 
+                        onDelete = { viewModel.deleteNewsItem(item) },
+                        onClick = { selectedNewsForFullScreen = item }
+                    )
                 }
             }
         }
