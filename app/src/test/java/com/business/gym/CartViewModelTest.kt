@@ -19,7 +19,7 @@ class CartViewModelTest {
     private val mockDao = mock(com.business.gym.data.local.dao.CartDao::class.java)
     
     private val testProduct = ProductPlaceholder(
-        id = 1,
+        id = "1",
         name = "Test Product",
         price = "1 000 ₽",
         description = "Description",

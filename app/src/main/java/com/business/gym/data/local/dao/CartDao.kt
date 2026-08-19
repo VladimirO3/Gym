@@ -16,5 +16,5 @@ interface CartDao {
     suspend fun clearCart(userId: String)
 
     @Query("DELETE FROM cart_items WHERE userId = :userId AND productId = :productId")
-    suspend fun deleteItem(userId: String, productId: Int)
+    suspend fun deleteItem(userId: String, productId: String)
 }

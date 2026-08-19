@@ -110,7 +110,7 @@ class ShopViewModel(
      */
     fun updateProduct(
         context: Context,
-        id: Int,
+        id: String,
         name: String,
         price: String,
         description: String,
@@ -148,7 +148,7 @@ class ShopViewModel(
     /**
      * Административная функция: Полное удаление товара.
      */
-    fun deleteProduct(id: Int) {
+    fun deleteProduct(id: String) {
         _isLoading.value = true
         viewModelScope.launch {
             try {
@@ -164,7 +164,7 @@ class ShopViewModel(
     /**
      * Административная функция: Удаление только фотографии товара.
      */
-    fun deleteProductPhoto(id: Int, onSuccess: () -> Unit) {
+    fun deleteProductPhoto(id: String, onSuccess: () -> Unit) {
         _isLoading.value = true
         viewModelScope.launch {
             try {

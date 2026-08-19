@@ -31,12 +31,7 @@ class ProductRepository(
 
             val entities = response.map {
                 Log.d("ProductRepository", "Mapping product: ID=${it.id}, Name=${it.name}, Price=${it.price}, Image=${it.imageUrl}")
-                val safeId = when (val id = it.id) {
-                    is Double -> id.toInt()
-                    is Int -> id
-                    is String -> id.toIntOrNull() ?: 0
-                    else -> 0
-                }
+                val safeId = it.id.toString() // Сохраняем ID как есть в виде строки
                 ProductEntity(
                     safeId,
                     it.name ?: "Без названия", 
@@ -63,17 +58,17 @@ class ProductRepository(
         refreshProducts()
     }
 
-    suspend fun updateProduct(id: Int, name: RequestBody, price: RequestBody, desc: RequestBody, file: MultipartBody.Part?) {
+    suspend fun updateProduct(id: String, name: RequestBody, price: RequestBody, desc: RequestBody, file: MultipartBody.Part?) {
         api.updateProduct(id, name, price, desc, file)
         refreshProducts()
     }
 
-    suspend fun deleteProduct(id: Int) {
+    suspend fun deleteProduct(id: String) {
         api.deleteProduct(id)
         productDao.deleteProductById(id)
     }
 
-    suspend fun deleteProductPhoto(id: Int) {
+    suspend fun deleteProductPhoto(id: String) {
         api.deleteProductPhoto(id)
         refreshProducts()
     }

@@ -130,14 +130,16 @@ class SettingsViewModel(
         }
 
         val id = effectiveUid
-        // Проверка на админа (админам не нужно принимать оферту)
         val isAdmin = AuthUtils.isStaticAdmin(currentUserEmail)
+        Log.d("SettingsViewModel", "loadSettings: effectiveUid=$id, isAdmin=$isAdmin")
+        
         if (isAdmin) {
             _privacyAgreed.value = true
         }
 
         // Принудительно запрашиваем актуальные данные профиля с VPS
         viewModelScope.launch {
+            Log.d("SettingsViewModel", "Launching profile refresh for $id")
             repository.refreshProfileFromServer(id)
             if (isAdmin) {
                 repository.updatePrivacy(id, true)
@@ -147,6 +149,7 @@ class SettingsViewModel(
         // Подписка на локальный кэш профиля
         viewModelScope.launch {
             repository.getProfile(id).collect { profile ->
+                Log.d("SettingsViewModel", "Profile collection update for $id: ${profile?.name ?: "null"}")
                 profile?.let {
                     _privacyAgreed.value = if (isAdmin) true else it.privacyAgreed
                     if (it.name.isNotBlank()) _userName.value = it.name
@@ -156,14 +159,6 @@ class SettingsViewModel(
                     _avatarUrl.value = it.avatarUrl
                     
                     if (it.themeMode != _themeMode.value) _themeMode.value = it.themeMode
-                } ?: run {
-                    repository.saveProfile(ProfileEntity(
-                        uid = id, 
-                        email = currentUserEmail ?: "", 
-                        name = "",
-                        themeMode = _themeMode.value,
-                        privacyAgreed = isAdmin
-                    ))
                 }
             }
         }

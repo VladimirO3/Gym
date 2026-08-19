@@ -94,12 +94,12 @@ fun ShopScreen(
             product = editingProduct!!,
             onDismiss = { editingProduct = null },
             onSave = { name, price, desc, uri ->
-                shopViewModel.updateProduct(context, editingProduct!!.id.toIntId(), name, price, desc, uri) {
+                shopViewModel.updateProduct(context, editingProduct!!.id.toString(), name, price, desc, uri) {
                     editingProduct = null
                 }
             },
             onDeletePhoto = {
-                shopViewModel.deleteProductPhoto(editingProduct!!.id.toIntId()) {
+                shopViewModel.deleteProductPhoto(editingProduct!!.id.toString()) {
                     editingProduct = null
                 }
             }
@@ -198,7 +198,7 @@ fun ShopScreen(
                     modifier = Modifier.fillMaxWidth().weight(1f)
                 ) {
                     items(products) { product ->
-                        val cartItem = cartViewModel.cartItems.value.find { it.first.id == product.id.toIntId() }
+                        val cartItem = cartViewModel.cartItems.value.find { it.first.id == product.id.toString() }
                         val countInCart = cartItem?.second ?: 0
 
                         ShopProductCard(
@@ -219,7 +219,7 @@ fun ShopScreen(
                                 isShowingCart = true
                             },
                             onEdit = { editingProduct = product },
-                            onDelete = { shopViewModel.deleteProduct(product.id.toIntId()) }
+                            onDelete = { shopViewModel.deleteProduct(product.id.toString()) }
                         )
                     }
                 }
@@ -750,17 +750,11 @@ fun ProductAddDialog(
     )
 }
 
-private fun Any?.toIntId(): Int {
-    return when (this) {
-        is Number -> this.toInt()
-        is String -> this.toIntOrNull() ?: 0
-        else -> 0
-    }
-}
+
 
 private fun ProductResponse.toPlaceholder(): ProductPlaceholder {
     return ProductPlaceholder(
-        id = this.id.toIntId(),
+        id = this.id.toString(), // Используем строковый ID
         name = this.name.orEmpty(),
         price = this.price.orEmpty(),
         description = this.description.orEmpty(),
@@ -769,7 +763,7 @@ private fun ProductResponse.toPlaceholder(): ProductPlaceholder {
 }
 
 data class ProductPlaceholder(
-    val id: Int,
+    val id: String, // Изменено на String
     val name: String,
     val price: String,
     val description: String,

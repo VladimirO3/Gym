@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.business.gym.data.api.NewsApiService
@@ -271,6 +272,7 @@ fun UserListScreen(
                                 val fullAvatarUrl = NewsApiService.getFullUrl(currentContext, avatarUrl)
                                 
                                 if (!avatarUrl.isNullOrBlank()) {
+                                    android.util.Log.d("ChatScreen", "Loading avatar for ${user.name}: $fullAvatarUrl")
                                     AsyncImage(
                                         model = ImageRequest.Builder(LocalContext.current)
                                             .data(fullAvatarUrl)
@@ -279,9 +281,18 @@ fun UserListScreen(
                                             .build(),
                                         contentDescription = "Avatar",
                                         modifier = Modifier.size(40.dp).clip(CircleShape),
-                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                        error = rememberVectorPainter(Icons.Default.Person),
+                                        placeholder = rememberVectorPainter(Icons.Default.Person),
+                                        onError = { state ->
+                                            android.util.Log.e("ChatScreen", "Failed to load avatar for ${user.name}: ${state.result.throwable.message}")
+                                        },
+                                        onSuccess = {
+                                            android.util.Log.d("ChatScreen", "Successfully loaded avatar for ${user.name}")
+                                        }
                                     )
                                 } else {
+                                    android.util.Log.d("ChatScreen", "No avatar for ${user.name}, showing placeholder")
                                     Icon(
                                         Icons.Default.Person, 
                                         null,

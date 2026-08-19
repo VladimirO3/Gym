@@ -73,29 +73,25 @@ class ChatRepository(
         return try {
             Log.d("ChatRepository", "Refreshing chat users from VPS...")
             val users = apiService.getChatUsers()
-            Log.d("ChatRepository", "Received ${users.size} users from VPS")
+            Log.d("ChatRepository", "Received ${users.size} users from VPS. Raw response data might contain avatars.")
             
-            // 1. ПОЛНАЯ ОЧИСТКА КЕША перед вставкой (решает проблему "зависших" данных)
+            // 1. ПОЛНАЯ ОЧИСТКА КЕША перед вставкой
             chatDao.deleteAllUsers()
-            Log.d("ChatRepository", "Local users cache cleared")
 
-            // 2. Фильтруем новых пользователей (убираем пустые UID и удаленных в сессии)
+            // 2. Фильтруем новых пользователей
             val filteredUsers = users.filter { 
                 val currentUid = it.id?.toString() ?: it.uid ?: it.email
-                Log.d("ChatRepository", "User in list from server: name=${it.name}, email=${it.email}, id=${it.id}, uid=${it.uid}")
                 currentUid.isNotBlank() && !sessionDeletedUids.contains(currentUid)
             }
 
             val entities = filteredUsers.map { 
-                // ПРИОРИТЕТ: сначала используем ID (он безопасен для URL путей), 
-                // затем строковый UID, и в последнюю очередь email.
                 val bestUid = when {
                     !it.id.isNullOrBlank() -> it.id
                     !it.uid.isNullOrBlank() -> it.uid
                     else -> it.email
                 }
                 
-                Log.d("ChatRepository", "Mapping chat user with avatar: ${it.name}, url=${it.avatarUrl}")
+                Log.d("ChatRepository", "Mapping user: ${it.name}, avatarUrl=${it.avatarUrl}")
                 UserEntity(
                     uid = bestUid,
                     serverId = it.id,
@@ -106,9 +102,8 @@ class ChatRepository(
                 )
             }
             
-            // 3. Сохраняем актуальный список через транзакцию (атомарно)
             chatDao.updateUsers(entities)
-            Log.d("ChatRepository", "Successfully cached ${entities.size} users to local DB")
+            Log.d("ChatRepository", "Successfully cached ${entities.size} users")
             true
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e

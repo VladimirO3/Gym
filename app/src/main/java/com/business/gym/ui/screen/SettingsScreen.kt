@@ -21,6 +21,7 @@ import com.business.gym.ui.viewmodel.AuthViewModel
 import androidx.compose.ui.graphics.Color
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import coil.compose.AsyncImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
@@ -33,7 +34,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.BorderStroke
-import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.business.gym.data.api.NewsApiService
 import java.time.LocalDate
@@ -184,14 +184,20 @@ fun SettingsScreen(
                                     .setHeader("Authorization", "Bearer $jwtToken")
                                     .setHeader("Cache-Control", "no-cache")
                                     .crossfade(true)
+                                    .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                                    .diskCachePolicy(coil.request.CachePolicy.DISABLED)
                                     .build(),
                                 contentDescription = "Avatar",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
-                                error = coil.compose.rememberAsyncImagePainter(model = Icons.Default.Person),
-                                placeholder = coil.compose.rememberAsyncImagePainter(model = Icons.Default.Person),
+                                error = rememberVectorPainter(Icons.Default.Person),
+                                placeholder = rememberVectorPainter(Icons.Default.Person),
                                 onError = { state ->
-                                    android.util.Log.e("SettingsScreen", "Coil Error for $fullAvatarUrl: ${state.result.throwable.message}")
+                                    val errorMsg = state.result.throwable.message ?: "Unknown Coil Error"
+                                    android.util.Log.e("SettingsScreen", "Coil Error for $fullAvatarUrl: $errorMsg")
+                                    if (errorMsg.contains("timeout", ignoreCase = true)) {
+                                        android.widget.Toast.makeText(context, "Сервер долго не отвечает (timeout). Попробуйте обновить страницу.", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
                                 },
                                 onSuccess = {
                                     android.util.Log.i("SettingsScreen", "Coil Success for $fullAvatarUrl")

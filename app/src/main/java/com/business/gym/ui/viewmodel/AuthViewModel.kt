@@ -178,11 +178,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             
             if (savedToken != "guest_token") {
                 // Пытаемся подтвердить сессию на сервере
-                fetchAndSaveProfile { email ->
+                fetchAndSaveProfile { email, uid ->
                     _currentUserEmail.value = email
-                    // Мы НЕ устанавливаем UID из email или констант, только из проверенного источника (savedUid или ответ сервера)
-                    // Если в SharedPreferences UID был email-ом, он обновится при fetchAndSaveProfile (внутри saveSession)
-                    _currentUid.value = savedUid ?: ""
+                    _currentUid.value = uid
                     _isSessionLoaded.value = true
                 }
             } else {
@@ -214,27 +212,23 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             .edit().clear().apply()
     }
 
-    private fun fetchAndSaveProfile(onSuccess: (String) -> Unit) {
+    private fun fetchAndSaveProfile(onSuccess: (String, String) -> Unit) {
         viewModelScope.launch {
             try {
                 Log.d("AuthViewModel", "Fetching profile from server...")
                 val profile = localApiService.getProfile()
                 
                 // Умный поиск UID: приоритет ID > UID > Email
-                // Используем ID как основной UID, так как числовые идентификаторы надежнее работают в путях URL
                 var profileUid = profile.id?.toString() ?: profile.uid ?: profile.email
                 
-                // Резервный ID для админа, если сервер не прислал его
                 if (profileUid.isBlank() && isStaticAdmin(profile.email)) {
                     profileUid = "1"
-                    Log.d("AuthViewModel", "Using fallback UID '1' for static admin")
                 }
                 
                 if (profileUid.isNotBlank()) {
                     Log.d("AuthViewModel", "Profile UID resolved: $profileUid")
-                    // Сохраняем проверенные данные в сессию
                     saveSession(getApplication(), profile.email, null, _jwtToken.value!!, _refreshToken.value, profileUid)
-                    onSuccess(profile.email)
+                    onSuccess(profile.email, profileUid)
                 } else {
                     Log.e("AuthViewModel", "User ID is empty after fetching profile")
                     clearSession(getApplication())
@@ -245,7 +239,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 // Если мы админ, пробуем остаться в системе даже при ошибке профиля (сетевой сбой)
                 if (isStaticAdmin(_currentUserEmail.value)) {
                     Log.w("AuthViewModel", "Admin profile fetch failed, but keeping session due to network error")
-                    onSuccess(_currentUserEmail.value ?: ADMIN_EMAIL)
+                    onSuccess(_currentUserEmail.value ?: ADMIN_EMAIL, "1")
                 } else {
                     clearSession(getApplication())
                     signOut()

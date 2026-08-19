@@ -5,7 +5,7 @@ import androidx.room.Entity
 @Entity(tableName = "cart_items", primaryKeys = ["userId", "productId"])
 data class CartItemEntity(
     val userId: String,
-    val productId: Int,
+    val productId: String, // Изменено на String для универсальности ID
     val quantity: Int,
     val name: String,
     val price: String,

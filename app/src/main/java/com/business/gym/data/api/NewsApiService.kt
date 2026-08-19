@@ -172,7 +172,7 @@ interface NewsApiService {
     @Multipart
     @POST("admin/shop/products/{id}")
     suspend fun updateProduct(
-        @Path("id") id: Int,
+        @Path("id") id: Any, // Может быть Int или String
         @Part("name") name: RequestBody,
         @Part("price") price: RequestBody,
         @Part("description") description: RequestBody,
@@ -181,12 +181,12 @@ interface NewsApiService {
 
     @DELETE("admin/shop/products/{id}")
     suspend fun deleteProduct(
-        @Path("id") id: Int
+        @Path("id") id: Any
     ): okhttp3.ResponseBody
 
     @DELETE("admin/shop/products/{id}/photo")
     suspend fun deleteProductPhoto(
-        @Path("id") id: Int
+        @Path("id") id: Any
     ): okhttp3.ResponseBody
 
     // --- КОРЗИНА ---
@@ -441,7 +441,10 @@ interface NewsApiService {
             if (rawUrl.isNullOrBlank()) return ""
             
             // Если это уже полный URL (начинается с http), возвращаем как есть.
-            if (rawUrl.startsWith("http")) return rawUrl
+            if (rawUrl.startsWith("http")) {
+                Log.d("NewsApiService", "getFullUrl: URL is already absolute: $rawUrl")
+                return rawUrl
+            }
             
             val settingsPref = context.getSharedPreferences("settings_global", android.content.Context.MODE_PRIVATE)
             val serverIp = settingsPref.getString("server_ip", "5.35.98.149:5557") ?: "5.35.98.149:5557"
@@ -459,7 +462,7 @@ interface NewsApiService {
             val cleanRaw = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
             val result = base + cleanRaw
             
-            android.util.Log.d("NewsApiService", "getFullUrl: raw=$rawUrl -> result=$result")
+            Log.d("NewsApiService", "getFullUrl: constructed URL: raw=$rawUrl -> result=$result")
             return result
         }
 
@@ -490,9 +493,9 @@ interface NewsApiService {
 
             val client = okhttp3.OkHttpClient.Builder()
                 .dispatcher(dispatcher)
-                .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-                .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .connectTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .addInterceptor { chain ->
                     val request = chain.request()

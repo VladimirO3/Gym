@@ -113,6 +113,10 @@ class ChatViewModel(
                     }
                     .toMutableList()
                 
+                profiles.forEach { 
+                    Log.d("ChatViewModel", "Profile in list: ${it.name}, avatar=${it.avatarUrl}")
+                }
+                
                 Log.d("ChatViewModel", "After filtering, profiles count: ${profiles.size}")
                 
                 // Если мы не администратор, гарантируем наличие администратора в списке

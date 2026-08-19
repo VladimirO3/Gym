@@ -7,8 +7,10 @@ import com.business.gym.data.local.dao.DailyNoteDao
 import com.business.gym.data.local.dao.ProfileDao
 import com.business.gym.data.local.entity.DailyNoteEntity
 import com.business.gym.data.local.entity.ProfileEntity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 
@@ -32,10 +34,15 @@ class ProfileRepository(
         try {
             Log.d("ProfileRepository", "Refreshing profile from server for UID: $uid")
             val remote = apiService.getProfile()
-            Log.d("ProfileRepository", "Profile received: ${remote.email}, Remote UID: ${remote.uid}")
+            Log.d("ProfileRepository", "Profile received: ${remote.email}, Name: ${remote.name}, Age: ${remote.age}")
             
-            // Используем переданный UID как основной, если сервер прислал null
-            val finalUid = remote.uid ?: uid
+            // Если сервер вернул пустые данные, логируем это
+            if (remote.name.isNullOrBlank()) {
+                Log.w("ProfileRepository", "Server returned empty name for $uid")
+            }
+
+            // Используем тот же алгоритм выбора ID, что и в AuthViewModel: ID > UID > Email
+            val finalUid = remote.id?.toString() ?: remote.uid ?: uid
             
             val entity = ProfileEntity(
                 uid = finalUid,
@@ -47,10 +54,19 @@ class ProfileRepository(
                 lang = remote.lang ?: "system",
                 privacyAgreed = remote.privacyAgreed ?: false
             )
-            Log.d("ProfileRepository", "Saving profile to Room. AvatarURL: ${entity.avatarUrl}")
+            Log.d("ProfileRepository", "Saving profile to Room. UID: $finalUid, Name: ${entity.name}")
             profileDao.insertProfile(entity)
+            
+            // Если мы сохранили под другим ID, чем просили, сохраняем и под исходным для совместимости
+            if (finalUid != uid) {
+                profileDao.insertProfile(entity.copy(uid = uid))
+            }
         } catch (e: Exception) {
             Log.e("ProfileRepository", "CRITICAL: Failed to refresh profile. Error: ${e.message}", e)
+            // Показываем ошибку пользователю, чтобы он понимал, почему данные не подгрузились
+            withContext(Dispatchers.Main) {
+                android.widget.Toast.makeText(context, "Ошибка синхронизации профиля", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

@@ -78,7 +78,7 @@ class CartViewModel(
                 val api = NewsApiService.create(context)
                 val response = api.getCart()
                 val newItems = response.map {
-                    val safeId = it.productId.toIntId()
+                    val safeId = it.productId.toString() // ID как строка
                     Pair(
                         ProductPlaceholder(safeId, it.name, it.price, it.description, it.imageUrl),
                         it.quantity
@@ -209,17 +209,6 @@ class CartViewModel(
      */
     fun formatPrice(price: Int): String {
         return String.format(java.util.Locale("ru", "RU"), "%, d", price).replace(",", " ").trim() + " ₽"
-    }
-
-    /**
-     * Безопасное приведение ID к Int
-     */
-    private fun Any?.toIntId(): Int {
-        return when (this) {
-            is Number -> this.toInt()
-            is String -> this.toIntOrNull() ?: 0
-            else -> 0
-        }
     }
 
     /**
