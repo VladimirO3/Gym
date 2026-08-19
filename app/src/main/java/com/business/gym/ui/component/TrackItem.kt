@@ -35,8 +35,12 @@ fun TrackItem(
             .fillMaxWidth()
             .clickable(onClick = onPlayPause),
         // Подсветка выбранного трека через цвет контейнера и рамку
-        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent,
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color.Red) else null,
+        color = if (isSelected) Color.Red.copy(alpha = 0.1f) else Color.Transparent,
+        border = when {
+            isSelected && isPlaying -> androidx.compose.foundation.BorderStroke(2.dp, Color.Red)
+            isSelected -> androidx.compose.foundation.BorderStroke(1.dp, Color.Red.copy(alpha = 0.5f))
+            else -> androidx.compose.foundation.BorderStroke(0.5.dp, Color.Gray.copy(alpha = 0.3f))
+        },
         shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
     ) {
         Row(

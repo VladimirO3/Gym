@@ -66,6 +66,7 @@ fun PlaylistScreen(
     }
     
     var currentTrack by remember { mutableStateOf<Track?>(null) }
+    var currentTrackIndex by remember { mutableIntStateOf(player.currentMediaItemIndex) }
     var isPlaying by remember { mutableStateOf(false) }
     
     // Плеер: состояние прогресса
@@ -83,6 +84,10 @@ fun PlaylistScreen(
             if (isPlaying && !isDraggingSlider) {
                 currentPosition = player.currentPosition
                 trackDuration = player.duration.coerceAtLeast(0L)
+                // Дополнительно синхронизируем индекс, если он сменился без транзишена (редко, но бывает)
+                if (currentTrackIndex != player.currentMediaItemIndex) {
+                    currentTrackIndex = player.currentMediaItemIndex
+                }
             }
             delay(500)
         }
@@ -121,6 +126,7 @@ fun PlaylistScreen(
         player.play()
         
         currentTrack = allTracks[startIndex]
+        currentTrackIndex = startIndex
     }
 
     // Лаунчер для выбора аудио
@@ -159,6 +165,7 @@ fun PlaylistScreen(
     // Synchronize currentTrack and isPlaying with player state
     LaunchedEffect(player, tracks, localTracks) {
         isPlaying = player.isPlaying
+        currentTrackIndex = player.currentMediaItemIndex
         val mediaItem = player.currentMediaItem
         if (mediaItem != null) {
             val url = mediaItem.localConfiguration?.uri?.toString() ?: ""
@@ -178,6 +185,7 @@ fun PlaylistScreen(
             }
             
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                currentTrackIndex = player.currentMediaItemIndex
                 if (mediaItem != null) {
                     val url = mediaItem.localConfiguration?.uri?.toString() ?: ""
                     val allTracksList = tracks + localTracks.map { 
@@ -200,6 +208,7 @@ fun PlaylistScreen(
         player.addListener(listener)
         // Синхронизируем начальное состояние
         isShuffleMode = player.shuffleModeEnabled
+        currentTrackIndex = player.currentMediaItemIndex
         onDispose { player.removeListener(listener) }
     }
 
@@ -261,7 +270,7 @@ fun PlaylistScreen(
 
                 items(tracks.indices.toList()) { index ->
                     val track = tracks[index]
-                    val isThisTrackSelected = currentTrack?.url == track.url
+                    val isThisTrackSelected = currentTrackIndex == index
                     TrackItem(
                         track = track,
                         isSelected = isThisTrackSelected,
@@ -279,6 +288,7 @@ fun PlaylistScreen(
                             player.stop()
                             player.clearMediaItems()
                             currentTrack = null
+                            currentTrackIndex = -1
                         }
                     )
                 }
@@ -295,7 +305,8 @@ fun PlaylistScreen(
                     items(localTracks.indices.toList()) { index ->
                         val localTrack = localTracks[index]
                         val fullUrl = NewsApiService.getFullUrl(context, localTrack.url)
-                        val isThisTrackSelected = currentTrack?.url == fullUrl
+                        val absoluteIndex = tracks.size + index
+                        val isThisTrackSelected = currentTrackIndex == absoluteIndex
                         TrackItem(
                             track = Track(id = localTrack.id.toString(), url = fullUrl, name = localTrack.name),
                             isSelected = isThisTrackSelected,
@@ -305,7 +316,7 @@ fun PlaylistScreen(
                             onPlayPause = {
                                 if (!isThisTrackSelected) {
                                     // Индекс в общем списке = размер облачных + индекс в локальных
-                                    playPlaylist(tracks.size + index, allTracksList)
+                                    playPlaylist(absoluteIndex, allTracksList)
                                 } else {
                                     if (isPlaying) player.pause() else player.play()
                                 }
@@ -314,6 +325,7 @@ fun PlaylistScreen(
                                 player.stop()
                                 player.clearMediaItems()
                                 currentTrack = null
+                                currentTrackIndex = -1
                             }
                         )
                     }
