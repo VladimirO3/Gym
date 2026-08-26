@@ -12,5 +12,7 @@ data class ProfileEntity(
     val avatarUrl: String? = null,
     val themeMode: String = "system",
     val lang: String = "system",
-    val privacyAgreed: Boolean = false
+    val privacyAgreed: Boolean = false,
+    val lastPlanDate: String? = null,
+    val dailyPlan: String? = null
 )

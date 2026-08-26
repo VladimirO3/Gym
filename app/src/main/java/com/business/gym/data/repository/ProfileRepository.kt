@@ -44,6 +44,9 @@ class ProfileRepository(
             // Используем тот же алгоритм выбора ID, что и в AuthViewModel: ID > UID > Email
             val finalUid = remote.id?.toString() ?: remote.uid ?: uid
             
+            // Сохраняем локальные данные, которые не приходят с сервера (план тренировок)
+            val currentLocal = profileDao.getProfile(uid).firstOrNull()
+            
             val entity = ProfileEntity(
                 uid = finalUid,
                 email = remote.email,
@@ -52,7 +55,9 @@ class ProfileRepository(
                 avatarUrl = remote.avatarUrl,
                 themeMode = remote.theme ?: "system",
                 lang = remote.lang ?: "system",
-                privacyAgreed = remote.privacyAgreed ?: false
+                privacyAgreed = remote.privacyAgreed ?: false,
+                lastPlanDate = currentLocal?.lastPlanDate,
+                dailyPlan = currentLocal?.dailyPlan
             )
             Log.d("ProfileRepository", "Saving profile to Room. UID: $finalUid, Name: ${entity.name}")
             profileDao.insertProfile(entity)
@@ -198,6 +203,10 @@ class ProfileRepository(
     suspend fun updateAvatarUrl(uid: String, url: String?) {
         Log.d("ProfileRepository", "Updating avatarUrl in Room for UID: $uid to: $url")
         profileDao.updateAvatarUrl(uid, url)
+    }
+
+    suspend fun updateDailyPlan(uid: String, date: String, plan: String) {
+        profileDao.updateDailyPlan(uid, date, plan)
     }
 
     // --- ГЛОБАЛЬНЫЙ КОНТЕНТ ---

@@ -307,7 +307,12 @@ fun CartScreenInternal(
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
-                onClick = { /* Checkout */ },
+                onClick = { 
+                    cartViewModel.checkout(context) {
+                        android.widget.Toast.makeText(context, "Заказ успешно оформлен!", android.widget.Toast.LENGTH_LONG).show()
+                        onBack()
+                    }
+                },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                 shape = RoundedCornerShape(12.dp)
@@ -409,7 +414,7 @@ fun ShopProductCard(
                             model = imageUrl,
                             contentDescription = product.name,
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
+                            contentScale = ContentScale.Fit,
                             error = ColorPainter(Color.DarkGray),
                             placeholder = ColorPainter(Color.LightGray.copy(alpha = 0.3f))
                         )
@@ -556,7 +561,7 @@ fun ProductDetailScreen(
                         model = NewsApiService.getFullUrl(context, product.imageUrl),
                         contentDescription = product.name,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Fit
                     )
                     IconButton(
                         onClick = onDismiss,
@@ -649,13 +654,13 @@ fun ProductEditDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     if (selectedUri != null) {
-                        AsyncImage(model = selectedUri, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        AsyncImage(model = selectedUri, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                     } else {
                         AsyncImage(
                             model = NewsApiService.getFullUrl(context, product.imageUrl),
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
+                            contentScale = ContentScale.Fit,
                             error = ColorPainter(Color.DarkGray)
                         )
                         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)), contentAlignment = Alignment.Center) {
@@ -722,7 +727,7 @@ fun ProductAddDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     if (selectedUri != null) {
-                        AsyncImage(model = selectedUri, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        AsyncImage(model = selectedUri, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                     } else {
                         Icon(Icons.Default.PhotoCamera, null, tint = Color.White)
                     }

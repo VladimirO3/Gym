@@ -17,11 +17,6 @@ import com.business.gym.data.api.NewsApiService
 import com.business.gym.data.local.GymDatabase
 import com.business.gym.data.model.NewsItem
 import com.business.gym.data.repository.NewsRepository
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
-import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -30,23 +25,15 @@ import java.util.UUID
 
 /**
  * ViewModel для управления лентой новостей.
- * Работает как с Firebase (облако), так и с личным VPS сервером (локальные новости).
+ * Работает через VPS сервер с поддержкой оффлайн режима через Room.
  */
 class NewsViewModel(
     application: Application,
     private val repository: NewsRepository
 ) : AndroidViewModel(application) {
-    // Ссылка на Firebase Realtime Database для облачных новостей
-    private val database = FirebaseDatabase.getInstance().getReference("news_items")
-    // Ссылка на Firebase Storage для медиафайлов облачных новостей
-    private val storage = FirebaseStorage.getInstance().getReference("news_media")
     
     // API сервис для работы с VPS
     private val localApiService get() = NewsApiService.create(getApplication())
-
-    // Список новостей из Firebase
-    private val _newsItems = mutableStateOf(listOf<NewsItem>())
-    val newsItems: State<List<NewsItem>> = _newsItems
 
     // Список новостей из локальной БД (VPS синхронизация)
     private val _localNews = mutableStateOf(listOf<LocalNews>())
@@ -57,15 +44,17 @@ class NewsViewModel(
     val isUploading: State<Boolean> = _isUploading
 
     init {
-        // Загрузка новостей из Firebase при старте
-        fetchNews()
-        
         // Подписка на локальный кэш новостей (Room)
         viewModelScope.launch {
             repository.allNews.collect { news ->
                 _localNews.value = news
             }
         }
+        
+        // Фоновое обновление при запуске
+        val sharedPref = application.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+        val token = sharedPref.getString("user_session_token", null)
+        fetchLocalNews(token)
     }
 
     /**
@@ -145,67 +134,6 @@ class NewsViewModel(
         }
     }
 
-    /**
-     * Внутренний метод для получения новостей из Firebase в реальном времени.
-     */
-    private fun fetchNews() {
-        database.addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val items = snapshot.children.mapNotNull { it.getValue(NewsItem::class.java) }
-                _newsItems.value = items.sortedByDescending { it.timestamp }
-            }
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("NewsViewModel", "Database error: ${error.message}")
-            }
-        })
-    }
-
-    /**
-     * Добавление новости по прямой ссылке (в Firebase).
-     */
-    fun addByUrl(url: String, type: String, title: String = "", content: String = "") {
-        val id = database.push().key ?: UUID.randomUUID().toString()
-        val newItem = NewsItem(id, url, type, title, content, System.currentTimeMillis())
-        database.child(id).setValue(newItem)
-    }
-
-    /**
-     * Загрузка медиа в Firebase Storage.
-     */
-    fun uploadMedia(context: Context, uri: Uri) {
-        _isUploading.value = true
-        val type = context.contentResolver.getType(uri)?.let { 
-            if (it.contains("video")) "video" else "image"
-        } ?: "image"
-
-        val originalFileName = getFileName(context, uri) ?: "media_${UUID.randomUUID()}"
-        val fileRef = storage.child("${UUID.randomUUID()}_$originalFileName")
-        
-        fileRef.putFile(uri)
-            .continueWithTask { task ->
-                if (!task.isSuccessful) task.exception?.let { throw it }
-                fileRef.downloadUrl
-            }
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val id = database.push().key ?: UUID.randomUUID().toString()
-                    val newItem = NewsItem(
-                        id = id, 
-                        url = task.result.toString(), 
-                        type = type, 
-                        title = "", 
-                        content = "", 
-                        timestamp = System.currentTimeMillis()
-                    )
-                    database.child(id).setValue(newItem)
-                }
-                _isUploading.value = false
-            }
-    }
-
-    /**
-     * Вспомогательный метод для получения имени файла из Uri.
-     */
     private fun getFileName(context: Context, uri: Uri): String? {
         var result: String? = null
         if (uri.scheme == "content") {
@@ -217,20 +145,6 @@ class NewsViewModel(
             }
         }
         return result ?: uri.path?.substringAfterLast('/')
-    }
-
-    /**
-     * Удаление новости из Firebase.
-     */
-    fun deleteNewsItem(item: NewsItem) {
-        database.child(item.id).removeValue()
-        if (item.url.contains("firebasestorage.googleapis.com")) {
-            try {
-                FirebaseStorage.getInstance().getReferenceFromUrl(item.url).delete()
-            } catch (e: Exception) {
-                Log.e("NewsViewModel", "Error deleting media from storage", e)
-            }
-        }
     }
 
     /**
@@ -247,6 +161,37 @@ class NewsViewModel(
             }
         }
     }
+
+    /**
+     * Добавление новости по прямой ссылке (URL).
+     */
+    fun addByUrl(url: String, type: String, title: String, content: String) {
+        _isUploading.value = true
+        viewModelScope.launch {
+            try {
+                val sharedPref = getApplication<Application>().getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                val token = sharedPref.getString("user_session_token", null)
+                
+                if (token != null) {
+                    repository.uploadNews(
+                        token = token,
+                        title = title,
+                        content = content,
+                        type = type,
+                        url = url
+                    )
+                    repository.refreshNews(token)
+                }
+            } catch (e: Exception) {
+                Log.e("NewsViewModel", "Add by URL failed", e)
+            } finally {
+                _isUploading.value = false
+            }
+        }
+    }
+
+    // Совместимость с UI
+    val newsItems: State<List<NewsItem>> = mutableStateOf(emptyList())
 
     /**
      * Отправка реакции (лайка) на новость.
@@ -272,9 +217,6 @@ class NewsViewModel(
         }
     }
 
-    /**
-     * Фабрика для NewsViewModel.
-     */
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(NewsViewModel::class.java)) {

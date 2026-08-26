@@ -153,12 +153,14 @@ fun NewsScreen(
                                         model = ImageRequest.Builder(LocalContext.current)
                                             .data(news.url)
                                             .crossfade(true)
+                                            .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                                            .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
                                             .build(),
                                         contentDescription = null,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .aspectRatio(16f / 9f),
-                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                            .wrapContentHeight(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
                                     )
                                 }
                             }
@@ -529,7 +531,7 @@ fun NewsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // ПРИОРИТЕТ: Новости с вашего ТЕСТОВОГО сервера
+            // ПРИОРИТЕТ: Новости с вашего VPS сервера
             if (localNews.isNotEmpty()) {
                 items(localNews) { localItem ->
                     val newsItem = NewsItem(
@@ -549,27 +551,6 @@ fun NewsScreen(
                         onDelete = { viewModel.deleteLocalNewsItem(localItem.id, jwtToken) },
                         onReact = { type -> viewModel.reactToNews(localItem.id, type, jwtToken) },
                         onClick = { selectedNewsForFullScreen = newsItem }
-                    )
-                }
-            }
-            
-            // ВТОРОСТЕПЕННО: Новости из Firebase (если есть)
-            if (newsItems.isNotEmpty()) {
-                item(span = { GridItemSpan(columns) }) {
-                    Text(
-                        stringResource(R.string.news_cloud_server),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 16.dp)
-                    )
-                }
-                items(newsItems) { item ->
-                    NewsMediaItem(
-                        item = item, 
-                        isAdmin = isAdmin, 
-                        isGuest = isGuest, 
-                        onDelete = { viewModel.deleteNewsItem(item) },
-                        onClick = { selectedNewsForFullScreen = item }
                     )
                 }
             }

@@ -10,19 +10,15 @@ import androidx.lifecycle.viewModelScope
 import com.business.gym.data.local.GymDatabase
 import com.business.gym.data.local.entity.CoachEntity
 import com.business.gym.data.repository.CoachRepository
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
+import com.business.gym.data.repository.AboutRepository
 import kotlinx.coroutines.launch
 import okhttp3.MultipartBody
 
 class AboutViewModel(
     application: Application,
-    private val coachRepository: CoachRepository
+    private val coachRepository: CoachRepository,
+    private val aboutRepository: AboutRepository
 ) : AndroidViewModel(application) {
-    private val aboutDatabase = FirebaseDatabase.getInstance().getReference("info_about")
-    private val contactDatabase = FirebaseDatabase.getInstance().getReference("info_contact")
 
     private val _aboutTitle = mutableStateOf("")
     val aboutTitle: State<String> = _aboutTitle
@@ -49,56 +45,48 @@ class AboutViewModel(
     val isRefreshing: State<Boolean> = _isRefreshing
 
     init {
-        fetchAboutInfo()
-        fetchContactInfo()
+        // Подписка на глобальную инфо из Room
+        viewModelScope.launch {
+            aboutRepository.globalInfo.collect { info ->
+                info?.let {
+                    _aboutTitle.value = it.aboutTitle
+                    _aboutDescription.value = it.aboutDescription
+                    _aboutServices.value = it.aboutServices
+                    _aboutFooter.value = it.aboutFooter
+                    _contactTitle.value = it.contactTitle
+                    _contactPhone.value = it.contactPhone
+                }
+            }
+        }
         
+        // Подписка на тренеров из Room
         viewModelScope.launch {
             coachRepository.allCoaches.collect { list ->
                 android.util.Log.d("AboutViewModel", "Coaches from Room updated: ${list.size}")
                 _coaches.value = list
             }
         }
-        refreshCoaches()
+        
+        refreshData()
     }
 
-    private fun fetchAboutInfo() {
-        aboutDatabase.addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                _aboutTitle.value = snapshot.child("title").getValue(String::class.java) ?: ""
-                _aboutDescription.value = snapshot.child("description").getValue(String::class.java) ?: ""
-                _aboutServices.value = snapshot.child("services").getValue(String::class.java) ?: ""
-                _aboutFooter.value = snapshot.child("footer").getValue(String::class.java) ?: ""
-            }
-            override fun onCancelled(error: DatabaseError) {}
-        })
-    }
-
-    private fun fetchContactInfo() {
-        contactDatabase.addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                _contactTitle.value = snapshot.child("title").getValue(String::class.java) ?: ""
-                _contactPhone.value = snapshot.child("phone").getValue(String::class.java) ?: ""
-            }
-            override fun onCancelled(error: DatabaseError) {}
-        })
-    }
-
-    fun updateAboutTitle(title: String) = aboutDatabase.child("title").setValue(title)
-    fun updateAboutDescription(desc: String) = aboutDatabase.child("description").setValue(desc)
-    fun updateAboutServices(services: String) = aboutDatabase.child("services").setValue(services)
-    fun updateAboutFooter(footer: String) = aboutDatabase.child("footer").setValue(footer)
-    fun updateContactTitle(title: String) = contactDatabase.child("title").setValue(title)
-    fun updateContactPhone(phone: String) = contactDatabase.child("phone").setValue(phone)
-
-    fun refreshCoaches() {
-        android.util.Log.d("AboutViewModel", "Manual refreshCoaches() triggered")
+    fun refreshData() {
         viewModelScope.launch {
             _isRefreshing.value = true
-            val result = coachRepository.refreshCoaches()
-            android.util.Log.d("AboutViewModel", "refreshCoaches result: $result")
+            aboutRepository.refreshInfo()
+            coachRepository.refreshCoaches()
             _isRefreshing.value = false
         }
     }
+
+    fun updateAboutTitle(title: String) = viewModelScope.launch { aboutRepository.updateAboutTitle(title) }
+    fun updateAboutDescription(desc: String) = viewModelScope.launch { aboutRepository.updateAboutDescription(desc) }
+    fun updateAboutServices(services: String) = viewModelScope.launch { aboutRepository.updateAboutServices(services) }
+    fun updateAboutFooter(footer: String) = viewModelScope.launch { aboutRepository.updateAboutFooter(footer) }
+    fun updateContactTitle(title: String) = viewModelScope.launch { aboutRepository.updateContactTitle(title) }
+    fun updateContactPhone(phone: String) = viewModelScope.launch { aboutRepository.updateContactPhone(phone) }
+
+    fun refreshCoaches() = refreshData()
 
     fun addCoach(name: String, description: String, imagePart: MultipartBody.Part?) {
         android.util.Log.d("AboutViewModel", "addCoach called for: $name")
@@ -124,11 +112,13 @@ class AboutViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(AboutViewModel::class.java)) {
                 val database = GymDatabase.getDatabase(application)
-                val repository = CoachRepository(database.coachDao(), application)
+                val coachRepo = CoachRepository(database.coachDao(), application)
+                val aboutRepo = AboutRepository(database.globalInfoDao(), application)
                 @Suppress("UNCHECKED_CAST")
-                return AboutViewModel(application, repository) as T
+                return AboutViewModel(application, coachRepo, aboutRepo) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }
+

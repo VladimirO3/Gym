@@ -62,6 +62,7 @@ fun SettingsScreen(
     val userName by viewModel.userName
     val userAge by viewModel.userAge
     val avatarUrl by viewModel.avatarUrl
+    val dailyPlan by viewModel.dailyPlan
     val isUpdating by viewModel.isUpdatingProfile
     val jwtToken by authViewModel.jwtToken
 
@@ -182,10 +183,7 @@ fun SettingsScreen(
                                 model = ImageRequest.Builder(LocalContext.current)
                                     .data(fullAvatarUrl)
                                     .setHeader("Authorization", "Bearer $jwtToken")
-                                    .setHeader("Cache-Control", "no-cache")
                                     .crossfade(true)
-                                    .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
-                                    .diskCachePolicy(coil.request.CachePolicy.DISABLED)
                                     .build(),
                                 contentDescription = "Avatar",
                                 modifier = Modifier.fillMaxSize(),
@@ -195,9 +193,6 @@ fun SettingsScreen(
                                 onError = { state ->
                                     val errorMsg = state.result.throwable.message ?: "Unknown Coil Error"
                                     android.util.Log.e("SettingsScreen", "Coil Error for $fullAvatarUrl: $errorMsg")
-                                    if (errorMsg.contains("timeout", ignoreCase = true)) {
-                                        android.widget.Toast.makeText(context, "Сервер долго не отвечает (timeout). Попробуйте обновить страницу.", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
                                 },
                                 onSuccess = {
                                     android.util.Log.i("SettingsScreen", "Coil Success for $fullAvatarUrl")
@@ -259,6 +254,33 @@ fun SettingsScreen(
                             Icon(Icons.Default.ShoppingCart, null, tint = Color.White, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("Моя корзина", color = Color.White, fontSize = 12.sp)
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // История заказов
+                        val orders by viewModel.orderHistory
+                        if (orders.isNotEmpty()) {
+                            Text(
+                                "История заказов", 
+                                style = MaterialTheme.typography.titleSmall, 
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                textAlign = TextAlign.Start
+                            )
+                            orders.forEach { order ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(alpha = 0.2f))
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Заказ #${order.id.take(8)}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Text(order.status, color = if (order.status == "completed") Color.Green else Color.Yellow, fontSize = 10.sp)
+                                        }
+                                        Text("${order.totalPrice} ₽", color = Color.Red, fontSize = 12.sp)
+                                    }
+                                }
+                            }
                         }
                     } else {
                         OutlinedTextField(
@@ -330,7 +352,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             // --- ПЛАН ТРЕНИРОВОК ДЛЯ НОВИЧКОВ ---
-            TrainingPlanSection(contentModifier)
+            TrainingPlanSection(dailyPlan, contentModifier)
 
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -612,7 +634,7 @@ fun GymCalendar(viewModel: SettingsViewModel, modifier: Modifier) {
 }
 
 @Composable
-fun TrainingPlanSection(modifier: Modifier) {
+fun TrainingPlanSection(plan: String?, modifier: Modifier) {
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
@@ -631,31 +653,40 @@ fun TrainingPlanSection(modifier: Modifier) {
             }
             
             Text(
-                text = "Программа для новичков (Full Body)",
+                text = "Ваш персональный план на ${LocalDate.now()}",
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.Gray,
                 modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
             )
 
-            val exercises = listOf(
-                "1. Приседания с собственным весом" to "3 подхода по 15-20 раз",
-                "2. Отжимания от пола (или с колен)" to "3 подхода по 10-12 раз",
-                "3. Выпады на месте" to "3 подхода по 10 раз на каждую ногу",
-                "4. Планка на локтях" to "3 подхода по 30-45 секунд",
-                "5. Гиперэкстензия (или 'Лодочка')" to "3 подхода по 15 раз",
-                "6. Скручивания на пресс" to "3 подхода по 20 раз"
-            )
-
-            exercises.forEach { (name, detail) ->
-                Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                    Text(text = name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    Text(text = detail, color = Color.Red.copy(alpha = 0.8f), fontSize = 13.sp)
+            if (plan != null) {
+                val exercises = plan.split(",").map { it.trim() }
+                exercises.forEach { exercise ->
+                    Row(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(Color.Red, CircleShape)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = exercise,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
+            } else {
+                CircularProgressIndicator(color = Color.Red, modifier = Modifier.size(24.dp))
             }
 
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "💡 Отдых между подходами: 60-90 секунд. Не забывайте про разминку перед началом!",
+                text = "💡 План обновляется автоматически каждый день. Хорошей тренировки!",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.Gray,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic

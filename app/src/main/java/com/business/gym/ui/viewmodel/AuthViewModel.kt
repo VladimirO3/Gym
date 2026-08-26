@@ -82,6 +82,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun isAdmin(): Boolean = isStaticAdmin(_currentUserEmail.value)
 
     fun loginAsGuest(onSuccess: () -> Unit) {
+        // Сначала сохраняем сессию в Prefs, чтобы интерцепторы видели её
+        saveSession(getApplication(), GUEST_EMAIL, null, "guest_token", uid = "guest")
+
         _isGuest.value = true
         _currentUserEmail.value = GUEST_EMAIL
         _currentUid.value = "guest"
@@ -90,7 +93,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         // Очищаем ошибки перед входом
         _error.value = null
         
-        saveSession(getApplication(), GUEST_EMAIL, null, "guest_token", uid = "guest")
         onSuccess()
     }
 
@@ -283,14 +285,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         return@launch
                     }
                     
+                    // Сначала сохраняем сессию физически
+                    saveSession(getApplication(), profile.email, null, token, refresh, profileUid)
+                    saveCredentials(emailValue, passwordValue)
+
                     _jwtToken.value = token
                     _refreshToken.value = refresh
                     _currentUserEmail.value = profile.email
                     _currentUid.value = profileUid
 
-                    saveSession(getApplication(), profile.email, null, token, refresh, profileUid)
-                    saveCredentials(emailValue, passwordValue)
-                    
                     _isLoading.value = false
                     onSuccess(profile.email)
                 } catch (pe: Exception) {
@@ -300,12 +303,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     if (isStaticAdmin(emailValue)) {
                         Log.w("AuthViewModel", "Admin login allowed with fallback UID due to profile error")
                         val fallbackUid = "1"
+                        
+                        saveSession(getApplication(), emailValue, null, token, refresh, fallbackUid)
+                        saveCredentials(emailValue, passwordValue)
+
                         _jwtToken.value = token
                         _refreshToken.value = refresh
                         _currentUserEmail.value = emailValue
                         _currentUid.value = fallbackUid
-                        saveSession(getApplication(), emailValue, null, token, refresh, fallbackUid)
-                        saveCredentials(emailValue, passwordValue)
+                        
                         _isLoading.value = false
                         onSuccess(emailValue)
                     } else {
@@ -391,13 +397,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         return@launch
                     }
 
+                    saveSession(getApplication(), profile.email, phone, token, refresh, profileUid)
+                    if (email != null) saveCredentials(email, "")
+
                     _jwtToken.value = token
                     _refreshToken.value = refresh
                     _currentUserEmail.value = profile.email
                     _currentUid.value = profileUid
-
-                    saveSession(getApplication(), profile.email, phone, token, refresh, profileUid)
-                    if (email != null) saveCredentials(email, "")
 
                     _isLoading.value = false
                     onSuccess(profile.email)
@@ -408,11 +414,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     val target = email ?: phone
                     if (isStaticAdmin(target)) {
                         val fallbackUid = "1"
+                        
+                        saveSession(getApplication(), target ?: "", phone, token, refresh, fallbackUid)
+
                         _jwtToken.value = token
                         _refreshToken.value = refresh
                         _currentUserEmail.value = target
                         _currentUid.value = fallbackUid
-                        saveSession(getApplication(), target, phone, token, refresh, fallbackUid)
+
                         _isLoading.value = false
                         onSuccess(target ?: "")
                     } else {

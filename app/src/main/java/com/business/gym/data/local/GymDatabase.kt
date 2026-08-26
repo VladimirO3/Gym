@@ -19,9 +19,11 @@ import com.business.gym.data.local.entity.*
         DailyNoteEntity::class,
         ProductEntity::class,
         CartItemEntity::class,
-        CoachEntity::class
+        CoachEntity::class,
+        GlobalInfoEntity::class,
+        OrderEntity::class
     ], 
-    version = 17,
+    version = 20,
     exportSchema = false
 )
 abstract class GymDatabase : RoomDatabase() {
@@ -33,6 +35,8 @@ abstract class GymDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
     abstract fun cartDao(): CartDao
     abstract fun coachDao(): CoachDao
+    abstract fun globalInfoDao(): GlobalInfoDao
+    abstract fun orderDao(): OrderDao
 
     companion object {
         @Volatile

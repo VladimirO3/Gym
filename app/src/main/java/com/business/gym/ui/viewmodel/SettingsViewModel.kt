@@ -12,11 +12,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.business.gym.data.api.NewsApiService
+import com.business.gym.data.api.OrderResponse
 import com.business.gym.data.local.GymDatabase
+import com.business.gym.data.local.dao.OrderDao
 import com.business.gym.data.local.entity.DailyNoteEntity
 import com.business.gym.data.local.entity.ProfileEntity
 import com.business.gym.data.repository.ProfileRepository
 import com.business.gym.util.AuthUtils
+import com.google.gson.Gson
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -29,7 +33,8 @@ import java.time.LocalDate
  */
 class SettingsViewModel(
     application: Application,
-    private val repository: ProfileRepository
+    private val repository: ProfileRepository,
+    private val orderDao: OrderDao
 ) : AndroidViewModel(application) {
     companion object {
         private const val ADMIN_EMAIL = AuthUtils.ADMIN_EMAIL
@@ -60,6 +65,13 @@ class SettingsViewModel(
     // Заметки в календаре
     private val _dailyNotes = mutableStateOf<List<DailyNoteEntity>>(emptyList())
     val dailyNotes: State<List<DailyNoteEntity>> = _dailyNotes
+
+    // История заказов
+    private val _orderHistory = mutableStateOf<List<OrderResponse>>(emptyList())
+    val orderHistory: State<List<OrderResponse>> = _orderHistory
+
+    private val _dailyPlan = mutableStateOf<String?>(null)
+    val dailyPlan: State<String?> = _dailyPlan
 
     // Текст Оферты
     private val _privacyPolicyText = mutableStateOf("")
@@ -158,6 +170,14 @@ class SettingsViewModel(
                     // Обновляем URL аватара, даже если он пустой (для сброса)
                     _avatarUrl.value = it.avatarUrl
                     
+                    _dailyPlan.value = it.dailyPlan
+
+                    // Проверка и генерация плана тренировок на сегодня
+                    val today = LocalDate.now().toString()
+                    if (it.lastPlanDate != today) {
+                        generateDailyPlan(id, today)
+                    }
+                    
                     if (it.themeMode != _themeMode.value) _themeMode.value = it.themeMode
                 }
             }
@@ -173,6 +193,46 @@ class SettingsViewModel(
                 _dailyNotes.value = notes
             }
         }
+
+        // Загрузка истории заказов
+        viewModelScope.launch {
+            orderDao.getUserOrders(id).collect { entities ->
+                val gson = Gson()
+                _orderHistory.value = entities.map { entity ->
+                    OrderResponse(
+                        id = entity.orderId,
+                        totalPrice = entity.totalPrice,
+                        status = entity.status,
+                        createdAt = entity.createdAt,
+                        items = gson.fromJson(entity.itemsJson, Array<com.business.gym.data.api.CartItemResponse>::class.java).toList()
+                    )
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                val api = NewsApiService.create(context)
+                val orders = api.getOrders()
+                _orderHistory.value = orders
+                
+                val gson = Gson()
+                orders.forEach { order ->
+                    orderDao.insertOrder(
+                        com.business.gym.data.local.entity.OrderEntity(
+                            orderId = order.id,
+                            userId = id,
+                            totalPrice = order.totalPrice,
+                            status = order.status,
+                            createdAt = order.createdAt,
+                            itemsJson = gson.toJson(order.items)
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("SettingsViewModel", "Failed to fetch orders", e)
+            }
+        }
     }
 
     /**
@@ -182,6 +242,23 @@ class SettingsViewModel(
         val uid = currentUid ?: return
         viewModelScope.launch {
             repository.saveNote(DailyNoteEntity(uid = uid, date = date.toString(), note = text))
+        }
+    }
+
+    private fun generateDailyPlan(uid: String, date: String) {
+        val plans = listOf(
+            "Силовая: Приседания (4х10), Жим ногами (3х12), Выпады (3х15).",
+            "Верх тела: Жим лежа (4х8), Тяга штанги (4х10), Махи гантелями (3х15).",
+            "Кардио: Бег 30 мин (зона жиросжигания) + Растяжка.",
+            "Функционалка: Берпи (3х15), Планка (3х1 мин), Скалолаз (3х30 сек).",
+            "Спина и Бицепс: Тяга верхнего блока (4х12), Подъем на бицепс (3х10).",
+            "Грудь и Трицепс: Отжимания (3хмакс), Обратные отжимания (3х15).",
+            "Пресс: Скручивания (4х25), Подъем ног (3х20), Велосипед (3х1 мин)."
+        )
+        val newPlan = plans.random()
+        viewModelScope.launch {
+            repository.updateDailyPlan(uid, date, newPlan)
+            _dailyPlan.value = newPlan
         }
     }
 
@@ -218,6 +295,7 @@ class SettingsViewModel(
         }
     }
 
+    @androidx.annotation.OptIn(coil.annotation.ExperimentalCoilApi::class)
     fun uploadAvatar(context: Context, uri: android.net.Uri, token: String?) {
         if (token == null || currentUid == null) {
             Log.e("SettingsViewModel", "Upload avatar failed: token or UID is null")
@@ -246,11 +324,13 @@ class SettingsViewModel(
                 // После успешной загрузки обновляем локальный профиль с сервера
                 repository.refreshProfileFromServer(currentUid!!)
                 
-                // ОБЯЗАТЕЛЬНО: Принудительно уведомляем UI об изменении URL, даже если ссылка та же (для перезагрузки Coil)
-                val current = _avatarUrl.value
-                _avatarUrl.value = null
-                kotlinx.coroutines.delay(50)
-                _avatarUrl.value = current
+                // ОБЯЗАТЕЛЬНО: Очищаем кэш Coil для этого URL, чтобы изменения отобразились сразу
+                val fullUrl = NewsApiService.getFullUrl(context, _avatarUrl.value)
+                val imageLoader = coil.ImageLoader(context)
+                @OptIn(coil.annotation.ExperimentalCoilApi::class)
+                val diskCache = imageLoader.diskCache
+                diskCache?.remove(fullUrl)
+                imageLoader.memoryCache?.remove(coil.memory.MemoryCache.Key(fullUrl))
                 
                 android.widget.Toast.makeText(context, "Фото успешно обновлено", android.widget.Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
@@ -325,7 +405,7 @@ class SettingsViewModel(
                 val database = GymDatabase.getDatabase(application)
                 val repository = ProfileRepository(database.profileDao(), database.dailyNoteDao(), application)
                 @Suppress("UNCHECKED_CAST")
-                return SettingsViewModel(application, repository) as T
+                return SettingsViewModel(application, repository, database.orderDao()) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

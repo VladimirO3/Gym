@@ -59,12 +59,16 @@ class ProductRepository(
     }
 
     suspend fun updateProduct(id: String, name: RequestBody, price: RequestBody, desc: RequestBody, file: MultipartBody.Part?) {
-        api.updateProduct(id, name, price, desc, file)
+        // Принудительное преобразование в Int, чтобы избежать "5.0" в URL
+        val intId = id.toDoubleOrNull()?.toInt() ?: 0
+        api.updateProduct(intId, name, price, desc, file)
         refreshProducts()
     }
 
     suspend fun deleteProduct(id: String) {
-        api.deleteProduct(id)
+        // Принудительное преобразование в Int, даже если это Double (например, "123.0")
+        val intId = id.toDoubleOrNull()?.toInt() ?: 0
+        api.deleteProduct(intId)
         productDao.deleteProductById(id)
     }
 

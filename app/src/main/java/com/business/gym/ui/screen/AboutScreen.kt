@@ -30,7 +30,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.unit.sp
 import com.business.gym.data.api.NewsApiService
+import com.business.gym.data.local.entity.CoachEntity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.Add
@@ -63,15 +67,20 @@ fun AboutScreen(
     val coaches by viewModel.coaches
     val isRefreshing by viewModel.isRefreshing
 
-    val defaultTitle = stringResource(R.string.about_title)
-    val defaultDescription = stringResource(R.string.about_description)
-    val defaultServices = stringResource(R.string.about_services)
-    val defaultFooter = stringResource(R.string.about_footer)
-    val defaultContactTitle = stringResource(R.string.contact_title)
-
+    var selectedCoachId by remember { mutableStateOf<String?>(null) }
     var showEditor by remember { mutableStateOf(false) }
     var showCoachDialog by remember { mutableStateOf(false) }
-    var editingCoach by remember { mutableStateOf<com.business.gym.data.local.entity.CoachEntity?>(null) }
+    var editingCoach by remember { mutableStateOf<CoachEntity?>(null) }
+
+    if (selectedCoachId != null) {
+        val coach = coaches.find { it.id == selectedCoachId }
+        if (coach != null) {
+            CoachDetailDialog(
+                coach = coach,
+                onDismiss = { selectedCoachId = null }
+            )
+        }
+    }
 
     if (showCoachDialog) {
         CoachEditDialog(
@@ -113,6 +122,12 @@ fun AboutScreen(
             }
         )
     }
+
+    val defaultTitle = stringResource(R.string.about_title)
+    val defaultDescription = stringResource(R.string.about_description)
+    val defaultServices = stringResource(R.string.about_services)
+    val defaultFooter = stringResource(R.string.about_footer)
+    val defaultContactTitle = stringResource(R.string.contact_title)
 
     Column(
         modifier = modifier
@@ -377,6 +392,7 @@ fun AboutScreen(
                     isAdmin = isAdmin,
                     onEdit = { editingCoach = coach; showCoachDialog = true },
                     onDelete = { viewModel.deleteCoach(coach.id) },
+                    onClick = { selectedCoachId = coach.id },
                     modifier = contentModifier
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -470,15 +486,16 @@ fun AuthorContactIcon(
 
 @Composable
 fun CoachCard(
-    coach: com.business.gym.data.local.entity.CoachEntity,
+    coach: CoachEntity,
     isAdmin: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     Card(
-        modifier = modifier,
+        modifier = modifier.clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.1f))
@@ -501,7 +518,7 @@ fun CoachCard(
                         model = NewsApiService.getFullUrl(context, coach.imageUrl),
                         contentDescription = coach.name,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Fit
                     )
                 } else {
                     Icon(Icons.Default.Person, null, tint = Color.Gray, modifier = Modifier.size(40.dp))
@@ -539,10 +556,91 @@ fun CoachCard(
         }
     }
 }
+@Composable
+fun CoachDetailDialog(
+    coach: CoachEntity,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color.Black
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxWidth().height(350.dp)) {
+                    if (coach.imageUrl != null) {
+                        AsyncImage(
+                            model = NewsApiService.getFullUrl(context, coach.imageUrl),
+                            contentDescription = coach.name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(Color.DarkGray),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Person, null, tint = Color.Gray, modifier = Modifier.size(100.dp))
+                        }
+                    }
+                    
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(16.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.Close, null, tint = Color.White)
+                    }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = coach.name,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color.Red,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = coach.description,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White,
+                        lineHeight = 24.sp
+                    )
+                }
+                
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Назад", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun CoachEditDialog(
-    coach: com.business.gym.data.local.entity.CoachEntity?,
+    coach: CoachEntity?,
     onDismiss: () -> Unit,
     onConfirm: (String, String, Uri?) -> Unit
 ) {
@@ -595,3 +693,4 @@ fun CoachEditDialog(
         }
     )
 }
+

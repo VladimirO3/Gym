@@ -278,6 +278,8 @@ fun UserListScreen(
                                             .data(fullAvatarUrl)
                                             .setHeader("Authorization", "Bearer $jwtToken")
                                             .crossfade(true)
+                                            .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                                            .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
                                             .build(),
                                         contentDescription = "Avatar",
                                         modifier = Modifier.size(40.dp).clip(CircleShape),

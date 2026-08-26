@@ -133,7 +133,7 @@ fun NewsMediaItem(
                                     .build(),
                                 contentDescription = "News Image",
                                 modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
+                                contentScale = ContentScale.Fit
                             )
                         }
                     }

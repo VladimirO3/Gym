@@ -17,11 +17,6 @@ import com.business.gym.data.api.NewsApiService
 import com.business.gym.data.local.GymDatabase
 import com.business.gym.data.model.Track
 import com.business.gym.data.repository.TrackRepository
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
-import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -30,24 +25,14 @@ import java.util.UUID
 
 /**
  * ViewModel для управления музыкой и плейлистами.
- * Обеспечивает воспроизведение из облака (Firebase) и локального VPS сервера.
+ * Обеспечивает воспроизведение из локального VPS сервера с поддержкой оффлайн режима через Room.
  */
 class PlaylistViewModel(
     application: Application,
     private val repository: TrackRepository
 ) : AndroidViewModel(application) {
-    // Firebase ссылки
-    private val database = FirebaseDatabase.getInstance().getReference("playlist")
-    private val storage = FirebaseStorage.getInstance().getReference("music")
     
-    // API сервис
-    private val localApiService get() = NewsApiService.create(getApplication())
-
-    // Треки из Firebase
-    private val _tracks = mutableStateOf(listOf<Track>())
-    val tracks: State<List<Track>> = _tracks
-
-    // Треки с VPS
+    // Треки с VPS (кэшированные в Room)
     private val _localTracks = mutableStateOf(listOf<LocalTrack>())
     val localTracks: State<List<LocalTrack>> = _localTracks
 
@@ -56,9 +41,6 @@ class PlaylistViewModel(
     val isUploading: State<Boolean> = _isUploading
 
     init {
-        // Загрузка "облачного" плейлиста
-        fetchTracks()
-        
         // Подписка на локальные треки (кэш Room)
         viewModelScope.launch {
             repository.allTracks.collect { tracks ->
@@ -67,10 +49,15 @@ class PlaylistViewModel(
                 }
             }
         }
+        
+        // Фоновое обновление при запуске
+        val sharedPref = application.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+        val token = sharedPref.getString("user_session_token", null)
+        fetchLocalTracks(token)
     }
 
     /**
-     * Загружает список музыки с VPS.
+     * Загружает список музыки с VPS и обновляет Room.
      */
     fun fetchLocalTracks(token: String?) {
         viewModelScope.launch {
@@ -106,12 +93,7 @@ class PlaylistViewModel(
 
                 if (filePart == null) throw Exception("Could not read file")
 
-                // Отправка в репозиторий
-                repository.uploadTrack(
-                    token = token,
-                    name = fileName,
-                    filePart = filePart
-                )
+                repository.uploadTrack(token, fileName, filePart)
                 
                 Toast.makeText(context, "Трек добавлен!", Toast.LENGTH_SHORT).show()
                 repository.refreshTracks(token)
@@ -124,24 +106,6 @@ class PlaylistViewModel(
         }
     }
 
-    /**
-     * Подписка на Firebase Database.
-     */
-    private fun fetchTracks() {
-        database.addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val trackList = snapshot.children.mapNotNull { it.getValue(Track::class.java) }
-                _tracks.value = trackList
-            }
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("PlaylistViewModel", "Database error: ${error.message}")
-            }
-        })
-    }
-
-    /**
-     * Вспомогательный метод для получения имени файла.
-     */
     private fun getFileName(context: Context, uri: Uri): String? {
         var result: String? = null
         if (uri.scheme == "content") {
@@ -156,25 +120,16 @@ class PlaylistViewModel(
     }
 
     /**
-     * Удаление трека из Firebase.
-     */
-    fun deleteTrack(track: Track) {
-        database.child(track.id).removeValue()
-        try {
-            FirebaseStorage.getInstance().getReferenceFromUrl(track.url).delete()
-        } catch (e: Exception) {
-            Log.e("PlaylistViewModel", "Error deleting file from storage", e)
-        }
-    }
-
-    /**
-     * Удаление трека с VPS.
+     * Удаление трека с VPS и из Room.
      */
     fun deleteLocalTrack(id: String, token: String?) {
         viewModelScope.launch {
             repository.deleteTrack(id, token)
         }
     }
+
+    // Для совместимости с UI
+    val tracks: State<List<Track>> = mutableStateOf(emptyList())
 
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

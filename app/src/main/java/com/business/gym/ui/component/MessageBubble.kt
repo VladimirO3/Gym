@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.business.gym.data.api.NewsApiService
 import com.business.gym.data.model.ChatMessage
 import com.business.gym.util.AuthUtils
@@ -111,7 +112,11 @@ fun MessageBubble(message: ChatMessage, currentUid: String, currentUserEmail: St
                             Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(48.dp))
                         } else {
                             AsyncImage(
-                                model = fullMediaUrl,
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(fullMediaUrl)
+                                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                                    .build(),
                                 contentDescription = "Image",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
@@ -133,7 +138,11 @@ fun MessageBubble(message: ChatMessage, currentUid: String, currentUserEmail: St
                                     )
                                 } else {
                                     AsyncImage(
-                                        model = fullMediaUrl,
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(fullMediaUrl)
+                                            .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                                            .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                                            .build(),
                                         contentDescription = "Full Image",
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Fit

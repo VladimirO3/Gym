@@ -90,14 +90,14 @@
 
     <string name="greeting_content">Контент для %1$s</string>
 
-    <string name="add_by_url_title">Добавить по ссылке (Облако)</string>
+    <string name="add_by_url_title">Добавить по ссылке</string>
     <string name="url_label">Прямая ссылка</string>
     <string name="url_type_image">Фото</string>
     <string name="url_type_video">Видео</string>
     <string name="btn_add">Добавить</string>
     <string name="btn_cancel">Отмена</string>
-    <string name="add_photo_firebase">Загрузить фото</string>
-    <string name="add_video_firebase">Загрузить видео</string>
+    <string name="add_photo">Выбрать фото</string>
+    <string name="add_video">Выбрать видео</string>
     <string name="add_track_url_title">Добавить трек по ссылке</string>
     <string name="track_name_label">Название трека</string>
     <string name="add_by_link_desc">Добавить по ссылке</string>
@@ -128,6 +128,6 @@
 
     <string name="btn_save">Сохранить</string>
     <string name="privacy_title">Политика конфиденциальности и правовая информация</string>
-    <string name="privacy_content">Приложение "GYM" (ABS GYM) уважает вашу конфиденциальность. Мы собираем минимальные данные (email/телефон) для аутентификации и работы чата. Ваши данные надежно хранятся в Firebase. Используя это приложение, вы соглашаетесь с нашими условиями обслуживания.\n\n1. Использование данных: Для внутреннего общения в зале.\n2. Безопасность: Используется шифрование AES для чатов.\n3. Сторонние сервисы: Мы используем сервисы Google/Firebase.</string>
+    <string name="privacy_content">Приложение "GYM" (ABS GYM) уважает вашу конфиденциальность. Мы собираем минимальные данные (email/телефон) для аутентификации и работы чата. Ваши данные надежно хранятся на нашем сервере. Используя это приложение, вы соглашаетесь с нашими условиями обслуживания.\n\n1. Использование данных: Для внутреннего общения в зале.\n2. Безопасность: Используется шифрование AES для чатов.\n3. Сторонние сервисы: Аналитика и Crashlytics.</string>
     <string name="btn_agree">Я согласен</string>
 </resources>

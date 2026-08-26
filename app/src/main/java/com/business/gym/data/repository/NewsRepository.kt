@@ -77,16 +77,19 @@ class NewsRepository(
         title: String,
         content: String,
         type: String,
+        url: String? = null,
         filePart: MultipartBody.Part? = null
     ): okhttp3.ResponseBody {
         val titleBody = title.toRequestBody("text/plain".toMediaTypeOrNull())
         val contentBody = content.toRequestBody("text/plain".toMediaTypeOrNull())
         val typeBody = type.toRequestBody("text/plain".toMediaTypeOrNull())
+        val urlBody = url?.toRequestBody("text/plain".toMediaTypeOrNull())
         
         return apiService.postLocalNews(
             titleBody, 
             contentBody, 
             typeBody, 
+            urlBody,
             filePart
         )
     }

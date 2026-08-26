@@ -85,7 +85,7 @@ data class LoginResponse(
  * Модели для корзины.
  */
 data class CartItemRequest(
-    @SerializedName("productId") val productId: Any, // Может быть Int или String
+    @SerializedName("productId") val productId: Any, // Может быть Int или String. Используем Any для сохранения типа на сервере.
     @SerializedName("quantity") val quantity: Int
 )
 
@@ -96,6 +96,22 @@ data class CartItemResponse(
     @SerializedName("price") val price: String = "",
     @SerializedName("description") val description: String = "",
     @SerializedName("image_url", alternate = ["imageUrl", "url", "image"]) val imageUrl: String = ""
+)
+
+/**
+ * Модели для истории заказов.
+ */
+data class OrderResponse(
+    @SerializedName("id") val id: String,
+    @SerializedName("totalPrice") val totalPrice: Int,
+    @SerializedName("status") val status: String,
+    @SerializedName("createdAt") val createdAt: Long,
+    @SerializedName("items") val items: List<CartItemResponse>
+)
+
+data class CreateOrderResponse(
+    @SerializedName("orderId") val orderId: String,
+    @SerializedName("status") val status: String
 )
 
 /**
@@ -127,6 +143,15 @@ data class ProfileResponse(
 data class DailyNoteResponse(
     val date: String,
     val content: String
+)
+
+data class GlobalInfoResponse(
+    val aboutTitle: String,
+    val aboutDescription: String,
+    val aboutServices: String,
+    val aboutFooter: String,
+    val contactTitle: String,
+    val contactPhone: String
 )
 
 /**
@@ -172,17 +197,15 @@ interface NewsApiService {
     @Multipart
     @POST("admin/shop/products/{id}")
     suspend fun updateProduct(
-        @Path("id") id: Any, // Может быть Int или String
+        @Path("id") id: Any,
         @Part("name") name: RequestBody,
         @Part("price") price: RequestBody,
         @Part("description") description: RequestBody,
         @Part file: MultipartBody.Part? = null
     ): okhttp3.ResponseBody
 
-    @DELETE("admin/shop/products/{id}")
-    suspend fun deleteProduct(
-        @Path("id") id: Any
-    ): okhttp3.ResponseBody
+    @DELETE("/admin/shop/products/{id}")
+    suspend fun deleteProduct(@Path("id") id: Any): okhttp3.ResponseBody
 
     @DELETE("admin/shop/products/{id}/photo")
     suspend fun deleteProductPhoto(
@@ -197,6 +220,12 @@ interface NewsApiService {
     suspend fun saveCart(
         @Body items: List<CartItemRequest>
     ): okhttp3.ResponseBody
+
+    @GET("orders")
+    suspend fun getOrders(): List<OrderResponse>
+
+    @POST("orders/checkout")
+    suspend fun checkout(): CreateOrderResponse
 
     @FormUrlEncoded
     @POST("register")
@@ -255,6 +284,7 @@ interface NewsApiService {
         @Part("title") title: RequestBody,
         @Part("content") content: RequestBody,
         @Part("type") type: RequestBody,
+        @Part("url") url: RequestBody? = null,
         @Part file: MultipartBody.Part? = null
     ): okhttp3.ResponseBody
 
@@ -366,6 +396,21 @@ interface NewsApiService {
 
     @GET("auth/status")
     suspend fun getAuthStatus(): Map<String, String>
+
+    // --- ГЛОБАЛЬНЫЙ КОНТЕНТ (ИНФО) ---
+    @GET("info")
+    suspend fun getGlobalInfo(): GlobalInfoResponse
+
+    @FormUrlEncoded
+    @POST("admin/info")
+    suspend fun updateGlobalInfo(
+        @Field("aboutTitle") aboutTitle: String? = null,
+        @Field("aboutDescription") aboutDescription: String? = null,
+        @Field("aboutServices") aboutServices: String? = null,
+        @Field("aboutFooter") aboutFooter: String? = null,
+        @Field("contactTitle") contactTitle: String? = null,
+        @Field("contactPhone") contactPhone: String? = null
+    ): okhttp3.ResponseBody
 
     // --- ГЛОБАЛЬНЫЙ КОНТЕНТ (ОФЕРТА) ---
     @GET("policy")
@@ -524,22 +569,24 @@ interface NewsApiService {
                     // 2. Токен отсутствует в текущих заголовках
                     // 3. Токен физически существует и пользователь не "гость"
                     val newRequest = if ((!isPublicRequest || isMediaRequest) && !hasAuth && token != null && !isGuestToken) {
-                        Log.d("NewsApiService", "Adding Authorization header to: $url")
+                        Log.d("NewsApiService", "Adding Authorization header to: $url (Token length: ${token.length})")
                         request.newBuilder()
                             .header("Authorization", "Bearer $token")
                             .build()
                     } else {
+                        Log.d("NewsApiService", "Skipping Auth header for $url. tokenFound=${token != null}, isGuest=$isGuestToken, isPublic=$isPublicRequest")
                         request
                     }
                     
                     val response = chain.proceed(newRequest)
                     Log.d("NewsApiService", "Request: ${request.method} ${request.url} -> Response Code: ${response.code}")
                     if (!response.isSuccessful) {
-                        Log.e("NewsApiService", "Error body: ${response.peekBody(1024).string()}")
-                    } else if (url.contains("chat/users") || url.contains("profile") || url.contains("shop/products")) {
-                        // Логируем успешные ответы для отладки структуры ID и магазина
-                        val body = response.peekBody(1024).string()
-                        Log.d("NewsApiService", "Success Response from $url: $body")
+                        val errorMsg = response.peekBody(1024).string()
+                        Log.e("NewsApiService", "ERROR RESPONSE: ${response.code} for ${request.url}. Body: $errorMsg")
+                    } else if (url.contains("chat/users") || url.contains("profile") || url.contains("shop/products") || url.contains("cart")) {
+                        // Логируем успешные ответы для отладки
+                        val body = response.peekBody(4096).string() // Увеличим лимит для длинных списков
+                        Log.d("NewsApiService", "DEBUG: Success Response from $url: $body")
                     }
                     response
                 }

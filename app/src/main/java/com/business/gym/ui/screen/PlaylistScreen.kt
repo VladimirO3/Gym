@@ -56,7 +56,6 @@ fun PlaylistScreen(
     val isWideScreen = configuration.screenWidthDp > 600
     val columns = if (isWideScreen) 2 else 1
     
-    val tracks by viewModel.tracks
     val localTracks by viewModel.localTracks
     val isUploading by viewModel.isUploading
     val jwtToken by authViewModel.jwtToken
@@ -163,13 +162,13 @@ fun PlaylistScreen(
     }
 
     // Synchronize currentTrack and isPlaying with player state
-    LaunchedEffect(player, tracks, localTracks) {
+    LaunchedEffect(player, localTracks) {
         isPlaying = player.isPlaying
         currentTrackIndex = player.currentMediaItemIndex
         val mediaItem = player.currentMediaItem
         if (mediaItem != null) {
             val url = mediaItem.localConfiguration?.uri?.toString() ?: ""
-            val allTracks = tracks + localTracks.map { 
+            val allTracks = localTracks.map { 
                 val fullUrl = NewsApiService.getFullUrl(context, it.url)
                 Track(id = it.id.toString(), url = fullUrl, name = it.name)
             }
@@ -188,7 +187,7 @@ fun PlaylistScreen(
                 currentTrackIndex = player.currentMediaItemIndex
                 if (mediaItem != null) {
                     val url = mediaItem.localConfiguration?.uri?.toString() ?: ""
-                    val allTracksList = tracks + localTracks.map { 
+                    val allTracksList = localTracks.map {
                         val fullUrl = NewsApiService.getFullUrl(context, it.url)
                         Track(id = it.id.toString(), url = fullUrl, name = it.name)
                     }
@@ -248,7 +247,7 @@ fun PlaylistScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (tracks.isEmpty() && localTracks.isEmpty()) {
+        if (localTracks.isEmpty()) {
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Text(
                     text = stringResource(R.string.playlist_empty),
@@ -263,23 +262,25 @@ fun PlaylistScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val allTracksList = tracks + localTracks.map { 
+                val allTracksList = localTracks.map { 
                     val fullUrl = NewsApiService.getFullUrl(context, it.url)
                     Track(id = it.id.toString(), url = fullUrl, name = it.name)
                 }
 
-                items(tracks.indices.toList()) { index ->
-                    val track = tracks[index]
-                    val isThisTrackSelected = currentTrackIndex == index
+                items(localTracks.indices.toList()) { index ->
+                    val localTrack = localTracks[index]
+                    val fullUrl = NewsApiService.getFullUrl(context, localTrack.url)
+                    val absoluteIndex = index
+                    val isThisTrackSelected = currentTrackIndex == absoluteIndex
                     TrackItem(
-                        track = track,
+                        track = Track(id = localTrack.id.toString(), url = fullUrl, name = localTrack.name),
                         isSelected = isThisTrackSelected,
                         isPlaying = isPlaying,
                         isAdmin = isAdmin,
-                        onDelete = { viewModel.deleteTrack(track) },
+                        onDelete = { viewModel.deleteLocalTrack(localTrack.id.toString(), jwtToken) },
                         onPlayPause = {
                             if (!isThisTrackSelected) {
-                                playPlaylist(index, allTracksList)
+                                playPlaylist(absoluteIndex, allTracksList)
                             } else {
                                 if (isPlaying) player.pause() else player.play()
                             }
@@ -291,44 +292,6 @@ fun PlaylistScreen(
                             currentTrackIndex = -1
                         }
                     )
-                }
-
-                if (localTracks.isNotEmpty()) {
-                    item(span = { GridItemSpan(columns) }) {
-                        Text(
-                            stringResource(R.string.playlist_local_header),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.Red,
-                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                        )
-                    }
-                    items(localTracks.indices.toList()) { index ->
-                        val localTrack = localTracks[index]
-                        val fullUrl = NewsApiService.getFullUrl(context, localTrack.url)
-                        val absoluteIndex = tracks.size + index
-                        val isThisTrackSelected = currentTrackIndex == absoluteIndex
-                        TrackItem(
-                            track = Track(id = localTrack.id.toString(), url = fullUrl, name = localTrack.name),
-                            isSelected = isThisTrackSelected,
-                            isPlaying = isPlaying,
-                            isAdmin = isAdmin,
-                            onDelete = { viewModel.deleteLocalTrack(localTrack.id.toString(), jwtToken) },
-                            onPlayPause = {
-                                if (!isThisTrackSelected) {
-                                    // Индекс в общем списке = размер облачных + индекс в локальных
-                                    playPlaylist(absoluteIndex, allTracksList)
-                                } else {
-                                    if (isPlaying) player.pause() else player.play()
-                                }
-                            },
-                            onStop = {
-                                player.stop()
-                                player.clearMediaItems()
-                                currentTrack = null
-                                currentTrackIndex = -1
-                            }
-                        )
-                    }
                 }
             }
         }

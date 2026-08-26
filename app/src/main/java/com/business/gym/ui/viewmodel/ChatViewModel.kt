@@ -15,7 +15,6 @@ import com.business.gym.data.model.UserProfile
 import com.business.gym.data.repository.ChatRepository
 import com.business.gym.util.AuthUtils
 import com.business.gym.util.NotificationHelper
-import com.google.firebase.Timestamp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -255,7 +254,7 @@ class ChatViewModel(
                             text = decodeMessageForUi(it.text),
                             senderId = it.senderId,
                             senderName = it.senderName,
-                            timestamp = Timestamp(it.timestamp / 1000, 0),
+                            timestamp = it.timestamp,
                             isRead = it.isRead,
                             mediaUrl = it.mediaUrl,
                             mediaType = it.mediaType
@@ -285,7 +284,7 @@ class ChatViewModel(
         pollingJob = viewModelScope.launch {
             while (isActive) {
                 repository.refreshMessages(token, peerUid)
-                delay(2000) // Проверка каждые 2 секунды, когда чат открыт
+                delay(4000) // Проверка каждые 4 секунды, когда чат открыт
             }
         }
     }
