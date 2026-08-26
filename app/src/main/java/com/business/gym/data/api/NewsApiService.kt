@@ -557,32 +557,40 @@ interface NewsApiService {
                     // МАГАЗИН ДОЛЖЕН БЫТЬ ДОСТУПЕН ДЛЯ ВСЕХ (БЕЗ ТОКЕНА ДЛЯ GET)
                     val isPublicShopRequest = url.contains("shop/products") && request.method == "GET"
                     val isChatUserRequest = url.contains("chat/users") && request.method == "GET"
-                    
-                    // Проверяем, является ли запрос запросом к медиа-файлу (аватару/фото). 
-                    // Это важно, так как папка /uploads/ на сервере защищена и требует авторизации Bearer.
-                    val isMediaRequest = url.contains("/uploads/")
-                    
                     val isPublicRequest = isPublicShopRequest || isChatUserRequest
                     
+                    // Проверяем, является ли запрос запросом к медиа-файлу (аватару/фото). 
+                    val isMediaRequest = url.contains("/uploads/")
+
+                    // Проверяем, является ли запрос запросом к нашему серверу
+                    val isOurServer = url.contains("5.35.98.149") || url.contains(currentBaseUrl.removePrefix("http://").removeSuffix("/"))
+                    
                     // Решаем, нужно ли добавлять токен:
-                    // 1. Это НЕ публичный запрос ИЛИ это запрос к защищенному медиа
-                    // 2. Токен отсутствует в текущих заголовках
-                    // 3. Токен физически существует и пользователь не "гость"
-                    val newRequest = if ((!isPublicRequest || isMediaRequest) && !hasAuth && token != null && !isGuestToken) {
-                        Log.d("NewsApiService", "Adding Authorization header to: $url (Token length: ${token.length})")
+                    // 1. Это запрос к НАШЕМУ серверу
+                    // 2. Это НЕ публичный запрос ИЛИ это запрос к защищенному медиа (/uploads/)
+                    // 3. Токен отсутствует в текущих заголовках и пользователь не "гость"
+                    val shouldAddToken = isOurServer && (!isPublicRequest || isMediaRequest) && !hasAuth && token != null && !isGuestToken
+                    
+                    val newRequest = if (shouldAddToken) {
+                        Log.d("NewsApiService", "Adding Authorization header to our server: $url")
                         request.newBuilder()
                             .header("Authorization", "Bearer $token")
                             .build()
                     } else {
-                        Log.d("NewsApiService", "Skipping Auth header for $url. tokenFound=${token != null}, isGuest=$isGuestToken, isPublic=$isPublicRequest")
+                        Log.d("NewsApiService", "Skipping Auth header for external or public URL: $url")
                         request
                     }
                     
                     val response = chain.proceed(newRequest)
                     Log.d("NewsApiService", "Request: ${request.method} ${request.url} -> Response Code: ${response.code}")
                     if (!response.isSuccessful) {
-                        val errorMsg = response.peekBody(1024).string()
-                        Log.e("NewsApiService", "ERROR RESPONSE: ${response.code} for ${request.url}. Body: $errorMsg")
+                        val isOrdersNotFound = url.contains("/orders") && response.code == 404
+                        if (isOrdersNotFound) {
+                            Log.i("NewsApiService", "Orders endpoint not ready on server, ignoring 404")
+                        } else {
+                            val errorMsg = response.peekBody(1024).string()
+                            Log.e("NewsApiService", "ERROR RESPONSE: ${response.code} for ${request.url}. Body: $errorMsg")
+                        }
                     } else if (url.contains("chat/users") || url.contains("profile") || url.contains("shop/products") || url.contains("cart")) {
                         // Логируем успешные ответы для отладки
                         val body = response.peekBody(4096).string() // Увеличим лимит для длинных списков

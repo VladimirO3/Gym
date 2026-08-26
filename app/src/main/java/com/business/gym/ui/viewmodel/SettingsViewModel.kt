@@ -27,6 +27,12 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.time.LocalDate
 
 /**
+ * Модели данных для плана тренировок
+ */
+data class Exercise(val name: String, val iconUrl: String, val desc: String, val tutorialImageUrl: String? = null)
+data class DailyWorkout(val title: String, val exercises: List<Exercise>, val coverUrl: String? = null)
+
+/**
  * ViewModel для настроек и профиля пользователя.
  * Управляет личными данными, календарем заметок и планом тренировок.
  * Обеспечивает полную синхронизацию данных с VPS сервером.
@@ -174,7 +180,31 @@ class SettingsViewModel(
 
                     // Проверка и генерация плана тренировок на сегодня
                     val today = LocalDate.now().toString()
-                    if (it.lastPlanDate != today) {
+                    val planText = it.dailyPlan ?: ""
+                    
+                    // Считаем количество упражнений в JSON
+                    val exerciseCount = try {
+                        val workout = Gson().fromJson(planText, DailyWorkout::class.java)
+                        workout.exercises.size
+                    } catch (e: Exception) { 0 }
+
+                    // Список старых или битых URL, которые мы хотим заменить принудительно
+                    val hasOldTutorialUrl = planText.contains("photo-3761705") || 
+                                           planText.contains("photo-3768916") ||
+                                           planText.contains("photo-2294361") ||
+                                           planText.contains("sit-ups.png") ||
+                                           planText.contains("cycling.png") ||
+                                           planText.contains("pushups.png") ||
+                                           planText.contains("images.unsplash.com") ||
+                                           planText.contains("images.pexels.com") ||
+                                           (planText.contains("img.icons8.com") && !planText.contains("githubusercontent"))
+
+                    val isOldPlan = planText.isNotEmpty() && (exerciseCount < 6 || hasOldTutorialUrl || planText.contains("icons8"))
+                    
+                    Log.d("SettingsViewModel", "Plan check: today=$today, count=$exerciseCount, isOld=$isOldPlan")
+
+                    if (it.lastPlanDate != today || isOldPlan) {
+                        Log.i("SettingsViewModel", "Triggering new plan generation (count=$exerciseCount)")
                         generateDailyPlan(id, today)
                     }
                     
@@ -229,6 +259,12 @@ class SettingsViewModel(
                         )
                     )
                 }
+            } catch (e: retrofit2.HttpException) {
+                if (e.code() == 404) {
+                    Log.i("SettingsViewModel", "Orders endpoint not found, skipping history sync")
+                } else {
+                    Log.e("SettingsViewModel", "HTTP error fetching orders: ${e.code()}", e)
+                }
             } catch (e: Exception) {
                 Log.e("SettingsViewModel", "Failed to fetch orders", e)
             }
@@ -246,19 +282,75 @@ class SettingsViewModel(
     }
 
     private fun generateDailyPlan(uid: String, date: String) {
-        val plans = listOf(
-            "Силовая: Приседания (4х10), Жим ногами (3х12), Выпады (3х15).",
-            "Верх тела: Жим лежа (4х8), Тяга штанги (4х10), Махи гантелями (3х15).",
-            "Кардио: Бег 30 мин (зона жиросжигания) + Растяжка.",
-            "Функционалка: Берпи (3х15), Планка (3х1 мин), Скалолаз (3х30 сек).",
-            "Спина и Бицепс: Тяга верхнего блока (4х12), Подъем на бицепс (3х10).",
-            "Грудь и Трицепс: Отжимания (3хмакс), Обратные отжимания (3х15).",
-            "Пресс: Скручивания (4х25), Подъем ног (3х20), Велосипед (3х1 мин)."
+        val workouts = listOf(
+            DailyWorkout(
+                title = "Силовая: Ноги и ягодицы", 
+                exercises = listOf(
+                    Exercise("Приседания", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Squats/0.jpg", "4 подх. по 10 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Squats/0.jpg"),
+                    Exercise("Жим ногами", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/0.jpg", "3 подх. по 12 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/0.jpg"),
+                    Exercise("Выпады", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Lunge/0.jpg", "3 подх. по 15 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Lunge/0.jpg"),
+                    Exercise("Разгибание ног", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/0.jpg", "3 подх. по 12 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/0.jpg"),
+                    Exercise("Сгибание ног", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Leg_Curl/0.jpg", "3 подх. по 12 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Leg_Curl/0.jpg"),
+                    Exercise("Подъем на носки", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/0.jpg", "4 подх. по 20 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/0.jpg")
+                ),
+                coverUrl = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Full_Squat/0.jpg"
+            ),
+            DailyWorkout(
+                title = "Верх тела: Грудь и Спина", 
+                exercises = listOf(
+                    Exercise("Жим лежа", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg", "4 подх. по 8 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg"),
+                    Exercise("Тяга блока", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/0.jpg", "4 подх. по 10 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/0.jpg"),
+                    Exercise("Отжимания", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/0.jpg", "3 подх. до отказа", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/0.jpg"),
+                    Exercise("Разводка гантелей", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Flyes/0.jpg", "3 подх. по 12 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Flyes/0.jpg"),
+                    Exercise("Тяга гантели", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Dumbbell_Row/0.jpg", "3 подх. по 10 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Dumbbell_Row/0.jpg"),
+                    Exercise("Гиперэкстензия", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hyperextensions_With_No_Equipment/0.jpg", "3 подх. по 15 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hyperextensions_With_No_Equipment/0.jpg")
+                ),
+                coverUrl = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Incline_Bench_Press_-_Medium_Grip/0.jpg"
+            ),
+            DailyWorkout(
+                title = "Кардио и Выносливость", 
+                exercises = listOf(
+                    Exercise("Бег", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Run/0.jpg", "30 минут (пульс 130)", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Run/0.jpg"),
+                    Exercise("Берпи", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Burpees/0.jpg", "3 подх. по 15 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Burpees/0.jpg"),
+                    Exercise("Скакалка", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Jumping_rope/0.jpg", "5 минут интенсивно", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Jumping_rope/0.jpg"),
+                    Exercise("Джампинг Джек", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Jumping_Jacks/0.jpg", "3 подх. по 1 мин", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Jumping_Jacks/0.jpg"),
+                    Exercise("Альпинист", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Mountain_Climbers/0.jpg", "3 подх. по 45 сек", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Mountain_Climbers/0.jpg"),
+                    Exercise("Прыжки на бокс", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Box_Jump/0.jpg", "3 подх. по 12 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Box_Jump/0.jpg")
+                ),
+                coverUrl = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Run/1.jpg"
+            ),
+            DailyWorkout(
+                title = "Пресс и Кор", 
+                exercises = listOf(
+                    Exercise("Скручивания", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Crunches/0.jpg", "4 подх. по 25 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Crunches/0.jpg"),
+                    Exercise("Планка", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/0.jpg", "3 подх. по 1 мин", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/0.jpg"),
+                    Exercise("Велосипед", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Air_Bike/0.jpg", "3 подх. по 1 мин", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Air_Bike/0.jpg"),
+                    Exercise("Боковая планка", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_Plank/0.jpg", "3 подх. по 45 сек", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_Plank/0.jpg"),
+                    Exercise("Подъем ног", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Leg_Raises/0.jpg", "3 подх. по 15 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Leg_Raises/0.jpg"),
+                    Exercise("Русский твист", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Russian_Twist/0.jpg", "3 подх. по 20 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Russian_Twist/0.jpg")
+                ),
+                coverUrl = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Crunches/1.jpg"
+            ),
+            DailyWorkout(
+                title = "Руки: Бицепс и Трицепс", 
+                exercises = listOf(
+                    Exercise("Подъем гантелей", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Shoulder_Press/0.jpg", "4 подх. по 12 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Shoulder_Press/0.jpg"),
+                    Exercise("Обратные отжимания", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dips_-_Triceps_Version/0.jpg", "3 подх. по 15 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dips_-_Triceps_Version/0.jpg"),
+                    Exercise("Молотки", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hammer_Curls/0.jpg", "3 подх. по 12 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hammer_Curls/0.jpg"),
+                    Exercise("Франц. жим", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/0.jpg", "3 подх. по 10 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/0.jpg"),
+                    Exercise("Конц. подъем", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Concentration_Curls/0.jpg", "3 подх. по 12 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Concentration_Curls/0.jpg"),
+                    Exercise("Разгибания рук", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown/0.jpg", "3 подх. по 15 раз", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown/0.jpg")
+                ),
+                coverUrl = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Shoulder_Press/1.jpg"
+            )
         )
-        val newPlan = plans.random()
+        
+        val newWorkout = workouts.random()
+        val jsonPlan = Gson().toJson(newWorkout)
+        
         viewModelScope.launch {
-            repository.updateDailyPlan(uid, date, newPlan)
-            _dailyPlan.value = newPlan
+            repository.updateDailyPlan(uid, date, jsonPlan)
+            _dailyPlan.value = jsonPlan
         }
     }
 

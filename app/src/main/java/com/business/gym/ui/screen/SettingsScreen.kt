@@ -1,5 +1,6 @@
 package com.business.gym.ui.screen
 
+import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -635,62 +636,177 @@ fun GymCalendar(viewModel: SettingsViewModel, modifier: Modifier) {
 
 @Composable
 fun TrainingPlanSection(plan: String?, modifier: Modifier) {
+    val context = LocalContext.current
+    var selectedTutorialImage by remember { mutableStateOf<String?>(null) }
+    var selectedExerciseName by remember { mutableStateOf("") }
+
+    if (selectedTutorialImage != null) {
+        AlertDialog(
+            onDismissRequest = { selectedTutorialImage = null },
+            title = { Text(selectedExerciseName, color = Color.Red, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(selectedTutorialImage)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Tutorial",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(250.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop,
+                        error = rememberVectorPainter(Icons.Default.Warning),
+                        placeholder = rememberVectorPainter(Icons.Default.Image),
+                        onError = { Log.e("SettingsScreen", "Failed to load tutorial image: $selectedTutorialImage") }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Техника выполнения: внимательно следите за положением спины и дыханием.", 
+                        fontSize = 13.sp, 
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { selectedTutorialImage = null }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
+                    Text("Понятно", color = Color.White)
+                }
+            }
+        )
+    }
+
+    val workout = remember(plan) {
+        if (plan.isNullOrBlank()) null
+        else if (plan.startsWith("{")) {
+            try {
+                com.google.gson.Gson().fromJson(plan, com.business.gym.ui.viewmodel.DailyWorkout::class.java)
+            } catch (e: Exception) { null }
+        } else {
+            // Конвертация старого текстового формата в новый для отображения
+            val exercises = plan.split(",").map { 
+                com.business.gym.ui.viewmodel.Exercise(
+                    it.trim(), 
+                    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Squats/0.jpg", 
+                    "Ежедневное упражнение",
+                    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Squats/0.jpg" // Reliable default
+                )
+            }
+            com.business.gym.ui.viewmodel.DailyWorkout("Ваш план тренировок", exercises)
+        }
+    }
+
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
         border = BorderStroke(1.dp, Color.Red.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.FitnessCenter, null, tint = Color.Red)
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    text = "ПЛАН ТРЕНИРОВОК НА ДЕНЬ",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color.Red,
-                    fontWeight = FontWeight.ExtraBold
+        Column {
+            if (workout?.coverUrl != null) {
+                AsyncImage(
+                    model = workout.coverUrl,
+                    contentDescription = "Workout Cover",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp),
+                    contentScale = ContentScale.Crop
                 )
             }
             
-            Text(
-                text = "Ваш персональный план на ${LocalDate.now()}",
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.Gray,
-                modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
-            )
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.FitnessCenter, null, tint = Color.Red)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = workout?.title ?: "ПЛАН ТРЕНИРОВОК",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.Red,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+                
+                Text(
+                    text = "Ваш персональный план на ${LocalDate.now()}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+                )
 
-            if (plan != null) {
-                val exercises = plan.split(",").map { it.trim() }
-                exercises.forEach { exercise ->
-                    Row(
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
+                if (workout != null) {
+                    workout.exercises.forEach { exercise ->
+                        Card(
                             modifier = Modifier
-                                .size(8.dp)
-                                .background(Color.Red, CircleShape)
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            text = exercise,
-                            color = Color.White,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp)
+                                .clickable {
+                                    if (exercise.tutorialImageUrl != null) {
+                                        selectedTutorialImage = exercise.tutorialImageUrl
+                                        selectedExerciseName = exercise.name
+                                    }
+                                },
+                            colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.4f)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(60.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.DarkGray.copy(alpha = 0.3f))
+                                ) {
+                                    AsyncImage(
+                                        model = exercise.iconUrl,
+                                        contentDescription = exercise.name,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                                
+                                Spacer(Modifier.width(16.dp))
+                                
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = exercise.name,
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = exercise.desc,
+                                        color = Color.Red.copy(alpha = 0.8f),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    if (exercise.tutorialImageUrl != null) {
+                                        Text(
+                                            text = "Нажмите для инструкции 📸",
+                                            color = Color.Gray,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            modifier = Modifier.padding(top = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Color.Red)
                     }
                 }
-            } else {
-                CircularProgressIndicator(color = Color.Red, modifier = Modifier.size(24.dp))
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "💡 План обновляется автоматически каждый день. Хорошей тренировки!",
+                text = "💡 Нажмите на упражнение, чтобы увидеть фото-инструкцию.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.Gray,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
             )
+            }
         }
     }
 }

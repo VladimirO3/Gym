@@ -46,11 +46,16 @@ class CartViewModel(
     private val gson = Gson()
 
     fun init(context: android.content.Context, token: String?, userId: String? = null) {
+        if (userId.isNullOrBlank() || token.isNullOrBlank()) {
+            Log.w("CartViewModel", "Init skipped: blank userId or token")
+            return
+        }
+        
         currentToken = token
         currentUserId = userId
         
-        if (token != null && token != "guest_token") {
-            userId?.let { uid ->
+        if (token != "guest_token") {
+            userId.let { uid ->
                 _isInitializing.value = true
                 viewModelScope.launch {
                     try {
@@ -235,15 +240,18 @@ class CartViewModel(
         if (token == "guest_token") return
 
         val userId = currentUserId
-        if (userId != null) {
-            viewModelScope.launch {
-                val entities = _cartItems.value.map { (p, count) ->
-                    CartItemEntity(userId, p.id, count, p.name, p.price, p.description, p.imageUrl)
-                }
-                cartDao.clearCart(userId)
-                cartDao.insertItems(entities)
-                Log.d("CartViewModel", "DEBUG: syncCartWithServer: Local DB updated for $userId")
+        if (userId.isNullOrBlank()) {
+            Log.w("CartViewModel", "syncCartWithServer skipped: blank currentUserId")
+            return
+        }
+
+        viewModelScope.launch {
+            val entities = _cartItems.value.map { (p, count) ->
+                CartItemEntity(userId, p.id, count, p.name, p.price, p.description, p.imageUrl)
             }
+            cartDao.clearCart(userId)
+            cartDao.insertItems(entities)
+            Log.d("CartViewModel", "DEBUG: syncCartWithServer: Local DB updated for $userId")
         }
 
         syncJob?.cancel()
