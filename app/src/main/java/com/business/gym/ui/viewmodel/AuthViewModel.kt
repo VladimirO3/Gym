@@ -542,6 +542,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Назначение пользователя администратором.
+     */
+    fun makeAdmin(user: LocalUser) {
+        viewModelScope.launch {
+            try {
+                localApiService.makeAdmin(userUid = user.uid, email = user.email)
+                fetchPendingUsers()
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Make admin failed", e)
+            }
+        }
+    }
+
     private var statusJob: kotlinx.coroutines.Job? = null
     private var lastKnownStatus: String? = null
 

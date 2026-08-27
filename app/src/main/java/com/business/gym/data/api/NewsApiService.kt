@@ -274,6 +274,13 @@ interface NewsApiService {
         @Path(value = "userId", encoded = true) userId: String
     ): okhttp3.ResponseBody
 
+    @FormUrlEncoded
+    @POST("admin/make-admin")
+    suspend fun makeAdmin(
+        @Field("uid") userUid: String? = null,
+        @Field("email") email: String? = null
+    ): okhttp3.ResponseBody
+
     // --- НОВОСТИ ---
     @GET("news")
     suspend fun getLocalNews(): List<LocalNews>
@@ -451,7 +458,9 @@ interface NewsApiService {
 
     companion object {
         // Базовый адрес по умолчанию (VPS)
+        @Volatile
         private var currentBaseUrl = "http://5.35.98.149:5557/"
+        @Volatile
         private var cachedService: NewsApiService? = null
 
         fun getBaseUrl(): String = currentBaseUrl
@@ -563,7 +572,8 @@ interface NewsApiService {
                     val isMediaRequest = url.contains("/uploads/")
 
                     // Проверяем, является ли запрос запросом к нашему серверу
-                    val isOurServer = url.contains("5.35.98.149") || url.contains(currentBaseUrl.removePrefix("http://").removeSuffix("/"))
+                    val cleanBaseUrl = currentBaseUrl.removePrefix("http://").removePrefix("https://").removeSuffix("/")
+                    val isOurServer = url.contains(cleanBaseUrl) || url.contains("5.35.98.149")
                     
                     // Решаем, нужно ли добавлять токен:
                     // 1. Это запрос к НАШЕМУ серверу

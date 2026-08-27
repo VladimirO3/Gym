@@ -19,6 +19,11 @@ class GymApplication : Application(), ImageLoaderFactory {
         super.onCreate()
         _instance = this
         android.util.Log.d("GymApplication", "onCreate started")
+
+        // Инициализация базового URL из настроек при запуске
+        val globalPref = getSharedPreferences("settings_global", MODE_PRIVATE)
+        val savedIp = globalPref.getString("server_ip", "5.35.98.149:5557") ?: "5.35.98.149:5557"
+        NewsApiService.updateBaseUrl("http://$savedIp/")
         
         // Глобальный перехватчик ошибок для отладки вылетов при запуске
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->

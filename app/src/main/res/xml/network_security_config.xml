@@ -5,4 +5,7 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">5.35.98.149</domain>
+    </domain-config>
 </network-security-config>

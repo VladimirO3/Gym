@@ -462,7 +462,15 @@ fun SettingsScreen(
                                 ) {
                                     Text("Одобрить", color = Color.Black, fontSize = 12.sp)
                                 }
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Button(
+                                    onClick = { authViewModel.makeAdmin(user) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Blue),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Админ", color = Color.White, fontSize = 12.sp)
+                                }
+                                Spacer(Modifier.width(4.dp))
                                 IconButton(
                                     onClick = { authViewModel.deleteUser(user) }
                                 ) {
