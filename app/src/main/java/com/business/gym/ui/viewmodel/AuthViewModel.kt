@@ -6,6 +6,7 @@ import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -14,6 +15,10 @@ import com.business.gym.data.api.NewsApiService
 import com.business.gym.data.api.LocalUser
 import com.business.gym.util.AuthUtils
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import android.widget.Toast
 
 /**
  * ViewModel для управления процессами авторизации через локальный сервер (VPS).
@@ -49,6 +54,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentUserEmail = mutableStateOf<String?>(null)
     val currentUserEmail: State<String?> = _currentUserEmail
 
+    private val _currentUserRole = mutableStateOf<String?>("user")
+    val currentUserRole: State<String?> = _currentUserRole
+
     // Используем не-nullable String, чтобы избежать NPE в UI
     private val _currentUid = mutableStateOf("")
     val currentUid: State<String> = _currentUid
@@ -79,11 +87,32 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun isAdmin(): Boolean = isStaticAdmin(_currentUserEmail.value)
+    val isAdminState = derivedStateOf {
+        val email = _currentUserEmail.value
+        val role = _currentUserRole.value?.lowercase()
+        
+        // Прямая проверка без посредников для гарантии
+        val isForcedAdmin = email?.trim()?.lowercase() == "verso@gmail.com" || 
+                           email?.trim()?.lowercase() == "verso0100@gmail.com"
+                           
+        val isStatic = isStaticAdmin(email)
+        val isRoleAdmin = role == "admin"
+        val result = isForcedAdmin || isStatic || isRoleAdmin
+        
+        if (email != null) {
+            Log.d("AuthViewModel", "isAdmin check: email=$email, forced=$isForcedAdmin, static=$isStatic, role=$role -> Result=$result")
+        }
+        
+        result
+    }
+
+    fun isAdmin(): Boolean {
+        return isAdminState.value
+    }
 
     fun loginAsGuest(onSuccess: () -> Unit) {
         // Сначала сохраняем сессию в Prefs, чтобы интерцепторы видели её
-        saveSession(getApplication(), GUEST_EMAIL, null, "guest_token", uid = "guest")
+        saveSession(getApplication(), GUEST_EMAIL, null, "guest_token", uid = "guest", role = "guest")
 
         _isGuest.value = true
         _currentUserEmail.value = GUEST_EMAIL
@@ -171,11 +200,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val savedToken = sharedPref.getString("user_session_token", null)
         val savedRefreshToken = sharedPref.getString("user_session_refresh_token", null)
         val savedUid = sharedPref.getString("user_session_uid", null)
+        val savedRole = sharedPref.getString("user_session_role", "user")
         
         if (savedToken != null) {
             // Загружаем токен в память, но НЕ устанавливаем email до проверки профиля
             _jwtToken.value = savedToken
             _refreshToken.value = savedRefreshToken
+            _currentUserRole.value = savedRole
             _isGuest.value = savedToken == "guest_token"
             
             if (savedToken != "guest_token") {
@@ -189,6 +220,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 // Для гостя сессия всегда валидна
                 _currentUserEmail.value = GUEST_EMAIL
                 _currentUid.value = "guest"
+                _currentUserRole.value = "guest"
                 _isSessionLoaded.value = true
             }
         } else {
@@ -196,7 +228,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun saveSession(context: Context, email: String?, phone: String?, token: String, refreshToken: String? = null, uid: String? = null) {
+    fun saveSession(context: Context, email: String?, phone: String?, token: String, refreshToken: String? = null, uid: String? = null, role: String? = "user") {
+        Log.d("AuthViewModel", "saveSession: email=$email, uid=$uid, role=$role")
         val sharedPref = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
         sharedPref.edit().apply {
             putString("user_session_email", email)
@@ -204,9 +237,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             putString("user_session_token", token)
             if (refreshToken != null) putString("user_session_refresh_token", refreshToken)
             if (uid != null) putString("user_session_uid", uid)
+            if (role != null) putString("user_session_role", role)
             commit() // Используем commit для немедленной записи
         }
-        Log.d("AuthViewModel", "Session saved. email=$email, uid=$uid")
+        _currentUserRole.value = role
+        _currentUserEmail.value = email
+        if (uid != null) _currentUid.value = uid
+        
+        Log.d("AuthViewModel", "Session updated in memory: email=$email, role=$role")
     }
 
     fun clearSession(context: Context) {
@@ -219,6 +257,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 Log.d("AuthViewModel", "Fetching profile from server...")
                 val profile = localApiService.getProfile()
+                Log.d("AuthViewModel", "Profile received: email=${profile.email}, role=${profile.role}, isAdmin=${profile.isAdmin}")
                 
                 // Умный поиск UID: приоритет ID > UID > Email
                 var profileUid = profile.id?.toString() ?: profile.uid ?: profile.email
@@ -229,7 +268,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 
                 if (profileUid.isNotBlank()) {
                     Log.d("AuthViewModel", "Profile UID resolved: $profileUid")
-                    saveSession(getApplication(), profile.email, null, _jwtToken.value!!, _refreshToken.value, profileUid)
+                    
+                    // Улучшенное определение роли: игнорируем регистр и проверяем оба поля
+                    val rawRole = profile.role?.toString()?.lowercase() ?: ""
+                    val isAdminVal = when(profile.isAdmin) {
+                        is Boolean -> profile.isAdmin
+                        is Number -> profile.isAdmin.toInt() == 1
+                        is String -> profile.isAdmin.lowercase() == "true" || profile.isAdmin == "1"
+                        else -> false
+                    }
+                    
+                    val isStatic = AuthUtils.isStaticAdmin(profile.email)
+                    val resolvedRole = if (rawRole == "admin" || isAdminVal || isStatic) "admin" else "user"
+                    
+                    Log.d("AuthViewModel", "Resolved role: $resolvedRole (raw role: ${profile.role}, isAdmin: $isAdminVal, isStatic: $isStatic)")
+
+                    saveSession(getApplication(), profile.email, null, _jwtToken.value!!, _refreshToken.value, profileUid, resolvedRole)
                     onSuccess(profile.email, profileUid)
                 } else {
                     Log.e("AuthViewModel", "User ID is empty after fetching profile")
@@ -237,12 +291,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     signOut()
                 }
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Failed to fetch profile from VPS, signing out", e)
+                Log.e("AuthViewModel", "Failed to fetch profile from VPS", e)
+                val currentEmail = _currentUserEmail.value ?: _email.value.trim().lowercase()
+                
                 // Если мы админ, пробуем остаться в системе даже при ошибке профиля (сетевой сбой)
-                if (isStaticAdmin(_currentUserEmail.value)) {
+                if (AuthUtils.isStaticAdmin(currentEmail)) {
                     Log.w("AuthViewModel", "Admin profile fetch failed, but keeping session due to network error")
-                    onSuccess(_currentUserEmail.value ?: ADMIN_EMAIL, "1")
-                } else {
+                    
+                    // Принудительно устанавливаем роль админа в памяти
+                    _currentUserRole.value = "admin"
+                    
+                    onSuccess(currentEmail.ifBlank { "verso0100@gmail.com" }, "1")
+                } else if (!_isSessionLoaded.value) {
+                    // Только если сессия еще не была успешно загружена, выходим
+                    // Это предотвращает случайный логаут при сбое интернета во время опроса (polling)
                     clearSession(getApplication())
                     signOut()
                 }
@@ -285,14 +347,26 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         return@launch
                     }
                     
+                    val rawRole = profile.role?.toString()?.lowercase() ?: ""
+                    val isAdminVal = when(profile.isAdmin) {
+                        is Boolean -> profile.isAdmin
+                        is Number -> profile.isAdmin.toInt() == 1
+                        is String -> profile.isAdmin.lowercase() == "true" || profile.isAdmin == "1"
+                        else -> false
+                    }
+                    
+                    val isStatic = isStaticAdmin(profile.email)
+                    val resolvedRole = if (rawRole == "admin" || isAdminVal || isStatic) "admin" else "user"
+
                     // Сначала сохраняем сессию физически
-                    saveSession(getApplication(), profile.email, null, token, refresh, profileUid)
+                    saveSession(getApplication(), profile.email, null, token, refresh, profileUid, resolvedRole)
                     saveCredentials(emailValue, passwordValue)
 
                     _jwtToken.value = token
                     _refreshToken.value = refresh
                     _currentUserEmail.value = profile.email
                     _currentUid.value = profileUid
+                    _currentUserRole.value = resolvedRole
 
                     _isLoading.value = false
                     onSuccess(profile.email)
@@ -304,13 +378,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         Log.w("AuthViewModel", "Admin login allowed with fallback UID due to profile error")
                         val fallbackUid = "1"
                         
-                        saveSession(getApplication(), emailValue, null, token, refresh, fallbackUid)
+                        saveSession(getApplication(), emailValue, null, token, refresh, fallbackUid, "admin")
                         saveCredentials(emailValue, passwordValue)
 
                         _jwtToken.value = token
                         _refreshToken.value = refresh
                         _currentUserEmail.value = emailValue
                         _currentUid.value = fallbackUid
+                        _currentUserRole.value = "admin"
                         
                         _isLoading.value = false
                         onSuccess(emailValue)
@@ -397,13 +472,23 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         return@launch
                     }
 
-                    saveSession(getApplication(), profile.email, phone, token, refresh, profileUid)
+                    val rawRole = profile.role?.toString()?.lowercase() ?: ""
+                    val isAdminVal = when(profile.isAdmin) {
+                        is Boolean -> profile.isAdmin
+                        is Number -> profile.isAdmin.toInt() == 1
+                        is String -> profile.isAdmin.lowercase() == "true" || profile.isAdmin == "1"
+                        else -> false
+                    }
+                    val resolvedRole = if (rawRole == "admin" || isAdminVal) "admin" else "user"
+
+                    saveSession(getApplication(), profile.email, phone, token, refresh, profileUid, resolvedRole)
                     if (email != null) saveCredentials(email, "")
 
                     _jwtToken.value = token
                     _refreshToken.value = refresh
                     _currentUserEmail.value = profile.email
                     _currentUid.value = profileUid
+                    _currentUserRole.value = resolvedRole
 
                     _isLoading.value = false
                     onSuccess(profile.email)
@@ -415,12 +500,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     if (isStaticAdmin(target)) {
                         val fallbackUid = "1"
                         
-                        saveSession(getApplication(), target ?: "", phone, token, refresh, fallbackUid)
+                        saveSession(getApplication(), target ?: "", phone, token, refresh, fallbackUid, "admin")
 
                         _jwtToken.value = token
                         _refreshToken.value = refresh
                         _currentUserEmail.value = target
                         _currentUid.value = fallbackUid
+                        _currentUserRole.value = "admin"
 
                         _isLoading.value = false
                         onSuccess(target ?: "")
@@ -512,14 +598,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun approveUser(user: LocalUser) {
         viewModelScope.launch {
             try {
-                // Используем числовой ID, если он есть, иначе UID
                 val idToApprove = user.id?.toString() ?: user.uid ?: ""
                 if (idToApprove.isBlank()) return@launch
                 
+                Log.d("AuthViewModel", "Approving user: $idToApprove (${user.email})")
                 localApiService.approveUser(userUid = idToApprove)
+                
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication<Application>(), "Пользователь одобрен", Toast.LENGTH_SHORT).show()
+                }
+                
                 fetchPendingUsers()
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Approve failed", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication<Application>(), "Ошибка одобрения: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -548,10 +642,49 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun makeAdmin(user: LocalUser) {
         viewModelScope.launch {
             try {
-                localApiService.makeAdmin(userUid = user.uid, email = user.email)
+                val userId = user.id ?: user.uid ?: ""
+                val userEmail = user.email
+                
+                if (userId.isBlank()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(getApplication<Application>(), "Ошибка: ID пользователя не найден", Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+
+                Log.d("AuthViewModel", "Promoting user to admin. ID: $userId, Email: $userEmail")
+                
+                // 1. Пытаемся обновить через специализированный метод
+                try {
+                    localApiService.makeAdmin(uid = userId, email = userEmail)
+                } catch (e: Exception) {
+                    Log.w("AuthViewModel", "Specialized makeAdmin failed, trying generic update", e)
+                }
+
+                // 2. Пытаемся обновить через общий метод обновления профиля (для надежности)
+                val updateBody = mutableMapOf<String, Any>(
+                    "role" to "admin",
+                    "is_admin" to true
+                )
+                // Если имя не содержит "админ-", добавим для наглядности
+                if (!user.name.startsWith("админ-", ignoreCase = true)) {
+                    updateBody["name"] = "админ-${user.name}"
+                }
+
+                localApiService.adminUpdateProfile(userId = userId, body = updateBody)
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication<Application>(), "Права администратора успешно выданы", Toast.LENGTH_SHORT).show()
+                }
+
+                delay(1000)
                 fetchPendingUsers()
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Make admin failed", e)
+                Log.e("AuthViewModel", "Make admin critical failure", e)
+                val errorMessage = e.message ?: "неизвестная ошибка"
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication<Application>(), "Ошибка: $errorMessage", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -565,30 +698,37 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
         statusJob?.cancel()
         statusJob = viewModelScope.launch {
+            var iterations = 0
             while (true) {
                 try {
                     val response = localApiService.getAuthStatus()
                     val status = response["status"]
+                    
                     if (status != lastKnownStatus && lastKnownStatus != null) {
                         if (status == "deleted") {
-                            viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                                android.widget.Toast.makeText(
-                                    getApplication(), 
-                                    "Ваш аккаунт был удален администратором", 
-                                    android.widget.Toast.LENGTH_LONG
-                                ).show()
+                            viewModelScope.launch(Dispatchers.Main) {
+                                Toast.makeText(getApplication(), "Ваш аккаунт был удален администратором", Toast.LENGTH_LONG).show()
                             }
                             signOut()
                             break
                         }
                     }
                     lastKnownStatus = status
+
+                    // Каждые 30 секунд (каждые 2 итерации) обновляем профиль полностью,
+                    // чтобы подхватить смену роли (например, назначение админом)
+                    if (iterations % 2 == 0) {
+                        Log.d("AuthViewModel", "Polling: Refreshing profile to check for role updates...")
+                        fetchAndSaveProfile { _, _ -> }
+                    }
+                    iterations++
+
                 } catch (e: Exception) {
                     if (e is retrofit2.HttpException && e.code() == 401) {
-                        Log.w("AuthViewModel", "Status check returned 401, possible session expiry or invalid token")
+                        Log.w("AuthViewModel", "Status check returned 401, possible session expiry")
                     }
                 }
-                kotlinx.coroutines.delay(15000)
+                delay(15000)
             }
         }
     }

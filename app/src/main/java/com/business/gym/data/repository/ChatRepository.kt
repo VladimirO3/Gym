@@ -63,8 +63,11 @@ class ChatRepository(
                 uid = it.uid, 
                 email = it.email, 
                 name = it.name,
+                age = it.age,
                 avatarUrl = it.avatarUrl,
-                lastSeen = it.lastSeen
+                lastSeen = it.lastSeen,
+                isAdmin = it.isAdmin,
+                role = it.role
             ) 
         }
     }
@@ -97,8 +100,20 @@ class ChatRepository(
                     serverId = it.id,
                     email = it.email, 
                     name = it.name,
+                    age = when(val a = it.age) {
+                        is Number -> a.toInt()
+                        is String -> a.toIntOrNull()
+                        else -> null
+                    },
                     avatarUrl = it.avatarUrl,
-                    lastSeen = it.lastSeen
+                    lastSeen = it.lastSeen,
+                    isAdmin = when(it.isAdmin) {
+                        is Boolean -> it.isAdmin
+                        is Number -> it.isAdmin.toInt() == 1
+                        is String -> it.isAdmin.lowercase() == "true" || it.isAdmin == "1"
+                        else -> false
+                    },
+                    role = it.role?.toString()
                 )
             }
             
@@ -176,10 +191,11 @@ class ChatRepository(
             }
             true
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e("ChatRepository", "CRITICAL ERROR: Failed to send message to peer=$receiverId", e)
             if (e is retrofit2.HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
-                Log.e("ChatRepository", "HTTP Error body: $errorBody")
+                Log.e("ChatRepository", "HTTP ${e.code()} Error body: $errorBody")
             }
             false
         }
@@ -200,6 +216,7 @@ class ChatRepository(
             }
             true
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e("ChatRepository", "Failed to send media message to peer=$receiverId", e)
             false
         }
@@ -209,6 +226,7 @@ class ChatRepository(
         return try {
             apiService.getUnreadCount()
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e("ChatRepository", "Failed to get unread count: ${e.message}")
             null
         }
@@ -227,6 +245,7 @@ class ChatRepository(
             apiService.deleteChat(encodedPeer)
             return true
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e("ChatRepository", "Server deletion failed for peer=$peerUid, but local might be cleared", e)
             return localDeleted
         }
@@ -242,11 +261,82 @@ class ChatRepository(
             performLocalUserCleanup(uid)
             return true
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             // Если сервер вернул ошибку (например, 400 из-за формата), 
             // мы все равно чистим локально для корректного отображения в UI
             Log.e("ChatRepository", "Server deletion failed for $uid, forcing local cleanup", e)
             performLocalUserCleanup(uid)
             return true
+        }
+    }
+
+    suspend fun makeAdmin(uid: String, email: String): Boolean {
+        return try {
+            val apiUid = getApiUid(uid)
+            Log.d("ChatRepository", "Admin action: makeAdmin for $uid (apiUid=$apiUid, email=$email)")
+            apiService.makeAdmin(uid = apiUid, email = email)
+            true
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Log.e("ChatRepository", "makeAdmin failed for $uid", e)
+            if (e is retrofit2.HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                Log.e("ChatRepository", "HTTP ${e.code()} Error body: $errorBody")
+            }
+            false
+        }
+    }
+
+    suspend fun removeAdmin(uid: String, email: String): Boolean {
+        return try {
+            val apiUid = getApiUid(uid)
+            Log.d("ChatRepository", "Admin action: removeAdmin for $uid (apiUid=$apiUid, email=$email)")
+            apiService.removeAdmin(uid = apiUid, email = email)
+            true
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Log.e("ChatRepository", "removeAdmin failed for $uid", e)
+            if (e is retrofit2.HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                Log.e("ChatRepository", "HTTP ${e.code()} Error body: $errorBody")
+            }
+            false
+        }
+    }
+
+    suspend fun adminUpdateProfile(uid: String, name: String, age: Int?): Boolean {
+        return try {
+            val apiUid = getApiUid(uid)
+            val encodedUid = android.net.Uri.encode(apiUid)
+            val body = mapOf(
+                "name" to name,
+                "age" to age
+            )
+            apiService.adminUpdateProfile(userId = encodedUid, body = body)
+            true
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Log.e("ChatRepository", "adminUpdateProfile failed", e)
+            false
+        }
+    }
+
+    suspend fun adminDeleteUserPhoto(uid: String): Boolean {
+        return try {
+            val apiUid = getApiUid(uid)
+            val encodedUid = android.net.Uri.encode(apiUid)
+            apiService.adminDeleteUserPhoto(encodedUid)
+            // Обновляем в локальной БД пользователей чата
+            chatDao.findUserByUidOrEmail(uid)?.let { user ->
+                chatDao.updateUsers(listOf(user.copy(avatarUrl = null)))
+            }
+            // Также пробуем обновить в общей БД профилей, если есть доступ
+            db.profileDao().updateAvatarUrl(uid, null)
+            true
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Log.e("ChatRepository", "adminDeleteUserPhoto failed", e)
+            false
         }
     }
 

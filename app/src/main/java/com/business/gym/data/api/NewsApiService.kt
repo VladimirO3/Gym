@@ -63,9 +63,11 @@ data class LocalUser(
     @SerializedName("uid") val uid: String? = null,
     val email: String = "",
     val name: String = "",
-    val age: Int? = null,
+    val age: Any? = null,
     @SerializedName("avatar_url", alternate = ["avatarUrl"]) val avatarUrl: String? = null,
-    @SerializedName("last_seen", alternate = ["lastSeen"]) val lastSeen: Long? = null
+    @SerializedName("last_seen", alternate = ["lastSeen"]) val lastSeen: Long? = null,
+    @SerializedName("is_admin", alternate = ["isAdmin", "isadmin", "admin", "is_Admin"]) val isAdmin: Any? = false,
+    @SerializedName("role", alternate = ["user_role", "userRole", "role_name", "Role"]) val role: Any? = "user"
 )
 
 /**
@@ -133,11 +135,13 @@ data class ProfileResponse(
     @SerializedName("uid") val uid: String? = null, 
     val email: String,
     val name: String?,
-    val age: Int?,
+    val age: Any?,
     @SerializedName("avatar_url", alternate = ["avatarUrl"]) val avatarUrl: String?,
     val theme: String?,
     val lang: String?,
-    @SerializedName("privacy_agreed") val privacyAgreed: Boolean?
+    @SerializedName("privacy_agreed") val privacyAgreed: Boolean?,
+    @SerializedName("is_admin", alternate = ["isAdmin", "isadmin", "admin", "is_Admin"]) val isAdmin: Any? = false,
+    @SerializedName("role", alternate = ["user_role", "userRole", "role_name", "Role"]) val role: Any? = "user"
 )
 
 data class DailyNoteResponse(
@@ -204,7 +208,7 @@ interface NewsApiService {
         @Part file: MultipartBody.Part? = null
     ): okhttp3.ResponseBody
 
-    @DELETE("/admin/shop/products/{id}")
+    @DELETE("admin/shop/products/{id}")
     suspend fun deleteProduct(@Path("id") id: Any): okhttp3.ResponseBody
 
     @DELETE("admin/shop/products/{id}/photo")
@@ -269,6 +273,11 @@ interface NewsApiService {
         @Field("email") email: String? = null
     ): okhttp3.ResponseBody
 
+    @GET("admin/users/{userId}")
+    suspend fun getUserProfile(
+        @Path(value = "userId", encoded = true) userId: String
+    ): ProfileResponse
+
     @DELETE("admin/users/{userId}")
     suspend fun deleteUser(
         @Path(value = "userId", encoded = true) userId: String
@@ -277,8 +286,26 @@ interface NewsApiService {
     @FormUrlEncoded
     @POST("admin/make-admin")
     suspend fun makeAdmin(
-        @Field("uid") userUid: String? = null,
+        @Field("uid") uid: String? = null,
         @Field("email") email: String? = null
+    ): okhttp3.ResponseBody
+
+    @FormUrlEncoded
+    @POST("admin/remove-admin")
+    suspend fun removeAdmin(
+        @Field("uid") uid: String? = null,
+        @Field("email") email: String? = null
+    ): okhttp3.ResponseBody
+
+    @PUT("admin/users/{userId}/update")
+    suspend fun adminUpdateProfile(
+        @Path(value = "userId", encoded = true) userId: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any?>
+    ): okhttp3.ResponseBody
+
+    @DELETE("admin/users/{userId}/photo")
+    suspend fun adminDeleteUserPhoto(
+        @Path(value = "userId", encoded = true) userId: String
     ): okhttp3.ResponseBody
 
     // --- НОВОСТИ ---
@@ -384,6 +411,9 @@ interface NewsApiService {
         @Part("privacy_agreed") privacyAgreed: RequestBody? = null,
         @Part("avatar_url") avatarUrl: RequestBody? = null
     ): okhttp3.ResponseBody
+
+    @DELETE("profile/photo")
+    suspend fun deleteAvatar(): okhttp3.ResponseBody
 
     // --- ЗАМЕТКИ (КАЛЕНДАРЬ) ---
     @GET("profile/notes")
@@ -563,31 +593,20 @@ interface NewsApiService {
                     val isGuestToken = token == "guest_token"
                     val hasAuth = request.header("Authorization") != null || request.url.queryParameter("token") != null
                     
-                    // МАГАЗИН ДОЛЖЕН БЫТЬ ДОСТУПЕН ДЛЯ ВСЕХ (БЕЗ ТОКЕНА ДЛЯ GET)
-                    val isPublicShopRequest = url.contains("shop/products") && request.method == "GET"
-                    val isChatUserRequest = url.contains("chat/users") && request.method == "GET"
-                    val isPublicRequest = isPublicShopRequest || isChatUserRequest
-                    
-                    // Проверяем, является ли запрос запросом к медиа-файлу (аватару/фото). 
-                    val isMediaRequest = url.contains("/uploads/")
-
                     // Проверяем, является ли запрос запросом к нашему серверу
+                    // Мы делаем проверку более гибкой: если это наш IP или если это URL без домена (относительный)
                     val cleanBaseUrl = currentBaseUrl.removePrefix("http://").removePrefix("https://").removeSuffix("/")
-                    val isOurServer = url.contains(cleanBaseUrl) || url.contains("5.35.98.149")
+                    val isOurServer = url.contains(cleanBaseUrl) || url.contains("5.35.98.149") || !url.startsWith("http")
                     
-                    // Решаем, нужно ли добавлять токен:
-                    // 1. Это запрос к НАШЕМУ серверу
-                    // 2. Это НЕ публичный запрос ИЛИ это запрос к защищенному медиа (/uploads/)
-                    // 3. Токен отсутствует в текущих заголовках и пользователь не "гость"
-                    val shouldAddToken = isOurServer && (!isPublicRequest || isMediaRequest) && !hasAuth && token != null && !isGuestToken
+                    val shouldAddToken = !hasAuth && token != null && !isGuestToken && 
+                        (isOurServer || url.contains("/admin/") || url.contains("/chat/") || url.contains("/cart") || url.contains("/orders"))
                     
                     val newRequest = if (shouldAddToken) {
-                        Log.d("NewsApiService", "Adding Authorization header to our server: $url")
+                        Log.d("NewsApiService", "Adding Authorization header to: $url")
                         request.newBuilder()
                             .header("Authorization", "Bearer $token")
                             .build()
                     } else {
-                        Log.d("NewsApiService", "Skipping Auth header for external or public URL: $url")
                         request
                     }
                     
@@ -601,10 +620,6 @@ interface NewsApiService {
                             val errorMsg = response.peekBody(1024).string()
                             Log.e("NewsApiService", "ERROR RESPONSE: ${response.code} for ${request.url}. Body: $errorMsg")
                         }
-                    } else if (url.contains("chat/users") || url.contains("profile") || url.contains("shop/products") || url.contains("cart")) {
-                        // Логируем успешные ответы для отладки
-                        val body = response.peekBody(4096).string() // Увеличим лимит для длинных списков
-                        Log.d("NewsApiService", "DEBUG: Success Response from $url: $body")
                     }
                     response
                 }

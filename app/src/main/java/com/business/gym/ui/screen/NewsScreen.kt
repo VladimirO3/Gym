@@ -60,6 +60,8 @@ fun NewsScreen(
         factory = com.business.gym.ui.viewmodel.SettingsViewModel.Factory(application)
     )
     
+    val effectiveIsAdmin = authViewModel.isAdmin()
+    
     val newsItems by viewModel.newsItems
     val localNews by viewModel.localNews
     val isUploading by viewModel.isUploading
@@ -483,7 +485,7 @@ fun NewsScreen(
             )
 
             // Кнопка добавления (только для админа)
-            if (isAdmin) {
+            if (effectiveIsAdmin) {
                 if (isUploading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
@@ -546,7 +548,7 @@ fun NewsScreen(
                     )
                     NewsMediaItem(
                         item = newsItem, 
-                        isAdmin = isAdmin, 
+                        isAdmin = effectiveIsAdmin,
                         isGuest = isGuest,
                         onDelete = { viewModel.deleteLocalNewsItem(localItem.id, jwtToken) },
                         onReact = { type -> viewModel.reactToNews(localItem.id, type, jwtToken) },

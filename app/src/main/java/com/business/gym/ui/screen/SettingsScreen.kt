@@ -57,7 +57,7 @@ fun SettingsScreen(
     val contentModifier = if (isWideScreen) Modifier.width(600.dp) else Modifier.fillMaxWidth()
     
     val themeMode by viewModel.themeMode
-    val isAdmin = remember(currentUserEmail) { authViewModel.isAdmin() }
+    val isAdmin by authViewModel.isAdminState
     val isGuest by authViewModel.isGuest
     
     val userName by viewModel.userName
@@ -76,9 +76,6 @@ fun SettingsScreen(
     LaunchedEffect(userName, userAge) {
         nameInput = userName
         ageInput = userAge?.toString() ?: ""
-        if (userName.isNotBlank()) {
-            isEditMode = false
-        }
     }
 
     if (showIpDialog) {
@@ -144,9 +141,33 @@ fun SettingsScreen(
                 modifier = Modifier.align(Alignment.Center),
                 textAlign = TextAlign.Center
             )
+
+            IconButton(
+                onClick = { authViewModel.loadSession(context) },
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = "Refresh Profile", tint = Color.Gray)
+            }
         }
         
         Spacer(modifier = Modifier.height(24.dp))
+
+        if (isGuest || isAdmin) {
+            Card(
+                modifier = contentModifier.padding(bottom = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = (if (isAdmin) Color.Blue else Color.Red).copy(alpha = 0.1f)),
+                border = BorderStroke(2.dp, if (isAdmin) Color.Blue else Color.Red)
+            ) {
+                Text(
+                    text = if (isAdmin) "ВЫ ВОШЛИ КАК АДМИНИСТРАТОР" else "ВЫ ВОШЛИ КАК ГОСТЬ",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = if (isAdmin) Color.Blue else Color.Red,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
 
         if (canEditProfile) {
             // Блок профиля
@@ -190,15 +211,23 @@ fun SettingsScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
                                 error = rememberVectorPainter(Icons.Default.Person),
-                                placeholder = rememberVectorPainter(Icons.Default.Person),
-                                onError = { state ->
-                                    val errorMsg = state.result.throwable.message ?: "Unknown Coil Error"
-                                    android.util.Log.e("SettingsScreen", "Coil Error for $fullAvatarUrl: $errorMsg")
-                                },
-                                onSuccess = {
-                                    android.util.Log.i("SettingsScreen", "Coil Success for $fullAvatarUrl")
-                                }
+                                placeholder = rememberVectorPainter(Icons.Default.Person)
                             )
+                            
+                            // Кнопка удаления фото (только в режиме редактирования)
+                            if (isEditMode && !isUpdating) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp)
+                                        .size(24.dp)
+                                        .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                        .clickable { viewModel.deleteAvatar(context) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                            }
                         } else {
                             Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(50.dp), tint = Color.White)
                         }
@@ -409,6 +438,32 @@ fun SettingsScreen(
 
         if (isAdmin) {
             Spacer(modifier = Modifier.height(32.dp))
+            Card(
+                modifier = contentModifier.padding(bottom = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Blue.copy(alpha = 0.2f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(Icons.Default.AdminPanelSettings, null, tint = Color.Blue, modifier = Modifier.size(48.dp))
+                    Text(
+                        text = userName,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "СТАТУС: АДМИНИСТРАТОР",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.Blue,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+
             Row(
                 modifier = contentModifier,
                 horizontalArrangement = Arrangement.Center,
@@ -486,9 +541,10 @@ fun SettingsScreen(
         if (currentUserEmail != null) {
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "Вы вошли как: $currentUserEmail", 
+                text = if (isGuest) "Режим гостя: $currentUserEmail" else "Вы вошли как: $currentUserEmail", 
                 style = MaterialTheme.typography.bodyMedium, 
-                color = Color.Gray,
+                color = if (isGuest) Color.Red else Color.Gray,
+                fontWeight = if (isGuest) FontWeight.Bold else FontWeight.Normal,
                 modifier = contentModifier,
                 textAlign = TextAlign.Center
             )

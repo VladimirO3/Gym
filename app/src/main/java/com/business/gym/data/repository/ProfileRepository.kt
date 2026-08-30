@@ -7,6 +7,7 @@ import com.business.gym.data.local.dao.DailyNoteDao
 import com.business.gym.data.local.dao.ProfileDao
 import com.business.gym.data.local.entity.DailyNoteEntity
 import com.business.gym.data.local.entity.ProfileEntity
+import com.business.gym.util.AuthUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
@@ -33,7 +34,21 @@ class ProfileRepository(
     suspend fun refreshProfileFromServer(uid: String) {
         try {
             Log.d("ProfileRepository", "Refreshing profile from server for UID: $uid")
-            val remote = apiService.getProfile()
+            
+            // Если мы запрашиваем не свой профиль (админ), используем спец. эндпоинт
+            val remote = if (AuthUtils.isStaticAdmin(uid) || uid == "1") {
+                apiService.getProfile()
+            } else {
+                try {
+                    // Пробуем получить через админский доступ
+                    val encodedUid = android.net.Uri.encode(uid)
+                    apiService.getUserProfile(encodedUid)
+                } catch (e: Exception) {
+                    // Если не админ или эндпоинт не найден, пробуем обычный
+                    apiService.getProfile()
+                }
+            }
+
             Log.d("ProfileRepository", "Profile received: ${remote.email}, Name: ${remote.name}, Age: ${remote.age}")
             
             // Если сервер вернул пустые данные, логируем это
@@ -51,13 +66,24 @@ class ProfileRepository(
                 uid = finalUid,
                 email = remote.email,
                 name = remote.name ?: "",
-                age = remote.age,
+                age = when(val a = remote.age) {
+                    is Number -> a.toInt()
+                    is String -> a.toIntOrNull()
+                    else -> null
+                },
                 avatarUrl = remote.avatarUrl,
                 themeMode = remote.theme ?: "system",
                 lang = remote.lang ?: "system",
                 privacyAgreed = remote.privacyAgreed ?: false,
                 lastPlanDate = currentLocal?.lastPlanDate,
-                dailyPlan = currentLocal?.dailyPlan
+                dailyPlan = currentLocal?.dailyPlan,
+                isAdmin = when(remote.isAdmin) {
+                    is Boolean -> remote.isAdmin
+                    is Number -> remote.isAdmin.toInt() == 1
+                    is String -> remote.isAdmin.lowercase() == "true" || remote.isAdmin == "1"
+                    else -> false
+                },
+                role = remote.role?.toString()
             )
             Log.d("ProfileRepository", "Saving profile to Room. UID: $finalUid, Name: ${entity.name}")
             profileDao.insertProfile(entity)
@@ -187,7 +213,7 @@ class ProfileRepository(
             Log.d("ProfileRepository", "Updating profile info on VPS for UID: $uid (Name: $name, Age: $ageValue)")
             apiService.updateProfile(
                 name = nameBody,
-                age = ageBody,
+                age = if (age != null) ageBody else null,
                 theme = themeBody,
                 lang = langBody,
                 privacyAgreed = privacyBody,
@@ -207,6 +233,17 @@ class ProfileRepository(
 
     suspend fun updateDailyPlan(uid: String, date: String, plan: String) {
         profileDao.updateDailyPlan(uid, date, plan)
+    }
+
+    suspend fun deleteAvatar(uid: String): Boolean {
+        return try {
+            apiService.deleteAvatar()
+            updateAvatarUrl(uid, null)
+            true
+        } catch (e: Exception) {
+            Log.e("ProfileRepository", "Failed to delete avatar", e)
+            false
+        }
     }
 
     // --- ГЛОБАЛЬНЫЙ КОНТЕНТ ---

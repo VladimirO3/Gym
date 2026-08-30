@@ -52,6 +52,8 @@ fun PlaylistScreen(
         factory = com.business.gym.ui.viewmodel.SettingsViewModel.Factory(application)
     )
 
+    val effectiveIsAdmin = authViewModel.isAdmin()
+
     val configuration = LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp > 600
     val columns = if (isWideScreen) 2 else 1
@@ -232,7 +234,7 @@ fun PlaylistScreen(
                 overflow = TextOverflow.Ellipsis
             )
             
-            if (isAdmin) {
+            if (effectiveIsAdmin) {
                 Row {
                     IconButton(
                         onClick = { checkAndLaunch() },
@@ -276,7 +278,7 @@ fun PlaylistScreen(
                         track = Track(id = localTrack.id.toString(), url = fullUrl, name = localTrack.name),
                         isSelected = isThisTrackSelected,
                         isPlaying = isPlaying,
-                        isAdmin = isAdmin,
+                        isAdmin = effectiveIsAdmin,
                         onDelete = { viewModel.deleteLocalTrack(localTrack.id.toString(), jwtToken) },
                         onPlayPause = {
                             if (!isThisTrackSelected) {

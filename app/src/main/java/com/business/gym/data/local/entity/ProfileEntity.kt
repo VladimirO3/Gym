@@ -14,5 +14,7 @@ data class ProfileEntity(
     val lang: String = "system",
     val privacyAgreed: Boolean = false,
     val lastPlanDate: String? = null,
-    val dailyPlan: String? = null
+    val dailyPlan: String? = null,
+    val isAdmin: Boolean = false,
+    val role: String? = "user"
 )

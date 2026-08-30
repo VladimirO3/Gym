@@ -170,7 +170,15 @@ class SettingsViewModel(
                 Log.d("SettingsViewModel", "Profile collection update for $id: ${profile?.name ?: "null"}")
                 profile?.let {
                     _privacyAgreed.value = if (isAdmin) true else it.privacyAgreed
-                    if (it.name.isNotBlank()) _userName.value = it.name
+                    
+                    val displayName = if (it.isAdmin || it.role == "admin") {
+                        if (AuthUtils.isStaticAdmin(it.email)) "root-администратор"
+                        else "админ-${it.name}"
+                    } else {
+                        it.name
+                    }
+                    if (it.name.isNotBlank()) _userName.value = displayName
+
                     if (it.age != null) _userAge.value = it.age
                     
                     // Обновляем URL аватара, даже если он пустой (для сброса)
@@ -431,6 +439,21 @@ class SettingsViewModel(
             } finally {
                 _isUpdatingProfile.value = false
             }
+        }
+    }
+
+    fun deleteAvatar(context: Context) {
+        val uid = currentUid ?: return
+        _isUpdatingProfile.value = true
+        viewModelScope.launch {
+            val success = repository.deleteAvatar(uid)
+            if (success) {
+                _avatarUrl.value = null
+                android.widget.Toast.makeText(context, "Фото удалено", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                android.widget.Toast.makeText(context, "Ошибка при удалении фото", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            _isUpdatingProfile.value = false
         }
     }
 

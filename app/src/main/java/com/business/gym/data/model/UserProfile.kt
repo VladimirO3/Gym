@@ -10,7 +10,11 @@ data class UserProfile(
     val uid: String = "",
     val email: String = "",
     val name: String = "",
+    val age: Int? = null,
     val hasPassword: Boolean = false,
     val avatarUrl: String? = null,
-    val lastSeen: Long? = null
+    val lastSeen: Long? = null,
+    val isAdmin: Boolean = false,
+    val role: String? = "user",
+    val isRoot: Boolean = false
 )

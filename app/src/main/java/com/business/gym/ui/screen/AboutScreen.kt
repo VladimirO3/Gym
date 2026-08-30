@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.business.gym.R
 import com.business.gym.ui.viewmodel.AboutViewModel
+import com.business.gym.ui.viewmodel.AuthViewModel
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.BorderStroke
@@ -51,6 +52,7 @@ import coil.request.ImageRequest
 fun AboutScreen(
     isAdmin: Boolean,
     viewModel: AboutViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -71,6 +73,8 @@ fun AboutScreen(
     var showEditor by remember { mutableStateOf(false) }
     var showCoachDialog by remember { mutableStateOf(false) }
     var editingCoach by remember { mutableStateOf<CoachEntity?>(null) }
+
+    val effectiveIsAdmin = authViewModel.isAdmin()
 
     if (selectedCoachId != null) {
         val coach = coaches.find { it.id == selectedCoachId }
@@ -136,7 +140,7 @@ fun AboutScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (isAdmin) {
+        if (effectiveIsAdmin) {
             // Admin Toggle Header
             Row(
                 modifier = contentModifier
@@ -150,7 +154,9 @@ fun AboutScreen(
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-                IconButton(onClick = { showEditor = !showEditor }) {
+                IconButton(onClick = { 
+                    if (effectiveIsAdmin) showEditor = !showEditor 
+                }) {
                     Icon(
                         imageVector = if (showEditor) Icons.Default.Visibility else Icons.Default.Edit,
                         contentDescription = "Toggle Editor",
@@ -165,7 +171,7 @@ fun AboutScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = aboutTitle,
-                    onValueChange = { viewModel.updateAboutTitle(it) },
+                    onValueChange = { if (effectiveIsAdmin) viewModel.updateAboutTitle(it) },
                     label = { Text("Заголовок", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
                     modifier = contentModifier,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -178,7 +184,7 @@ fun AboutScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = aboutDescription,
-                    onValueChange = { viewModel.updateAboutDescription(it) },
+                    onValueChange = { if (effectiveIsAdmin) viewModel.updateAboutDescription(it) },
                     label = { Text("Описание", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
                     modifier = contentModifier,
                     minLines = 3,
@@ -192,7 +198,7 @@ fun AboutScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = aboutServices,
-                    onValueChange = { viewModel.updateAboutServices(it) },
+                    onValueChange = { if (effectiveIsAdmin) viewModel.updateAboutServices(it) },
                     label = { Text("Услуги", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
                     modifier = contentModifier,
                     minLines = 3,
@@ -206,7 +212,7 @@ fun AboutScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = aboutFooter,
-                    onValueChange = { viewModel.updateAboutFooter(it) },
+                    onValueChange = { if (effectiveIsAdmin) viewModel.updateAboutFooter(it) },
                     label = { Text("Футер (низ)", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
                     modifier = contentModifier,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -222,7 +228,7 @@ fun AboutScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = contactTitle,
-                    onValueChange = { viewModel.updateContactTitle(it) },
+                    onValueChange = { if (effectiveIsAdmin) viewModel.updateContactTitle(it) },
                     label = { Text("Описание контактов", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
                     modifier = contentModifier,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -235,7 +241,7 @@ fun AboutScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = contactPhone,
-                    onValueChange = { viewModel.updateContactPhone(it) },
+                    onValueChange = { if (effectiveIsAdmin) viewModel.updateContactPhone(it) },
                     label = { Text("Номер телефона", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
                     modifier = contentModifier,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -361,7 +367,7 @@ fun AboutScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                 }
-                if (isAdmin) {
+                if (effectiveIsAdmin) {
                     IconButton(onClick = { viewModel.refreshCoaches() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -389,7 +395,7 @@ fun AboutScreen(
             coaches.forEach { coach ->
                 CoachCard(
                     coach = coach,
-                    isAdmin = isAdmin,
+                    isAdmin = effectiveIsAdmin,
                     onEdit = { editingCoach = coach; showCoachDialog = true },
                     onDelete = { viewModel.deleteCoach(coach.id) },
                     onClick = { selectedCoachId = coach.id },

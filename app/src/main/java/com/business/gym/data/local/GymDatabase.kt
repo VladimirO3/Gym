@@ -23,7 +23,7 @@ import com.business.gym.data.local.entity.*
         GlobalInfoEntity::class,
         OrderEntity::class
     ], 
-    version = 20,
+    version = 22,
     exportSchema = false
 )
 abstract class GymDatabase : RoomDatabase() {

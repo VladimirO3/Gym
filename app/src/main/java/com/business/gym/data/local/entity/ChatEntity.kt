@@ -22,6 +22,9 @@ data class UserEntity(
     val serverId: String? = null,
     val email: String,
     val name: String,
+    val age: Int? = null,
     val avatarUrl: String? = null,
-    val lastSeen: Long? = null
+    val lastSeen: Long? = null,
+    val isAdmin: Boolean = false,
+    val role: String? = "user"
 )

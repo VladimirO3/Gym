@@ -281,7 +281,7 @@ fun GymApp(
     val currentUserEmail by authViewModel.currentUserEmail
     val currentUid by authViewModel.currentUid
     val isSessionLoaded by authViewModel.isSessionLoaded
-    val isAdmin = remember(currentUserEmail) { authViewModel.isAdmin() }
+    val isAdmin by authViewModel.isAdminState
 
     if (!isSessionLoaded && !authViewModel.isGuest.value) {
         // Показываем загрузку только во время начальной проверки сессии
@@ -359,14 +359,14 @@ fun GymAppContent(
 
     val tabs = remember(isGuest, privacyAgreed, newsTitle, playlistTitle, chatTitle, settingsTitle, shopTitle, aboutTitle) {
         val list = mutableListOf<GymTab>()
-        list.add(GymTab(newsTitle, Icons.Default.Newspaper, "news"))
-        list.add(GymTab(playlistTitle, Icons.Default.PlayArrow, "playlist"))
         if (!isGuest) {
+            list.add(GymTab(newsTitle, Icons.Default.Newspaper, "news"))
+            list.add(GymTab(playlistTitle, Icons.Default.PlayArrow, "playlist"))
             list.add(GymTab(chatTitle, Icons.AutoMirrored.Filled.Send, "chat"))
         }
-        list.add(GymTab(settingsTitle, Icons.Default.AccountCircle, "settings"))
         list.add(GymTab(shopTitle, Icons.Default.Store, "shop"))
         list.add(GymTab(aboutTitle, Icons.Default.Info, "about"))
+        list.add(GymTab(settingsTitle, Icons.Default.AccountCircle, "settings"))
         list
     }
 
@@ -401,7 +401,16 @@ fun GymAppContent(
             color = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onBackground
         ) {
-            Row(modifier = Modifier.fillMaxSize()) {
+            if (currentUserEmail == null && !isGuest) {
+                AuthScreen(
+                    viewModel = authViewModel,
+                    settingsViewModel = settingsViewModel,
+                    onAuthSuccess = { email -> 
+                        authViewModel.loadSession(context)
+                    }
+                )
+            } else {
+                Row(modifier = Modifier.fillMaxSize()) {
                 if (isWideScreen) {
                     NavigationRail(
                         containerColor = Color.Black.copy(alpha = 0.8f),
@@ -602,10 +611,14 @@ fun GymAppContent(
                                                 }
                                             )
                                         } else {
-                                            NewsScreen(isAdmin = isAdmin, authViewModel = authViewModel)
+                                            NewsScreen(isAdmin = authViewModel.isAdmin(), authViewModel = authViewModel)
                                         }
                                     }
-                                    "playlist" -> PlaylistScreen(player = player, isAdmin = isAdmin)
+                                    "playlist" -> PlaylistScreen(
+                                        player = player,
+                                        isAdmin = authViewModel.isAdmin(),
+                                        authViewModel = authViewModel
+                                    )
                                     "chat" -> {
                                         if (currentUserEmail == null || isGuest) {
                                             AuthScreen(
@@ -616,7 +629,7 @@ fun GymAppContent(
                                                 }
                                             )
                                         } else {
-                                            ChatScreen(currentUid = currentUid ?: "", isAdmin = isAdmin, viewModel = chatViewModel)
+                                            ChatScreen(currentUid = currentUid ?: "", isAdmin = authViewModel.isAdmin(), viewModel = chatViewModel)
                                         }
                                     }
                                     "settings" -> SettingsScreen(
@@ -630,11 +643,15 @@ fun GymAppContent(
                                         }
                                     )
                                     "shop" -> ShopScreen(
-                                        isAdmin = isAdmin, 
+                                        isAdmin = authViewModel.isAdmin(), 
                                         cartViewModel = cartViewModel,
                                         authViewModel = authViewModel
                                     )
-                                    "about" -> AboutScreen(isAdmin = isAdmin, viewModel = aboutViewModel)
+                                    "about" -> AboutScreen(
+                                        isAdmin = authViewModel.isAdmin(),
+                                        viewModel = aboutViewModel,
+                                        authViewModel = authViewModel
+                                    )
                                 }
                             }
                         }
@@ -660,6 +677,7 @@ fun GymAppContent(
             }
         }
     }
+}
 }
 
 @Preview(showBackground = true)

@@ -102,12 +102,30 @@ class ChatViewModel(
                         !isSelf && !isDeleted
                     }
                     .map { 
+                        val isAdminVal = when(it.isAdmin) {
+                            is Boolean -> it.isAdmin
+                            is Number -> it.isAdmin.toInt() == 1
+                            is String -> it.isAdmin.lowercase() == "true" || it.isAdmin == "1"
+                            else -> false
+                        }
+                        val roleStr = it.role?.toString()
+                        
+                        // Используем имя напрямую от сервера, так как сервер теперь сам 
+                        // формирует красивые имена ("root-администратор", "Имя - администратор")
                         UserProfile(
                             uid = it.id ?: it.uid ?: it.email,
                             email = it.email, 
                             name = it.name,
+                            age = when(val a = it.age) {
+                                is Number -> a.toInt()
+                                is String -> a.toIntOrNull()
+                                else -> null
+                            },
                             avatarUrl = it.avatarUrl,
-                            lastSeen = it.lastSeen
+                            lastSeen = it.lastSeen,
+                            isAdmin = isAdminVal || roleStr == "admin",
+                            role = roleStr,
+                            isRoot = it.email.trim().lowercase() == "verso0100@gmail.com"
                         ) 
                     }
                     .toMutableList()
@@ -124,13 +142,15 @@ class ChatViewModel(
                     val adminInList = profiles.find { AuthUtils.isStaticAdmin(it.email) }
                     if (adminInList != null) {
                         profiles.remove(adminInList)
-                        profiles.add(0, adminInList.copy(name = "Администратор"))
+                        profiles.add(0, adminInList.copy(name = "root-администратор"))
                     } else {
                         Log.d("ChatViewModel", "Admin not found in list, adding manually")
                         profiles.add(0, UserProfile(
                             uid = "1",
                             email = AuthUtils.ADMIN_EMAIL,
-                            name = "Администратор"
+                            name = "root-администратор",
+                            isAdmin = true,
+                            role = "admin"
                         ))
                     }
                 }
@@ -418,6 +438,66 @@ class ChatViewModel(
                 // Если даже репозиторий вернул false (например, полная потеря связи),
                 // пользователь всё равно остается в deletedUserUids, то есть скрыт из списка.
                 android.widget.Toast.makeText(context, "Ошибка связи с сервером, пользователь скрыт локально", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    fun makeAdmin(uid: String, email: String, context: android.content.Context) {
+        viewModelScope.launch {
+            val success = repository.makeAdmin(uid, email)
+            if (success) {
+                android.widget.Toast.makeText(context, "Права администратора выданы", android.widget.Toast.LENGTH_SHORT).show()
+                val token = getApplication<GymApplication>().getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE).getString("user_session_token", "") ?: ""
+                fetchLocalUsers(token, force = true)
+            } else {
+                android.widget.Toast.makeText(context, "Ошибка при выдаче прав", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun removeAdmin(uid: String, email: String, context: android.content.Context) {
+        viewModelScope.launch {
+            val success = repository.removeAdmin(uid, email)
+            if (success) {
+                android.widget.Toast.makeText(context, "Права администратора отозваны", android.widget.Toast.LENGTH_SHORT).show()
+                val token = getApplication<GymApplication>().getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE).getString("user_session_token", "") ?: ""
+                fetchLocalUsers(token, force = true)
+            } else {
+                android.widget.Toast.makeText(context, "Ошибка при отзыве прав", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun adminUpdateProfile(uid: String, name: String, age: Int?, context: android.content.Context) {
+        viewModelScope.launch {
+            val success = repository.adminUpdateProfile(uid, name, age)
+            if (success) {
+                android.widget.Toast.makeText(context, "Профиль обновлен", android.widget.Toast.LENGTH_SHORT).show()
+                val token = getApplication<com.business.gym.GymApplication>().getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE).getString("user_session_token", "") ?: ""
+                fetchLocalUsers(token, force = true)
+                // Если редактировали текущего выбранного, обновляем его
+                if (_selectedUser.value?.uid == uid) {
+                    _selectedUser.value = _selectedUser.value?.copy(name = name, age = age)
+                }
+            } else {
+                android.widget.Toast.makeText(context, "Ошибка обновления профиля", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun adminDeleteUserPhoto(uid: String, context: android.content.Context) {
+        viewModelScope.launch {
+            val success = repository.adminDeleteUserPhoto(uid)
+            if (success) {
+                android.widget.Toast.makeText(context, "Фото пользователя удалено", android.widget.Toast.LENGTH_SHORT).show()
+                val token = getApplication<com.business.gym.GymApplication>().getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE).getString("user_session_token", "") ?: ""
+                fetchLocalUsers(token, force = true)
+                // Если удаляли у текущего выбранного, обновляем его
+                if (_selectedUser.value?.uid == uid) {
+                    _selectedUser.value = _selectedUser.value?.copy(avatarUrl = null)
+                }
+            } else {
+                android.widget.Toast.makeText(context, "Ошибка удаления фото", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }

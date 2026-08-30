@@ -65,6 +65,7 @@ fun ShopScreen(
     val isLoading by shopViewModel.isLoading
     
     var isShowingCart by remember { mutableStateOf(false) }
+    var selectedProductForDetail by remember { mutableStateOf<ProductResponse?>(null) }
 
     val jwtToken by authViewModel.jwtToken
     val currentUid by authViewModel.currentUid
@@ -86,7 +87,7 @@ fun ShopScreen(
 
     var editingProduct by remember { mutableStateOf<ProductResponse?>(null) }
     var isAddingProduct by remember { mutableStateOf(false) }
-    var selectedProductForDetail by remember { mutableStateOf<ProductResponse?>(null) }
+    val effectiveIsAdmin = authViewModel.isAdmin()
 
     // Dialogs
     if (editingProduct != null) {
@@ -142,7 +143,7 @@ fun ShopScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                if (isAdmin) {
+                if (effectiveIsAdmin) {
                     IconButton(
                         onClick = { isAddingProduct = true },
                         modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp)
@@ -204,7 +205,7 @@ fun ShopScreen(
                         ShopProductCard(
                             product = product,
                             countInCart = countInCart,
-                            isAdmin = isAdmin,
+                            isAdmin = effectiveIsAdmin,
                             onClick = { selectedProductForDetail = product },
                             onAddToCart = { 
                                 cartViewModel.addToCart(context, product.toPlaceholder()) 
