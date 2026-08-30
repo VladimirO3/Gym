@@ -46,59 +46,72 @@ class CartViewModel(
     private val gson = Gson()
 
     fun init(context: android.content.Context, token: String?, userId: String? = null) {
-        if (userId.isNullOrBlank() || token.isNullOrBlank()) {
-            Log.w("CartViewModel", "Init skipped: blank userId or token")
-            return
-        }
-        
         currentToken = token
         currentUserId = userId
         
-        if (token != "guest_token") {
-            userId.let { uid ->
-                _isInitializing.value = true
-                viewModelScope.launch {
-                    try {
-                        // 1. Мердж с гостевой корзиной
-                        val guestItems = cartDao.getCartItems("guest").first()
-                        if (guestItems.isNotEmpty()) {
-                            val currentList = _cartItems.value.toMutableList()
-                            guestItems.forEach { g ->
-                                val existing = currentList.find { it.first.id == g.productId }
-                                if (existing == null) {
-                                    currentList.add(Pair(ProductPlaceholder(g.productId, g.name, g.price, g.description, g.imageUrl), g.quantity))
-                                }
-                            }
-                            _cartItems.value = currentList
-                            cartDao.clearCart("guest")
-                        }
+        if (userId.isNullOrBlank()) {
+            Log.w("CartViewModel", "Init: userId is blank, using 'guest' fallback for local DB")
+        }
 
-                        // 2. Загрузка с сервера и мердж
-                        loadCartFromServerInternal(context, uid)
-                        
-                        // 3. Загрузка истории
-                        orderDao.getUserOrders(uid).collect { entities ->
-                            _orderHistory.value = entities.map { entity ->
-                                OrderResponse(
-                                    id = entity.orderId,
-                                    totalPrice = entity.totalPrice,
-                                    status = entity.status,
-                                    createdAt = entity.createdAt,
-                                    items = gson.fromJson(entity.itemsJson, Array<com.business.gym.data.api.CartItemResponse>::class.java).toList()
-                                )
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e("CartViewModel", "Init error", e)
-                    } finally {
-                        _isInitializing.value = false
-                        syncCartWithServer(context)
+        val effectiveUserId = userId ?: "guest"
+
+        viewModelScope.launch {
+            _isInitializing.value = true
+            try {
+                // 1. Загрузка из локальной БД ( Room ) для мгновенного отклика
+                val local = cartDao.getCartItems(effectiveUserId).first()
+                if (local.isNotEmpty()) {
+                    _cartItems.value = local.map { 
+                        Pair(ProductPlaceholder(it.productId, it.name, it.price, it.description, it.imageUrl), it.quantity)
                     }
                 }
-                
-                viewModelScope.launch {
-                    loadOrderHistoryFromServer(context, uid)
+
+                if (token != null && token != "guest_token" && userId != null) {
+                    // 2. Мердж с гостевой корзиной при входе
+                    val guestItems = cartDao.getCartItems("guest").first()
+                    if (guestItems.isNotEmpty()) {
+                        val currentList = _cartItems.value.toMutableList()
+                        guestItems.forEach { g ->
+                            val index = currentList.indexOfFirst { it.first.id == g.productId }
+                            if (index == -1) {
+                                currentList.add(Pair(ProductPlaceholder(g.productId, g.name, g.price, g.description, g.imageUrl), g.quantity))
+                            } else {
+                                // Если товар уже есть, можно либо оставить как есть, либо сложить количество
+                                currentList[index] = currentList[index].copy(second = currentList[index].second + g.quantity)
+                            }
+                        }
+                        _cartItems.value = currentList
+                        cartDao.clearCart("guest")
+                        
+                        // Сохраняем объединенную корзину в БД пользователя
+                        val entities = currentList.map { (p, count) ->
+                            CartItemEntity(userId, p.id, count, p.name, p.price, p.description, p.imageUrl)
+                        }
+                        cartDao.insertItems(entities)
+                    }
+
+                    // 3. Загрузка с сервера и мердж
+                    loadCartFromServerInternal(context, userId)
+                    
+                    // 4. Загрузка истории
+                    loadOrderHistoryFromServer(context, userId)
+                    
+                    orderDao.getUserOrders(userId).collect { entities ->
+                        _orderHistory.value = entities.map { entity ->
+                            OrderResponse(
+                                id = entity.orderId,
+                                totalPrice = entity.totalPrice,
+                                status = entity.status,
+                                createdAt = entity.createdAt,
+                                items = gson.fromJson(entity.itemsJson, Array<com.business.gym.data.api.CartItemResponse>::class.java).toList()
+                            )
+                        }
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e("CartViewModel", "Init error", e)
+            } finally {
+                _isInitializing.value = false
             }
         }
     }
@@ -160,20 +173,41 @@ class CartViewModel(
         try {
             val api = NewsApiService.create(context)
             val orders = api.getOrders()
+            // Сначала обновляем UI
             _orderHistory.value = orders
 
             if (userId != null) {
+                // Затем сохраняем в БД для офлайн доступа
                 orders.forEach { order ->
-                    orderDao.insertOrder(com.business.gym.data.local.entity.OrderEntity(
-                        order.id, userId, order.totalPrice, order.status, order.createdAt, gson.toJson(order.items)
-                    ))
+                    try {
+                        orderDao.insertOrder(com.business.gym.data.local.entity.OrderEntity(
+                            order.id, userId, order.totalPrice, order.status, order.createdAt, gson.toJson(order.items)
+                        ))
+                    } catch (e: Exception) {
+                        Log.e("CartViewModel", "Failed to cache order ${order.id}", e)
+                    }
                 }
             }
         } catch (e: Exception) {
             Log.e("CartViewModel", "Load orders failed", e)
-            if (e is retrofit2.HttpException) {
-                val errorBody = e.response()?.errorBody()?.string()
-                Log.e("CartViewModel", "Load orders HTTP Error: ${e.code()}, Body: $errorBody")
+            // При ошибке сети пытаемся загрузить из локальной БД
+            if (userId != null) {
+                try {
+                    val localOrders = orderDao.getUserOrders(userId).first()
+                    if (localOrders.isNotEmpty()) {
+                        _orderHistory.value = localOrders.map { entity ->
+                            OrderResponse(
+                                id = entity.orderId,
+                                totalPrice = entity.totalPrice,
+                                status = entity.status,
+                                createdAt = entity.createdAt,
+                                items = gson.fromJson(entity.itemsJson, Array<com.business.gym.data.api.CartItemResponse>::class.java).toList()
+                            )
+                        }
+                    }
+                } catch (le: Exception) {
+                    Log.e("CartViewModel", "Local order fetch failed", le)
+                }
             }
         }
     }
@@ -206,6 +240,17 @@ class CartViewModel(
             currentItems.add(Pair(product, 1))
         }
         _cartItems.value = currentItems
+        
+        // Для гостей сохраняем только в Room
+        val userId = currentUserId ?: "guest"
+        viewModelScope.launch {
+            val entities = _cartItems.value.map { (p, count) ->
+                CartItemEntity(userId, p.id, count, p.name, p.price, p.description, p.imageUrl)
+            }
+            cartDao.clearCart(userId)
+            cartDao.insertItems(entities)
+        }
+        
         syncCartWithServer(context)
     }
 
@@ -220,6 +265,17 @@ class CartViewModel(
             }
         }
         _cartItems.value = currentItems
+
+        // Для гостей сохраняем только в Room
+        val userId = currentUserId ?: "guest"
+        viewModelScope.launch {
+            val entities = _cartItems.value.map { (p, count) ->
+                CartItemEntity(userId, p.id, count, p.name, p.price, p.description, p.imageUrl)
+            }
+            cartDao.clearCart(userId)
+            cartDao.insertItems(entities)
+        }
+
         syncCartWithServer(context)
     }
 
@@ -236,15 +292,10 @@ class CartViewModel(
             Log.d("CartViewModel", "DEBUG: syncCartWithServer skipped (isInitializing=true)")
             return
         }
-        val token = currentToken ?: return
-        if (token == "guest_token") return
 
-        val userId = currentUserId
-        if (userId.isNullOrBlank()) {
-            Log.w("CartViewModel", "syncCartWithServer skipped: blank currentUserId")
-            return
-        }
-
+        val userId = currentUserId ?: "guest"
+        
+        // Всегда сохраняем локально, даже для гостей
         viewModelScope.launch {
             val entities = _cartItems.value.map { (p, count) ->
                 CartItemEntity(userId, p.id, count, p.name, p.price, p.description, p.imageUrl)
@@ -254,19 +305,24 @@ class CartViewModel(
             Log.d("CartViewModel", "DEBUG: syncCartWithServer: Local DB updated for $userId")
         }
 
+        val token = currentToken
+        if (token == null || token == "guest_token" || currentUserId == null) {
+            Log.d("CartViewModel", "syncCartWithServer: Skipping server sync for guest/no-token")
+            return
+        }
+
         syncJob?.cancel()
         syncJob = viewModelScope.launch {
-            delay(500)
+            delay(800) // Немного увеличим задержку для группировки быстрых нажатий
             try {
                 val api = NewsApiService.create(context)
-                // Очищаем ID перед отправкой на сервер. Если ID числовой - отправляем как число.
                 val request = _cartItems.value.map { 
                     val rawId = it.first.id
                     val cleanIdString = rawId.removeSuffix(".0")
                     val idToSend: Any = cleanIdString.toIntOrNull() ?: cleanIdString
                     CartItemRequest(idToSend, it.second)
                 }
-                Log.d("CartViewModel", "DEBUG: syncCartWithServer: Sending ${request.size} items to server")
+                Log.d("CartViewModel", "DEBUG: syncCartWithServer: Sending ${request.size} items to server for user $userId")
                 api.saveCart(request)
             } catch (e: Exception) {
                 Log.e("CartViewModel", "DEBUG: Sync to server failed", e)

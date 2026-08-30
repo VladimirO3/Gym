@@ -87,20 +87,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    val isRootAdminState = derivedStateOf {
+        AuthUtils.isRootAdmin(_currentUserEmail.value)
+    }
+
     val isAdminState = derivedStateOf {
         val email = _currentUserEmail.value
         val role = _currentUserRole.value?.lowercase()
         
         // Прямая проверка без посредников для гарантии
-        val isForcedAdmin = email?.trim()?.lowercase() == "verso@gmail.com" || 
-                           email?.trim()?.lowercase() == "verso0100@gmail.com"
+        val isForcedAdmin = AuthUtils.isStaticAdmin(email)
                            
-        val isStatic = isStaticAdmin(email)
         val isRoleAdmin = role == "admin"
-        val result = isForcedAdmin || isStatic || isRoleAdmin
+        val result = isForcedAdmin || isRoleAdmin
         
         if (email != null) {
-            Log.d("AuthViewModel", "isAdmin check: email=$email, forced=$isForcedAdmin, static=$isStatic, role=$role -> Result=$result")
+            Log.d("AuthViewModel", "isAdmin check: email=$email, staticAdmin=$isForcedAdmin, role=$role -> Result=$result")
         }
         
         result
@@ -588,9 +590,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun fetchPendingUsers() {
         viewModelScope.launch {
             try {
+                Log.d("AuthViewModel", "Fetching pending users...")
                 _pendingUsers.value = localApiService.getPendingUsers()
+                Log.d("AuthViewModel", "Successfully fetched ${pendingUsers.value.size} pending users")
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Fetch pending failed", e)
+                if (e is retrofit2.HttpException && e.code() == 403) {
+                    Log.w("AuthViewModel", "403 Forbidden on fetchPendingUsers - checking if session needs refresh")
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(getApplication(), "Ошибка доступа (403): сервер отклонил запрос", Toast.LENGTH_SHORT).show()
+                    }
+                    // Если получили 403, возможно роль на сервере не совпадает с локальной.
+                    // Пытаемся обновить профиль, чтобы синхронизировать состояние.
+                    fetchAndSaveProfile { _, _ -> }
+                }
             }
         }
     }

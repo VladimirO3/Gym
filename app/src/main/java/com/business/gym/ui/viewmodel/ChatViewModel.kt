@@ -125,7 +125,7 @@ class ChatViewModel(
                             lastSeen = it.lastSeen,
                             isAdmin = isAdminVal || roleStr == "admin",
                             role = roleStr,
-                            isRoot = it.email.trim().lowercase() == "verso0100@gmail.com"
+                            isRootAdmin = it.email.trim().lowercase() == "verso0100@gmail.com"
                         ) 
                     }
                     .toMutableList()

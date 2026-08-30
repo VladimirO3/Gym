@@ -58,6 +58,7 @@ fun ChatScreen(
     isAdmin: Boolean,
     viewModel: ChatViewModel, // Принимаем экземпляр извне
     authViewModel: AuthViewModel = viewModel(),
+    isRootAdmin: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -96,6 +97,7 @@ fun ChatScreen(
         } else {
             AdminUserProfileDialog(
                 user = currentUserInList,
+                isRootAdmin = isRootAdmin, // Передаем статус
                 onDismiss = { userForProfile = null },
                 onUpdate = { name, age ->
                     viewModel.adminUpdateProfile(currentUserInList.uid, name, age, context)
@@ -145,7 +147,7 @@ fun ChatScreen(
                         onUserSelected = { viewModel.selectUser(it, currentUid, jwtToken) },
                         selectedUser = selectedUser,
                         notifiedCounts = notifiedCounts,
-                        isAdmin = effectiveIsAdmin,
+                        isAdmin = isRootAdmin, // Только Root может редактировать пользователей
                         onDeleteUser = { viewModel.deleteUser(context, it, jwtToken) },
                         onEditUser = { userForProfile = it },
                         jwtToken = jwtToken
@@ -168,7 +170,7 @@ fun ChatScreen(
                             },
                             onDeleteChat = { viewModel.deleteChat(context, selectedUser!!.uid) },
                             onShowProfile = { userForProfile = selectedUser },
-                            isAdmin = effectiveIsAdmin,
+                            isAdmin = isRootAdmin, // Только Root может открывать профиль из чата
                             showBackButton = false
                         )
                     } else {
@@ -221,6 +223,7 @@ fun ChatScreen(
 @Composable
 fun AdminUserProfileDialog(
     user: UserProfile,
+    isRootAdmin: Boolean, // Кто открыл диалог
     onDismiss: () -> Unit,
     onUpdate: (String, Int?) -> Unit,
     onDeletePhoto: () -> Unit,
@@ -229,12 +232,14 @@ fun AdminUserProfileDialog(
 ) {
     var nameInput by remember { mutableStateOf(user.name) }
     var ageInput by remember { mutableStateOf(user.age?.toString() ?: "") }
-    val isRootAdmin = AuthUtils.isStaticAdmin(user.email) || user.uid == "1"
-    val isAnyAdmin = isRootAdmin || user.isAdmin || user.role == "admin"
     
-    val displayTitle = if (isAnyAdmin) {
-        if (isRootAdmin) "root-администратор" 
-        else "админ-${user.name.substringBefore(" - ")}"
+    // Является ли "цель" рут-админом
+    val isTargetRoot = AuthUtils.isRootAdmin(user.email) || user.uid == "1"
+    val isTargetAdmin = isTargetRoot || user.isAdmin || user.role == "admin"
+    
+    val displayTitle = if (isTargetAdmin) {
+        if (isTargetRoot) "root-администратор" 
+        else user.name
     } else {
         "Профиль пользователя"
     }
@@ -261,7 +266,8 @@ fun AdminUserProfileDialog(
                     }
                 }
                 
-                if (!user.avatarUrl.isNullOrBlank()) {
+                // Только Root может удалять фото других админов
+                if (!user.avatarUrl.isNullOrBlank() && (isRootAdmin || !isTargetAdmin)) {
                     TextButton(
                         onClick = onDeletePhoto,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -272,61 +278,72 @@ fun AdminUserProfileDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                OutlinedTextField(
-                    value = nameInput,
-                    onValueChange = { nameInput = it },
-                    label = { Text("Имя") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = ageInput,
-                    onValueChange = { if (it.all { c -> c.isDigit() }) ageInput = it },
-                    label = { Text("Возраст") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                )
+                // Только Root может менять имена других админов
+                if (isRootAdmin || !isTargetAdmin) {
+                    OutlinedTextField(
+                        value = nameInput,
+                        onValueChange = { nameInput = it },
+                        label = { Text("Имя") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = ageInput,
+                        onValueChange = { if (it.all { c -> c.isDigit() }) ageInput = it },
+                        label = { Text("Возраст") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                    )
+                } else {
+                    Text("Имя: ${user.name}", style = MaterialTheme.typography.bodyLarge)
+                    Text("Возраст: ${user.age ?: "не указан"}", style = MaterialTheme.typography.bodyLarge)
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                Text("Статус: ${if (isAnyAdmin) (if (isRootAdmin) "root-администратор" else "Администратор") else "Пользователь"}", style = MaterialTheme.typography.bodyMedium)
+                Text("Статус: ${if (isTargetAdmin) (if (isTargetRoot) "root-администратор" else "Администратор") else "Пользователь"}", style = MaterialTheme.typography.bodyMedium)
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                // Root-администратор не может быть лишен прав через интерфейс
-                if (!isRootAdmin) {
+                // ТОЛЬКО ROOT может изменять права администратора
+                if (isRootAdmin && !isTargetRoot) {
                     Button(
-                        onClick = { onToggleAdmin(isAnyAdmin) },
+                        onClick = { onToggleAdmin(isTargetAdmin) },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = if (isAnyAdmin) Color.Gray else Color.Blue)
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isTargetAdmin) Color.Gray else Color.Blue)
                     ) {
-                        Text(if (isAnyAdmin) "Снять права администратора" else "Сделать администратором")
+                        Text(if (isTargetAdmin) "Снять права администратора" else "Сделать администратором")
                     }
-                } else {
-                    Text("Это главный администратор. Права управлению не подлежат.", color = Color.Gray, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                } else if (isTargetRoot) {
+                    Text("Это главный администратор. Права управлению не подлежат.", color = Color.Gray, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
                 
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Button(
-                    onClick = onDelete,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                ) {
-                    Text("Удалить пользователя")
+                // Только Root может удалять других пользователей/админов
+                if (isRootAdmin && !isTargetRoot) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = onDelete,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    ) {
+                        Text("Удалить пользователя")
+                    }
                 }
             }
         },
         confirmButton = {
-            Button(onClick = { 
-                onUpdate(nameInput, ageInput.toIntOrNull())
-                onDismiss()
-            }) {
-                Text("Сохранить")
+            if (isRootAdmin || !isTargetAdmin) {
+                Button(onClick = { 
+                    onUpdate(nameInput, ageInput.toIntOrNull())
+                    onDismiss()
+                }) {
+                    Text("Сохранить")
+                }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Отмена")
+                Text(if (isRootAdmin || !isTargetAdmin) "Отмена" else "Закрыть")
             }
         }
     )
@@ -390,11 +407,11 @@ fun UserListScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                     items(users) { user ->
-                        val isUserAdmin = AuthUtils.isStaticAdmin(user.email) || user.uid == "1"
+                        val isTargetAdmin = user.isAdmin || user.role == "admin" || AuthUtils.isStaticAdmin(user.email)
                         val isSelected = selectedUser?.uid == user.uid
                         
                         // Проверяем уведомления по UID и по Email (на случай несовпадения форматов)
-                        val unreadCount = notifiedCounts[user.uid] ?: notifiedCounts[user.email] ?: notifiedCounts["1"].takeIf { isUserAdmin } ?: 0
+                        val unreadCount = notifiedCounts[user.uid] ?: notifiedCounts[user.email] ?: notifiedCounts["1"].takeIf { isTargetAdmin } ?: 0
                         val hasNotification = unreadCount > 0 && unreadCount != 999999
 
                     // Анимация пульсации для новых сообщений
@@ -418,7 +435,7 @@ fun UserListScreen(
                             containerColor = when {
                                 isSelected -> Color.Red.copy(alpha = 0.2f)
                                 hasNotification -> Color(0xFF5A1010) // Более насыщенный красный фон
-                                isUserAdmin -> Color.DarkGray.copy(alpha = 0.5f)
+                                isTargetAdmin -> Color.DarkGray.copy(alpha = 0.5f)
                                 else -> Color.Black.copy(alpha = 0.3f)
                             }
                         ),
@@ -465,7 +482,7 @@ fun UserListScreen(
                                     Icon(
                                         Icons.Default.Person, 
                                         null,
-                                        tint = if (isUserAdmin || isSelected || hasNotification) Color.Red else Color.Gray,
+                                        tint = if (isTargetAdmin || isSelected || hasNotification) Color.Red else Color.Gray,
                                         modifier = Modifier.size(40.dp)
                                     )
                                 }
@@ -475,11 +492,11 @@ fun UserListScreen(
                                     Text(
                                         text = user.name, 
                                         style = MaterialTheme.typography.bodyLarge,
-                                        color = if (isUserAdmin) Color.Red else Color.White,
-                                        fontWeight = if (isUserAdmin || isSelected || hasNotification) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isTargetAdmin) Color.Red else Color.White,
+                                        fontWeight = if (isTargetAdmin || isSelected || hasNotification) FontWeight.Bold else FontWeight.Normal,
                                         maxLines = 1
                                     )
-                                    if (!isUserAdmin) {
+                                    if (!isTargetAdmin) {
                                         val lastSeenText = if (user.lastSeen != null && user.lastSeen > 0) {
                                             val sdf = SimpleDateFormat("dd.MM HH:mm", Locale.getDefault())
                                             "был(а) в сети ${sdf.format(Date(user.lastSeen))}"
@@ -516,7 +533,7 @@ fun UserListScreen(
                             }
 
                             Row {
-                                if (isAdmin && !isUserAdmin) {
+                                if (isAdmin && !isTargetAdmin) {
                                     IconButton(onClick = { onEditUser(user) }) {
                                         Icon(
                                             imageVector = Icons.Default.Settings, 
@@ -533,7 +550,7 @@ fun UserListScreen(
                                             modifier = Modifier.size(24.dp)
                                         )
                                     }
-                                } else if (isAdmin && isUserAdmin) {
+                                } else if (isAdmin && isTargetAdmin) {
                                      // Для других админов root-админ отображается без кнопок управления, 
                                      // но они могут нажать на него, чтобы открыть чат
                                 }
@@ -604,37 +621,36 @@ fun ConversationScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            // Padding handling is done in MainActivity for the entire screen
             .padding(horizontal = 16.dp)
             .padding(top = 8.dp, bottom = 4.dp)
     ) {
-        Box(
+        // УЛУЧШЕННЫЙ ЗАГОЛОВОК (Исправление кнопки Назад)
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 8.dp)
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             if (showBackButton) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.align(Alignment.CenterStart)
-                ) {
+                IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
             }
             
             Row(
                 modifier = Modifier
-                    .align(Alignment.Center)
+                    .weight(1f)
                     .clickable { if (isAdmin) onShowProfile() },
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = peer.name,
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleLarge,
                     color = Color.Red,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
                 if (isAdmin) {
                     Spacer(Modifier.width(4.dp))
@@ -643,10 +659,7 @@ fun ConversationScreen(
             }
 
             // Кнопка удаления чата справа
-            IconButton(
-                onClick = { showDeleteConfirm = true },
-                modifier = Modifier.align(Alignment.CenterEnd)
-            ) {
+            IconButton(onClick = { showDeleteConfirm = true }) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete Chat", tint = Color.Red.copy(alpha = 0.8f))
             }
         }

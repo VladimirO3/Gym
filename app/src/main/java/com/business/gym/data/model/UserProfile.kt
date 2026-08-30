@@ -16,5 +16,5 @@ data class UserProfile(
     val lastSeen: Long? = null,
     val isAdmin: Boolean = false,
     val role: String? = "user",
-    val isRoot: Boolean = false
+    val isRootAdmin: Boolean = false
 )

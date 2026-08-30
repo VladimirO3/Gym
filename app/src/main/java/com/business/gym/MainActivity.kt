@@ -629,7 +629,13 @@ fun GymAppContent(
                                                 }
                                             )
                                         } else {
-                                            ChatScreen(currentUid = currentUid ?: "", isAdmin = authViewModel.isAdmin(), viewModel = chatViewModel)
+                                            val isRootAdmin by authViewModel.isRootAdminState
+                                            ChatScreen(
+                                                currentUid = currentUid ?: "", 
+                                                isAdmin = authViewModel.isAdmin(), 
+                                                viewModel = chatViewModel,
+                                                isRootAdmin = isRootAdmin
+                                            )
                                         }
                                     }
                                     "settings" -> SettingsScreen(

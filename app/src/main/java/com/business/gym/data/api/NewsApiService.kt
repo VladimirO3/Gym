@@ -599,7 +599,7 @@ interface NewsApiService {
                     val isOurServer = url.contains(cleanBaseUrl) || url.contains("5.35.98.149") || !url.startsWith("http")
                     
                     val shouldAddToken = !hasAuth && token != null && !isGuestToken && 
-                        (isOurServer || url.contains("/admin/") || url.contains("/chat/") || url.contains("/cart") || url.contains("/orders"))
+                        (isOurServer || url.contains("admin") || url.contains("chat") || url.contains("cart") || url.contains("orders") || url.contains("profile"))
                     
                     val newRequest = if (shouldAddToken) {
                         Log.d("NewsApiService", "Adding Authorization header to: $url")
