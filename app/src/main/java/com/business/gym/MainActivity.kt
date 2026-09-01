@@ -147,6 +147,7 @@ class MainActivity : AppCompatActivity() {
                         cartViewModel.init(context, jwtToken, currentUid)
                         chatViewModel.startGlobalNotificationPolling(jwtToken)
                         authViewModel.startStatusPolling(context)
+                        startUpdateListener(jwtToken!!)
                     }
                 }
 
@@ -225,32 +226,41 @@ class MainActivity : AppCompatActivity() {
     }
     // 2. Метод для запуска чата (полностью исправленный)
     private fun startChat(token: String) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                client.webSocket(
-                    host = "5.35.98.149",
-                    port = 5557,
-                    path = "/chat",
-                    request = {
-                        header(HttpHeaders.Authorization, "Bearer $token")
-                    }
-                ) {
-                    println("Соединение установлено!")
-                    // Отправка (убедитесь, что chatCipher доступен)
-                    // send(Frame.Text(chatCipher.encrypt("Привет, админ!")))
+        // ... (existing code)
+    }
 
-                    for (frame in incoming) {
-                        if (frame is Frame.Text) {
-                            val encryptedText = frame.readText()
-                            // val decrypted = chatCipher.decrypt(encryptedText)
-                            withContext(Dispatchers.Main) {
-                                println("Сообщение: $encryptedText")
+    private var updateListenerJob: Job? = null
+
+    /**
+     * Слушатель обновлений через WebSocket (Шаг 4: Реализация на стороне клиента)
+     */
+    private fun startUpdateListener(token: String) {
+        updateListenerJob?.cancel()
+        updateListenerJob = lifecycleScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                try {
+                    client.webSocket(
+                        host = "5.35.98.149",
+                        port = 5557,
+                        path = "/subscribe",
+                        request = {
+                            header(HttpHeaders.Authorization, "Bearer $token")
+                        }
+                    ) {
+                        println("Подписка на обновления установлена!")
+                        for (frame in incoming) {
+                            if (frame is Frame.Text) {
+                                val message = frame.readText()
+                                android.util.Log.d("MainActivity", "Update received: $message")
+                                // Эмитим событие в общую шину
+                                com.business.gym.util.AppEventBus.emit(message)
                             }
                         }
                     }
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "WebSocket Update error: ${e.message}")
+                    delay(5000) // Пауза перед переподключением
                 }
-            } catch (e: Exception) {
-                println("Ошибка WebSocket: ${e.message}")
             }
         }
     }

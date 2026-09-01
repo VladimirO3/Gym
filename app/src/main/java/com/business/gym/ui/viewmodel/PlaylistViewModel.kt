@@ -49,6 +49,17 @@ class PlaylistViewModel(
                 }
             }
         }
+
+        // Слушатель глобальных обновлений через WebSocket
+        viewModelScope.launch {
+            com.business.gym.util.AppEventBus.events.collect { event ->
+                if (event.contains("TRACKS_UPDATE")) {
+                    val sharedPref = application.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                    val token = sharedPref.getString("user_session_token", null)
+                    fetchLocalTracks(token)
+                }
+            }
+        }
         
         // Фоновое обновление при запуске
         val sharedPref = application.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
