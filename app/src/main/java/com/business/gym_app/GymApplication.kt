@@ -22,8 +22,15 @@ class GymApplication : Application(), ImageLoaderFactory {
 
         // Инициализация базового URL из настроек при запуске
         val globalPref = getSharedPreferences("settings_global", MODE_PRIVATE)
-        val savedIp = globalPref.getString("server_ip", "5.35.98.149:5557") ?: "5.35.98.149:5557"
-        NewsApiService.updateBaseUrl("http://$savedIp/")
+        var savedIp = globalPref.getString("server_ip", "verso0100.fvds.ru") ?: "verso0100.fvds.ru"
+        
+        // Принудительный перенос со старого IP на новый рабочий домен
+        if (savedIp.contains("5.35.98.149")) {
+            savedIp = "verso0100.fvds.ru"
+            globalPref.edit().putString("server_ip", savedIp).apply()
+        }
+
+        NewsApiService.updateBaseUrl(savedIp)
         
         // Глобальный перехватчик ошибок для отладки вылетов при запуске
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->

@@ -88,9 +88,14 @@ class SettingsViewModel(
 
     init {
         val globalPref = getApplication<Application>().getSharedPreferences("settings_global", Context.MODE_PRIVATE)
-        val savedIp = globalPref.getString("server_ip", "5.35.98.149:5557") ?: "5.35.98.149:5557"
+        var savedIp = globalPref.getString("server_ip", "verso0100.fvds.ru") ?: "verso0100.fvds.ru"
+        
+        if (savedIp.contains("5.35.98.149")) {
+            savedIp = "verso0100.fvds.ru"
+        }
+        
         _serverIp.value = savedIp
-        NewsApiService.updateBaseUrl("http://$savedIp/")
+        NewsApiService.updateBaseUrl(savedIp)
         val savedLang = globalPref.getString("lang", "system") ?: "system"
         applyLanguage(savedLang)
     }
@@ -474,7 +479,7 @@ class SettingsViewModel(
         _serverIp.value = ip
         context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
             .edit().putString("server_ip", ip).apply()
-        NewsApiService.updateBaseUrl("http://$ip/")
+        NewsApiService.updateBaseUrl("https://$ip/")
     }
 
     /**

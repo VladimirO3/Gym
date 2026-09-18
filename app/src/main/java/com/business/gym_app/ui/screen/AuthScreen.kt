@@ -127,50 +127,6 @@ fun AuthScreen(
                             focusedBorderColor = Color.Red
                         )
                     )
-
-                    if (isPasswordMode) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedTextField(
-                            value = password,
-                            onValueChange = { viewModel.onPasswordChange(it) },
-                            label = { Text(stringResource(R.string.auth_password_hint)) },
-                            modifier = contentModifier,
-                            singleLine = true,
-                            enabled = !isLoading,
-                            visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                            trailingIcon = {
-                                val image = if (passwordVisible)
-                                    Icons.Filled.Visibility
-                                else Icons.Filled.VisibilityOff
-
-                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                    Icon(imageVector = image, contentDescription = if (passwordVisible) "Hide password" else "Show password")
-                                }
-                            },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                                focusedLabelColor = Color.Red,
-                                focusedBorderColor = Color.Red
-                            )
-                        )
-                    } else {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedTextField(
-                            value = otpCode,
-                            onValueChange = { viewModel.onOtpCodeChange(it) },
-                            label = { Text(stringResource(R.string.auth_otp_label)) },
-                            modifier = contentModifier,
-                            singleLine = true,
-                            enabled = !isLoading,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                                focusedLabelColor = Color.Red,
-                                focusedBorderColor = Color.Red
-                            )
-                        )
-                    }
                 } else {
                     OutlinedTextField(
                         value = otpPhone,
@@ -186,47 +142,33 @@ fun AuthScreen(
                             focusedBorderColor = Color.Red
                         )
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = otpCode,
-                        onValueChange = { viewModel.onOtpCodeChange(it) },
-                        label = { Text("Код подтверждения (OTP)") },
-                        modifier = contentModifier,
-                        singleLine = true,
-                        enabled = !isLoading,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                            focusedLabelColor = Color.Red,
-                            focusedBorderColor = Color.Red
-                        )
-                    )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { viewModel.onPasswordChange(it) },
+                    label = { Text(stringResource(R.string.auth_password_hint)) },
                     modifier = contentModifier,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (authMode == "email") {
-                        TextButton(onClick = { viewModel.togglePasswordMode() }) {
-                            Text(if (isPasswordMode) stringResource(R.string.auth_use_otp) else stringResource(R.string.auth_use_password), color = Color.Gray, fontSize = 12.sp)
+                    singleLine = true,
+                    enabled = !isLoading,
+                    visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    trailingIcon = {
+                        val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(imageVector = image, contentDescription = null)
                         }
-                    } else {
-                        Spacer(modifier = Modifier.width(1.dp))
-                    }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        focusedLabelColor = Color.Red,
+                        focusedBorderColor = Color.Red
+                    )
+                )
 
-                    if (!isPasswordMode) {
-                            TextButton(
-                            onClick = { viewModel.requestOtp() },
-                            enabled = !isLoading && (if (authMode == "email") otpEmail.isNotBlank() else otpPhone.isNotBlank())
-                        ) {
-                            Text(stringResource(R.string.auth_send_code), color = Color.Red)
-                        }
-                    }
-                }
+                Spacer(modifier = Modifier.height(16.dp))
             } else {
                 // РЕГИСТРАЦИЯ
                 Text(
@@ -366,11 +308,7 @@ fun AuthScreen(
                 Button(
                     onClick = {
                         if (isLogin) {
-                            if (isPasswordMode) {
-                                viewModel.signInWithEmail { onAuthSuccess(it) }
-                            } else {
-                                viewModel.verifyOtp(context) { onAuthSuccess(it) }
-                            }
+                            viewModel.signInWithEmail { onAuthSuccess(it) }
                         } else {
                             viewModel.signUpWithEmail { onAuthSuccess(it) }
                         }

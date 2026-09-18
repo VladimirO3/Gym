@@ -1,19 +1,29 @@
 package com.business.gym_app.data.api
 
 import android.util.Log
+import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.google.gson.annotations.SerializedName
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.*
-
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.datasource.cache.SimpleCache
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
-import androidx.media3.database.StandaloneDatabaseProvider
-import androidx.media3.datasource.cache.CacheDataSource
+import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.Field
+import retrofit2.http.FormUrlEncoded
+import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.Multipart
+import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Part
+import retrofit2.http.Path
+import retrofit2.http.Query
 import java.io.File
 
 /**
@@ -405,6 +415,9 @@ interface NewsApiService {
         @Header("Authorization") authHeader: String
     ): ProfileResponse
 
+    @DELETE("profile")
+    suspend fun deleteAccount(): okhttp3.ResponseBody
+
     @Multipart
     @POST("profile/avatar")
     suspend fun uploadAvatar(
@@ -497,9 +510,9 @@ interface NewsApiService {
     ): okhttp3.ResponseBody
 
     companion object {
-        // Базовый адрес по умолчанию (VPS)
+        // Базовый адрес по умолчанию (Ваш рабочий домен)
         @Volatile
-        private var currentBaseUrl = "http://5.35.98.149:5557/"
+        private var currentBaseUrl = "https://verso0100.fvds.ru/"
         @Volatile
         private var cachedService: NewsApiService? = null
 
@@ -507,22 +520,23 @@ interface NewsApiService {
 
         fun updateBaseUrl(newUrl: String) {
             val formattedUrl = when {
-                newUrl.startsWith("http://") || newUrl.startsWith("https://") -> newUrl
-                else -> "http://$newUrl"
+                newUrl.startsWith("https://") -> newUrl
+                newUrl.startsWith("http://") -> newUrl.replace("http://", "https://")
+                else -> "https://$newUrl"
             }
             
-            // Проверка на наличие порта (ищем двоеточие после протокола)
+            // Проверка на наличие порта. 
+            // Добавляем 5557 только если это сырой IP и порт не указан.
             val protocolEnd = formattedUrl.indexOf("//") + 2
-            val urlWithPort = if (!formattedUrl.substring(protocolEnd).contains(":")) {
-                val mainPart = formattedUrl.removeSuffix("/")
-                "$mainPart:5557/"
+            val hostPart = formattedUrl.substring(protocolEnd).removeSuffix("/")
+            
+            val finalUrl = if (!hostPart.contains(":") && hostPart.matches(Regex("""^(\d{1,3}\.){3}\d{1,3}$"""))) {
+                "$formattedUrl".removeSuffix("/") + ":5557/"
             } else {
-                formattedUrl
+                if (formattedUrl.endsWith("/")) formattedUrl else "$formattedUrl/"
             }
             
-            val finalUrl = if (urlWithPort.endsWith("/")) urlWithPort else "$urlWithPort/"
-            
-            Log.d("NewsApiService", "Updating Base URL to: $finalUrl (Previous: $currentBaseUrl)")
+            Log.d("NewsApiService", "Updating Base URL to: $finalUrl")
             
             if (currentBaseUrl != finalUrl) {
                 currentBaseUrl = finalUrl
@@ -541,7 +555,7 @@ interface NewsApiService {
             }
             
             val settingsPref = context.getSharedPreferences("settings_global", android.content.Context.MODE_PRIVATE)
-            val serverIp = settingsPref.getString("server_ip", "5.35.98.149:5557") ?: "5.35.98.149:5557"
+            val serverIp = settingsPref.getString("server_ip", "verso0100.fvds.ru") ?: "verso0100.fvds.ru"
             
             // Очищаем IP от протоколов и лишних слешей
             val cleanIp = serverIp.trim()
@@ -549,10 +563,11 @@ interface NewsApiService {
                 .removePrefix("https://")
                 .removeSuffix("/")
             
-            // Если в настройках прописан IP без порта, добавляем порт 5557 по умолчанию
-            val finalBase = if (!cleanIp.contains(":")) "$cleanIp:5557" else cleanIp
+            // Если это сырой IP без порта, добавляем 5557. Если домен - оставляем как есть.
+            val isIp = cleanIp.matches(Regex("""^(\d{1,3}\.){3}\d{1,3}$"""))
+            val finalBase = if (isIp && !cleanIp.contains(":")) "$cleanIp:5557" else cleanIp
             
-            val base = "http://$finalBase"
+            val base = "https://$finalBase"
             val cleanRaw = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
             val result = base + cleanRaw
             

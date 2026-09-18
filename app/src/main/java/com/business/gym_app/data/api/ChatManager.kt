@@ -11,7 +11,7 @@ class ChatManager(private val tokenManager: TokenManager) {
     fun connect(callback: ChatCallback) {
         val token = tokenManager.getToken()
         val request = Request.Builder()
-            .url("ws://5.35.98.149:5557/chat")
+            .url("wss://5.35.98.149:5557/chat")
             .apply {
                 token?.let {
                     addHeader("Authorization", "Bearer $it")

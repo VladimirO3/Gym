@@ -273,11 +273,14 @@ class MainActivity : AppCompatActivity() {
         updateListenerJob = lifecycleScope.launch(Dispatchers.IO) {
             while (isActive) {
                 try {
+                    // Используем wss для защищенного соединения
                     client.webSocket(
+                        method = io.ktor.http.HttpMethod.Get,
                         host = "5.35.98.149",
                         port = 5557,
                         path = "/subscribe",
                         request = {
+                            url.protocol = io.ktor.http.URLProtocol.WSS
                             header(HttpHeaders.Authorization, "Bearer $token")
                         }
                     ) {

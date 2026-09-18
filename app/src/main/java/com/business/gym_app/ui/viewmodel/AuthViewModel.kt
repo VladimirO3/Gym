@@ -315,19 +315,21 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun signInWithEmail(onSuccess: (String) -> Unit) {
-        if (_email.value.isBlank() || _password.value.isBlank()) {
+        val identifier = if (_authMode.value == "email") _email.value.trim().lowercase() else _otpPhone.value.trim()
+        val passwordValue = _password.value
+
+        if (identifier.isBlank() || passwordValue.isBlank()) {
             _error.value = "Заполните все поля"
             return
         }
         _isLoading.value = true
-        val emailValue = _email.value.trim().lowercase()
-        val passwordValue = _password.value
+        
         viewModelScope.launch {
             try {
-                Log.d("AuthViewModel", "Signing in with email: $emailValue")
-                val response = localApiService.login(emailValue, passwordValue)
+                Log.d("AuthViewModel", "Signing in with identifier: $identifier")
+                val response = localApiService.login(identifier, passwordValue)
                 
-                // НЕ сохраняем сессию до подтверждения профиля, чтобы избежать входа несуществующих пользователей
+                // НЕ сохраняем сессию до подтверждения профиля
                 val token = response.token
                 val refresh = response.refreshToken
                 
@@ -335,11 +337,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 try {
                     val profile = localApiService.getProfileWithToken("Bearer $token")
                     
-                    // Умный поиск UID: приоритет ID > UID > Email
                     var profileUid = profile.id?.toString() ?: profile.uid ?: profile.email
                     
-                    // Резервный ID для админа, если все равно пусто (маловероятно)
-                    if (profileUid.isBlank() && isStaticAdmin(emailValue)) {
+                    if (profileUid.isBlank() && isStaticAdmin(profile.email)) {
                         profileUid = "1"
                     }
                     
@@ -360,9 +360,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     val isStatic = isStaticAdmin(profile.email)
                     val resolvedRole = if (rawRole == "admin" || isAdminVal || isStatic) "admin" else "user"
 
-                    // Сначала сохраняем сессию физически
-                    saveSession(getApplication(), profile.email, null, token, refresh, profileUid, resolvedRole)
-                    saveCredentials(emailValue, passwordValue)
+                    saveSession(getApplication(), profile.email, if (_authMode.value == "phone") identifier else null, token, refresh, profileUid, resolvedRole)
+                    saveCredentials(if (_authMode.value == "email") identifier else profile.email, passwordValue)
 
                     _jwtToken.value = token
                     _refreshToken.value = refresh
@@ -375,25 +374,24 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 } catch (pe: Exception) {
                     Log.e("AuthViewModel", "Profile validation failed after login", pe)
                     
-                    // Если это админ, разрешаем вход даже при ошибке получения профиля
-                    if (isStaticAdmin(emailValue)) {
-                        Log.w("AuthViewModel", "Admin login allowed with fallback UID due to profile error")
+                    if (isStaticAdmin(identifier)) {
+                        Log.w("AuthViewModel", "Admin login allowed with fallback UID")
                         val fallbackUid = "1"
                         
-                        saveSession(getApplication(), emailValue, null, token, refresh, fallbackUid, "admin")
-                        saveCredentials(emailValue, passwordValue)
+                        saveSession(getApplication(), identifier, if (_authMode.value == "phone") identifier else null, token, refresh, fallbackUid, "admin")
+                        saveCredentials(identifier, passwordValue)
 
                         _jwtToken.value = token
                         _refreshToken.value = refresh
-                        _currentUserEmail.value = emailValue
+                        _currentUserEmail.value = identifier
                         _currentUid.value = fallbackUid
                         _currentUserRole.value = "admin"
                         
                         _isLoading.value = false
-                        onSuccess(emailValue)
+                        onSuccess(identifier)
                     } else {
                         _isLoading.value = false
-                        _error.value = "Ошибка проверки профиля. Возможно, аккаунт еще не активирован."
+                        _error.value = "Ошибка проверки профиля. Аккаунт не активирован."
                     }
                 }
             } catch (e: Exception) {
@@ -402,12 +400,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 
                 if (e is retrofit2.HttpException) {
                     when (e.code()) {
-                        401, 404 -> _error.value = "Такого пользователя не существует или он был удален"
-                        403 -> _error.value = "Ваша учетная запись заблокирована или ожидает подтверждения"
+                        401, 404 -> _error.value = "Неверный логин или пароль"
+                        403 -> _error.value = "Доступ заблокирован"
                         else -> _error.value = "Ошибка сервера: ${e.code()}"
                     }
                 } else {
-                    _error.value = "Ошибка входа: проверьте интернет-соединение"
+                    _error.value = "Ошибка входа: проверьте интернет"
                 }
             }
         }
@@ -765,6 +763,37 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _isGuest.value = false
         _isSessionLoaded.value = true // После выхода сессия "загружена" (её нет)
         clearSession(getApplication())
+    }
+
+    /**
+     * Удаление текущего аккаунта (по требованию Google Play)
+     */
+    fun deleteAccount(onSuccess: () -> Unit) {
+        val token = _jwtToken.value
+        if (token == null || token == "guest_token") {
+            signOut()
+            onSuccess()
+            return
+        }
+
+        _isLoading.value = true
+        viewModelScope.launch {
+            try {
+                localApiService.deleteAccount()
+                signOut()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), "Аккаунт успешно удален", Toast.LENGTH_LONG).show()
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Account deletion failed", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), "Ошибка при удалении аккаунта", Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
 
     class Factory(private val application: Application) : ViewModelProvider.Factory {

@@ -407,6 +407,32 @@ fun SettingsScreen(
         }
 
         if (currentUserEmail != null) {
+            var showDeleteDialog by remember { mutableStateOf(false) }
+
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("Удаление аккаунта", color = Color.Red) },
+                    text = { Text("Вы уверены, что хотите безвозвратно удалить свой аккаунт и все связанные с ним данные? Это действие нельзя отменить.") },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showDeleteDialog = false
+                                authViewModel.deleteAccount { onLogout() }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        ) {
+                            Text("Удалить", color = Color.White)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) {
+                            Text("Отмена", color = Color.Gray)
+                        }
+                    }
+                )
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = onLogout,
@@ -417,6 +443,16 @@ fun SettingsScreen(
                 Icon(Icons.AutoMirrored.Filled.Logout, null, tint = Color.White)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.auth_logout), color = Color.White)
+            }
+
+            if (!isGuest && !isAdmin) {
+                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(
+                    onClick = { showDeleteDialog = true },
+                    modifier = Modifier.widthIn(max = 300.dp).fillMaxWidth()
+                ) {
+                    Text("Удалить аккаунт", color = Color.Gray, fontSize = 12.sp)
+                }
             }
         }
 
