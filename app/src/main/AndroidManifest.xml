@@ -63,7 +63,7 @@
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.business.gym.fileprovider"
+            android:authorities="com.business.gym_app.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

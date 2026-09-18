@@ -1,0 +1,495 @@
+package com.business.gym_app.ui.screen
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.business.gym_app.ui.viewmodel.AuthViewModel
+import com.business.gym_app.ui.viewmodel.SettingsViewModel
+import com.business.gym_app.R
+@Composable
+fun AuthScreen(
+    viewModel: AuthViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel? = null,
+    onAuthSuccess: (String) -> Unit
+) {
+    val error by viewModel.error
+    val isLoading by viewModel.isLoading
+    val otpEmail by viewModel.otpEmail
+    val otpPhone by viewModel.otpPhone
+    val otpCode by viewModel.otpCode
+    val authMode by viewModel.authMode
+    val isPasswordMode by viewModel.isPasswordMode
+    val password by viewModel.password
+    val isLogin by viewModel.isLogin
+    val regPhone by viewModel.regPhone
+    val confirmPassword by viewModel.confirmPassword
+    val privacyAgreed by viewModel.privacyAgreed
+
+    val context = LocalContext.current
+    var passwordVisible by remember { mutableStateOf(false) }
+    var showAgreement by remember { mutableStateOf(false) }
+    
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isWideScreen = configuration.screenWidthDp > 600
+    // В альбомной ориентации ограничиваем ширину формы авторизации для лучшего вида
+    val contentModifier = if (isWideScreen) Modifier.widthIn(max = 400.dp).fillMaxWidth() else Modifier.fillMaxWidth()
+
+    if (showAgreement) {
+        AgreementDialog(onDismiss = { showAgreement = false })
+    }
+
+    Box(modifier = Modifier.fillMaxSize().imePadding()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Transparent)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(48.dp))
+            
+            Text(
+                text = "GYM ABS",
+                style = MaterialTheme.typography.displaySmall,
+                color = Color.Red,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+
+            if (isLogin) {
+                // ПЕРЕКЛЮЧАТЕЛЬ Login/Register
+                TabRow(
+                    selectedTabIndex = if (authMode == "email") 0 else 1,
+                    containerColor = Color.Transparent,
+                    contentColor = Color.Red,
+                    divider = {},
+                    modifier = contentModifier,
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[if (authMode == "email") 0 else 1]),
+                            color = Color.Red
+                        )
+                    }
+                ) {
+                    Tab(
+                        selected = authMode == "email",
+                        onClick = { viewModel.setAuthMode("email") },
+                        text = { Text(stringResource(R.string.auth_email_label), color = if (authMode == "email") Color.Red else Color.Gray) }
+                    )
+                    Tab(
+                        selected = authMode == "phone",
+                        onClick = { viewModel.setAuthMode("phone") },
+                        text = { Text(stringResource(R.string.auth_phone_label), color = if (authMode == "phone") Color.Red else Color.Gray) }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (authMode == "email") {
+                    OutlinedTextField(
+                        value = otpEmail,
+                        onValueChange = { viewModel.onOtpEmailChange(it) },
+                        label = { Text("Email") },
+                        modifier = contentModifier,
+                        singleLine = true,
+                        enabled = !isLoading,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            focusedLabelColor = Color.Red,
+                            focusedBorderColor = Color.Red
+                        )
+                    )
+
+                    if (isPasswordMode) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { viewModel.onPasswordChange(it) },
+                            label = { Text(stringResource(R.string.auth_password_hint)) },
+                            modifier = contentModifier,
+                            singleLine = true,
+                            enabled = !isLoading,
+                            visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            trailingIcon = {
+                                val image = if (passwordVisible)
+                                    Icons.Filled.Visibility
+                                else Icons.Filled.VisibilityOff
+
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(imageVector = image, contentDescription = if (passwordVisible) "Hide password" else "Show password")
+                                }
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                                focusedLabelColor = Color.Red,
+                                focusedBorderColor = Color.Red
+                            )
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = otpCode,
+                            onValueChange = { viewModel.onOtpCodeChange(it) },
+                            label = { Text(stringResource(R.string.auth_otp_label)) },
+                            modifier = contentModifier,
+                            singleLine = true,
+                            enabled = !isLoading,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                                focusedLabelColor = Color.Red,
+                                focusedBorderColor = Color.Red
+                            )
+                        )
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = otpPhone,
+                        onValueChange = { viewModel.onOtpPhoneChange(it) },
+                        label = { Text(stringResource(R.string.auth_phone_hint)) },
+                        modifier = contentModifier,
+                        singleLine = true,
+                        enabled = !isLoading,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            focusedLabelColor = Color.Red,
+                            focusedBorderColor = Color.Red
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = otpCode,
+                        onValueChange = { viewModel.onOtpCodeChange(it) },
+                        label = { Text("Код подтверждения (OTP)") },
+                        modifier = contentModifier,
+                        singleLine = true,
+                        enabled = !isLoading,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            focusedLabelColor = Color.Red,
+                            focusedBorderColor = Color.Red
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = contentModifier,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (authMode == "email") {
+                        TextButton(onClick = { viewModel.togglePasswordMode() }) {
+                            Text(if (isPasswordMode) stringResource(R.string.auth_use_otp) else stringResource(R.string.auth_use_password), color = Color.Gray, fontSize = 12.sp)
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.width(1.dp))
+                    }
+
+                    if (!isPasswordMode) {
+                            TextButton(
+                            onClick = { viewModel.requestOtp() },
+                            enabled = !isLoading && (if (authMode == "email") otpEmail.isNotBlank() else otpPhone.isNotBlank())
+                        ) {
+                            Text(stringResource(R.string.auth_send_code), color = Color.Red)
+                        }
+                    }
+                }
+            } else {
+                // РЕГИСТРАЦИЯ
+                Text(
+                    text = stringResource(R.string.auth_register),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.Red,
+                    fontWeight = FontWeight.Bold,
+                    modifier = contentModifier,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+
+                OutlinedTextField(
+                    value = otpEmail,
+                    onValueChange = { viewModel.onOtpEmailChange(it) },
+                    label = { Text("Email") },
+                    modifier = contentModifier,
+                    singleLine = true,
+                    enabled = !isLoading,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        focusedLabelColor = Color.Red,
+                        focusedBorderColor = Color.Red
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = regPhone,
+                    onValueChange = { viewModel.onRegPhoneChange(it) },
+                    label = { Text(stringResource(R.string.auth_phone_hint)) },
+                    modifier = contentModifier,
+                    singleLine = true,
+                    enabled = !isLoading,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        focusedLabelColor = Color.Red,
+                        focusedBorderColor = Color.Red
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { viewModel.onPasswordChange(it) },
+                    label = { Text(stringResource(R.string.auth_password_hint)) },
+                    modifier = contentModifier,
+                    singleLine = true,
+                    enabled = !isLoading,
+                    visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    trailingIcon = {
+                        val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(imageVector = image, contentDescription = null)
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        focusedLabelColor = Color.Red,
+                        focusedBorderColor = Color.Red
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { viewModel.onConfirmPasswordChange(it) },
+                    label = { Text(stringResource(R.string.auth_confirm_password_hint)) },
+                    modifier = contentModifier,
+                    singleLine = true,
+                    enabled = !isLoading,
+                    visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        focusedLabelColor = Color.Red,
+                        focusedBorderColor = Color.Red
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = contentModifier.padding(vertical = 8.dp)
+                ) {
+
+                    Checkbox(
+                        checked = privacyAgreed,
+                        onCheckedChange = { viewModel.onPrivacyAgreementChange(it) },
+                        colors = CheckboxDefaults.colors(checkedColor = Color.Red)
+                    )
+                    
+                    val annotatedString = buildAnnotatedString {
+                        append("Я принимаю ")
+                        pushStringAnnotation(tag = "agreement", annotation = "agreement")
+                        withStyle(style = SpanStyle(color = Color.Red, fontWeight = FontWeight.Bold)) {
+                            append("условия соглашения об электронном взаимодействии и сервисах")
+                        }
+                        pop()
+                    }
+
+                    ClickableText(
+                        text = annotatedString,
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray),
+                        onClick = { offset ->
+                            annotatedString.getStringAnnotations(tag = "agreement", start = offset, end = offset)
+                                .firstOrNull()?.let {
+                                    showAgreement = true
+                                }
+                        }
+                    )
+                }
+            }
+
+            if (error != null) {
+                Text(
+                    text = error!!,
+                    color = if (error!!.contains("отправлен") || error!!.contains("успешно")) Color.Green else MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 16.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(32.dp), color = Color.Red)
+            } else {
+                Button(
+                    onClick = {
+                        if (isLogin) {
+                            if (isPasswordMode) {
+                                viewModel.signInWithEmail { onAuthSuccess(it) }
+                            } else {
+                                viewModel.verifyOtp(context) { onAuthSuccess(it) }
+                            }
+                        } else {
+                            viewModel.signUpWithEmail { onAuthSuccess(it) }
+                        }
+                    },
+                    modifier = contentModifier.height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = isLogin || privacyAgreed, // Кнопка регистрации активна только при согласии
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Red,
+                        disabledContainerColor = Color.Gray.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Text(
+                        if (isLogin) stringResource(R.string.auth_login_password) else stringResource(R.string.auth_register).uppercase(),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (isLogin) {
+                    OutlinedButton(
+                        onClick = { 
+                            viewModel.loginAsGuest { onAuthSuccess(AuthViewModel.GUEST_EMAIL) }
+                        },
+                        modifier = contentModifier.height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
+                    ) {
+                        Text(
+                            stringResource(R.string.auth_login_guest),
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    TextButton(onClick = { viewModel.toggleIsLogin() }, modifier = contentModifier) {
+                        Text(stringResource(R.string.auth_new_here), color = Color.Gray)
+                    }
+                } else {
+                    TextButton(onClick = { viewModel.toggleIsLogin() }, modifier = contentModifier) {
+                        Text(stringResource(R.string.auth_already_have), color = Color.Gray)
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun AgreementDialog(onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Соглашение об электронном взаимодействии",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Red,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Clear, contentDescription = "Close", tint = Color.Gray)
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = """
+                            1. ПРЕДМЕТ СОГЛАШЕНИЯ
+                            Настоящее Соглашение определяет условия использования электронных сервисов приложения GYM ABS.
+                            
+                            2. ЭЛЕКТРОННОЕ ВЗАИМОДЕЙСТВИЕ
+                            Пользователь соглашается на получение уведомлений, сообщений и информации в электронном виде через приложение или по указанным при регистрации контактным данным.
+                            
+                            3. ПЕРСОНАЛЬНЫЕ ДАННЫЕ
+                            Регистрируясь в приложении, Пользователь дает согласие на обработку своих персональных данных для обеспечения функционирования сервисов.
+                            
+                            4. ОБЯЗАННОСТИ ПОЛЬЗОВАТЕЛЯ
+                            Пользователь обязуется предоставлять достоверную информацию и не использовать сервисы в противоправных целях.
+                            
+                            5. ОТВЕТСТВЕННОСТЬ
+                            Администрация приложения не несет ответственности за временные технические сбои, вызванные внешними факторами или действиями третьих лиц.
+                            
+                            6. ИЗМЕНЕНИЕ УСЛОВИЙ
+                            Администрация оставляет за собой право изменять условия настоящего Соглашения с уведомлением пользователей.
+                        """.trimIndent(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        lineHeight = 20.sp,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+            }
+        }
+    }
+}
+

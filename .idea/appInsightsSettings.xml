@@ -23,8 +23,8 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.business.gym" />
-                  <option name="mobileSdkAppId" value="1:81766528852:android:1a447c7a621d84675efac1" />
+                  <option name="appId" value="com.business.gym_app" />
+                  <option name="mobileSdkAppId" value="1:81766528852:android:7eac2989d097a8de5efac1" />
                   <option name="projectId" value="gymapp-e5c08" />
                   <option name="projectNumber" value="81766528852" />
                 </ConnectionSetting>

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
 	alias(libs.plugins.android.application)
 	alias(libs.plugins.kotlin.compose)
@@ -7,15 +9,30 @@ plugins {
 }
 
 android {
-	namespace = "com.business.gym"
+	namespace = "com.business.gym_app"
 	compileSdk = 37
 
+	val versionPropsFile = file("version.properties")
+	val versionProps = Properties()
+	if (!versionPropsFile.exists()) {
+		versionPropsFile.createNewFile()
+		versionProps["versionCode"] = "1"
+		versionProps["versionName"] = "1.0"
+		versionProps.store(versionPropsFile.writer(), null)
+	}
+	versionProps.load(versionPropsFile.reader())
+	val currentVersionCode = versionProps.getProperty("versionCode").toInt()
+	val nextVersionCode = currentVersionCode + 1
+	versionProps["versionCode"] = nextVersionCode.toString()
+	versionProps["versionName"] = "1.$nextVersionCode"
+	versionProps.store(versionPropsFile.writer(), null)
+
 	defaultConfig {
-		applicationId = "com.business.gym"
+		applicationId = "com.business.gym_app"
 		minSdk = 23
 		targetSdk = 36
-		versionCode = 1
-		versionName = "1.0"
+		versionCode = currentVersionCode
+		versionName = "1.$currentVersionCode"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 	}
@@ -28,6 +45,9 @@ android {
 				getDefaultProguardFile("proguard-android-optimize.txt"),
 				"proguard-rules.pro"
 			)
+			ndk {
+				debugSymbolLevel = "FULL"
+			}
 		}
 	}
 	compileOptions {
