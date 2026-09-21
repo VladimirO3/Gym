@@ -22,11 +22,9 @@ class GymApplication : Application(), ImageLoaderFactory {
 
         // Инициализация базового URL из настроек при запуске
         val globalPref = getSharedPreferences("settings_global", MODE_PRIVATE)
-        var savedIp = globalPref.getString("server_ip", "verso0100.fvds.ru") ?: "verso0100.fvds.ru"
-        
-        // Принудительный перенос со старого IP на новый рабочий домен
-        if (savedIp.contains("5.35.98.149")) {
-            savedIp = "verso0100.fvds.ru"
+        var savedIp = globalPref.getString("server_ip", "https://verso0100.fvds.ru/") ?: "https://verso0100.fvds.ru/"
+        if (savedIp.contains("5.35.98.149", ignoreCase = true) || savedIp.startsWith("http://")) {
+            savedIp = "https://verso0100.fvds.ru/"
             globalPref.edit().putString("server_ip", savedIp).apply()
         }
 

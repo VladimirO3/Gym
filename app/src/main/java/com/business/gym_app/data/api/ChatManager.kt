@@ -10,8 +10,12 @@ class ChatManager(private val tokenManager: TokenManager) {
 
     fun connect(callback: ChatCallback) {
         val token = tokenManager.getToken()
+        val wsUrl = NewsApiService.getBaseUrl()
+            .replaceFirst("https://", "wss://")
+            .replaceFirst("http://", "ws://")
+            .removeSuffix("/") + "/chat/chat"
         val request = Request.Builder()
-            .url("wss://5.35.98.149:5557/chat")
+            .url(wsUrl)
             .apply {
                 token?.let {
                     addHeader("Authorization", "Bearer $it")

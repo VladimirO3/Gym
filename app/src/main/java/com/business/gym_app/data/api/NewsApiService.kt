@@ -519,22 +519,13 @@ interface NewsApiService {
         fun getBaseUrl(): String = currentBaseUrl
 
         fun updateBaseUrl(newUrl: String) {
+            val normalizedUrl = newUrl.trim().trimEnd('/')
             val formattedUrl = when {
-                newUrl.startsWith("https://") -> newUrl
-                newUrl.startsWith("http://") -> newUrl.replace("http://", "https://")
-                else -> "https://$newUrl"
+                normalizedUrl.startsWith("https://") -> normalizedUrl
+                normalizedUrl.startsWith("http://") -> "https://${normalizedUrl.removePrefix("http://")}"
+                else -> "https://$normalizedUrl"
             }
-            
-            // Проверка на наличие порта. 
-            // Добавляем 5557 только если это сырой IP и порт не указан.
-            val protocolEnd = formattedUrl.indexOf("//") + 2
-            val hostPart = formattedUrl.substring(protocolEnd).removeSuffix("/")
-            
-            val finalUrl = if (!hostPart.contains(":") && hostPart.matches(Regex("""^(\d{1,3}\.){3}\d{1,3}$"""))) {
-                "$formattedUrl".removeSuffix("/") + ":5557/"
-            } else {
-                if (formattedUrl.endsWith("/")) formattedUrl else "$formattedUrl/"
-            }
+            val finalUrl = "$formattedUrl/"
             
             Log.d("NewsApiService", "Updating Base URL to: $finalUrl")
             
@@ -548,28 +539,19 @@ interface NewsApiService {
         fun getFullUrl(context: android.content.Context, rawUrl: String?): String {
             if (rawUrl.isNullOrBlank()) return ""
             
-            // Если это уже полный URL (начинается с http), возвращаем как есть.
+            // Preserve HTTPS for URLs returned by the HTTP-only Ktor backend.
             if (rawUrl.startsWith("http")) {
-                Log.d("NewsApiService", "getFullUrl: URL is already absolute: $rawUrl")
-                return rawUrl
+                val normalizedUrl = if (rawUrl.startsWith("http://verso0100.fvds.ru", ignoreCase = true)) {
+                    "https://${rawUrl.removePrefix("http://")}"
+                } else {
+                    rawUrl
+                }
+                Log.d("NewsApiService", "getFullUrl: URL is already absolute: $normalizedUrl")
+                return normalizedUrl
             }
             
-            val settingsPref = context.getSharedPreferences("settings_global", android.content.Context.MODE_PRIVATE)
-            val serverIp = settingsPref.getString("server_ip", "verso0100.fvds.ru") ?: "verso0100.fvds.ru"
-            
-            // Очищаем IP от протоколов и лишних слешей
-            val cleanIp = serverIp.trim()
-                .removePrefix("http://")
-                .removePrefix("https://")
-                .removeSuffix("/")
-            
-            // Если это сырой IP без порта, добавляем 5557. Если домен - оставляем как есть.
-            val isIp = cleanIp.matches(Regex("""^(\d{1,3}\.){3}\d{1,3}$"""))
-            val finalBase = if (isIp && !cleanIp.contains(":")) "$cleanIp:5557" else cleanIp
-            
-            val base = "https://$finalBase"
             val cleanRaw = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
-            val result = base + cleanRaw
+            val result = currentBaseUrl.removeSuffix("/") + cleanRaw
             
             Log.d("NewsApiService", "getFullUrl: constructed URL: raw=$rawUrl -> result=$result")
             return result
@@ -617,13 +599,23 @@ interface NewsApiService {
                     // кроме тех, где он уже есть в заголовках или в URL, или если это гость
                     val isGuestToken = token == "guest_token"
                     val hasAuth = request.header("Authorization") != null || request.url.queryParameter("token") != null
+                    val path = request.url.encodedPath
+                    val isPublicRequest = (request.method == "GET" && path.endsWith("/news")) ||
+                        (request.method == "GET" && path.endsWith("/coaches")) ||
+                        (request.method == "POST" && (
+                            path.endsWith("/login") ||
+                                path.endsWith("/register") ||
+                                path.endsWith("/auth/request-otp") ||
+                                path.endsWith("/auth/verify-otp") ||
+                                path.endsWith("/auth/refresh")
+                            ))
                     
                     // Проверяем, является ли запрос запросом к нашему серверу
                     // Мы делаем проверку более гибкой: если это наш IP или если это URL без домена (относительный)
                     val cleanBaseUrl = currentBaseUrl.removePrefix("http://").removePrefix("https://").removeSuffix("/")
                     val isOurServer = url.contains(cleanBaseUrl) || url.contains("5.35.98.149") || !url.startsWith("http")
                     
-                    val shouldAddToken = !hasAuth && token != null && !isGuestToken && 
+                    val shouldAddToken = !hasAuth && !isPublicRequest && token != null && !isGuestToken &&
                         (isOurServer || url.contains("admin") || url.contains("chat") || url.contains("cart") || url.contains("orders") || url.contains("profile"))
                     
                     val newRequest = if (shouldAddToken) {
@@ -635,7 +627,12 @@ interface NewsApiService {
                         request
                     }
                     
-                    val response = chain.proceed(newRequest)
+                    var response = chain.proceed(newRequest)
+                    if (response.code == 403 && !hasAuth && token != null &&
+                        (path.endsWith("/news") || path.endsWith("/coaches"))) {
+                        response.close()
+                        response = chain.proceed(request)
+                    }
                     Log.d("NewsApiService", "Request: ${request.method} ${request.url} -> Response Code: ${response.code}")
                     if (!response.isSuccessful) {
                         val isOrdersNotFound = url.contains("/orders") && response.code == 404
@@ -643,7 +640,18 @@ interface NewsApiService {
                             Log.i("NewsApiService", "Orders endpoint not ready on server, ignoring 404")
                         } else {
                             val errorMsg = response.peekBody(1024).string()
-                            Log.e("NewsApiService", "ERROR RESPONSE: ${response.code} for ${request.url}. Body: $errorMsg")
+                            val tokenState = when {
+                                token == null -> "missing"
+                                isGuestToken -> "guest"
+                                token.length < 20 -> "invalid_length"
+                                else -> "present(length=${token.length})"
+                            }
+                            Log.e(
+                                "NewsApiService",
+                                "HTTP_ERROR code=${response.code} method=${request.method} " +
+                                    "path=${request.url.encodedPath} authHeader=${hasAuth || shouldAddToken} " +
+                                    "token=$tokenState body=${errorMsg.take(1024)}"
+                            )
                         }
                     }
                     response
@@ -651,15 +659,34 @@ interface NewsApiService {
                 .authenticator { _, response ->
                     val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
                     val refreshToken = sharedPref.getString("user_session_refresh_token", null)
+                        ?.trim()
+                        ?.removePrefix("Bearer ")
+                        ?.trim()
+
+                    var responseCount = 1
+                    var previousResponse = response.priorResponse
+                    while (previousResponse != null) {
+                        responseCount++
+                        previousResponse = previousResponse.priorResponse
+                    }
+                    if (response.request.header("Authorization") == null || responseCount >= 2) {
+                        return@authenticator null
+                    }
                     
                     // Если получили 401 и есть токен обновления
-                    if (response.code == 401 && refreshToken != null) {
+                    if (response.code == 401 && !refreshToken.isNullOrBlank()) {
                         Log.w("NewsApiService", "401 Unauthorized detected. Attempting token refresh...")
                         
                         synchronized(this) {
                             // Повторно читаем токен, возможно другой поток его уже обновил
                             val currentToken = sharedPref.getString("user_session_token", null)
-                            val requestToken = response.request.header("Authorization")?.removePrefix("Bearer ")
+                                ?.trim()
+                                ?.removePrefix("Bearer ")
+                                ?.trim()
+                            val requestToken = response.request.header("Authorization")
+                                ?.trim()
+                                ?.removePrefix("Bearer ")
+                                ?.trim()
                             
                             if (requestToken != currentToken && currentToken != null) {
                                 // Токен уже был обновлен другим потоком, просто повторяем запрос с новым токеном
@@ -679,10 +706,15 @@ interface NewsApiService {
                                 if (refreshResponse.isSuccessful) {
                                     val newTokens = refreshResponse.body()
                                     if (newTokens != null) {
+                                        val newToken = newTokens.token.trim().removePrefix("Bearer ").trim()
+                                        val newRefreshToken = newTokens.refreshToken
+                                            ?.trim()
+                                            ?.removePrefix("Bearer ")
+                                            ?.trim()
                                         Log.i("NewsApiService", "Token refreshed successfully!")
                                         sharedPref.edit()
-                                            .putString("user_session_token", newTokens.token)
-                                            .putString("user_session_refresh_token", newTokens.refreshToken)
+                                            .putString("user_session_token", newToken)
+                                            .putString("user_session_refresh_token", newRefreshToken)
                                             .commit() // Используем commit для немедленной записи
                                         
                                         return@authenticator response.request.newBuilder()

@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import android.widget.Toast
 
 /**
@@ -66,6 +67,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _pendingUsers = mutableStateOf(listOf<LocalUser>())
     val pendingUsers: State<List<LocalUser>> = _pendingUsers
+    private var adminAccessDenied = false
 
     private val _refreshToken = mutableStateOf<String?>(null)
     val refreshToken: State<String?> = _refreshToken
@@ -94,15 +96,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     val isAdminState = derivedStateOf {
         val email = _currentUserEmail.value
         val role = _currentUserRole.value?.lowercase()
-        
-        // Прямая проверка без посредников для гарантии
-        val isForcedAdmin = AuthUtils.isStaticAdmin(email)
-                           
-        val isRoleAdmin = role == "admin"
-        val result = isForcedAdmin || isRoleAdmin
+
+        val result = role == "admin"
         
         if (email != null) {
-            Log.d("AuthViewModel", "isAdmin check: email=$email, staticAdmin=$isForcedAdmin, role=$role -> Result=$result")
+            Log.d("AuthViewModel", "isAdmin check: email=$email, serverRole=$role -> Result=$result")
         }
         
         result
@@ -258,7 +256,19 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 Log.d("AuthViewModel", "Fetching profile from server...")
-                val profile = localApiService.getProfile()
+                val token = _jwtToken.value
+                    ?: run {
+                        Log.w("AuthViewModel", "Profile refresh skipped: session has no JWT")
+                        stopStatusPolling()
+                        clearSession(getApplication())
+                        _isSessionLoaded.value = true
+                        return@launch
+                    }
+                if (token == "guest_token") {
+                    stopStatusPolling()
+                    return@launch
+                }
+                val profile = localApiService.getProfileWithToken("Bearer $token")
                 Log.d("AuthViewModel", "Profile received: email=${profile.email}, role=${profile.role}, isAdmin=${profile.isAdmin}")
                 
                 // Умный поиск UID: приоритет ID > UID > Email
@@ -272,7 +282,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d("AuthViewModel", "Profile UID resolved: $profileUid")
                     
                     // Улучшенное определение роли: игнорируем регистр и проверяем оба поля
-                    val rawRole = profile.role?.toString()?.lowercase() ?: ""
+                    val rawRole = profile.role?.toString()?.trim()?.lowercase() ?: ""
                     val isAdminVal = when(profile.isAdmin) {
                         is Boolean -> profile.isAdmin
                         is Number -> profile.isAdmin.toInt() == 1
@@ -281,7 +291,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     
                     val isStatic = AuthUtils.isStaticAdmin(profile.email)
-                    val resolvedRole = if (rawRole == "admin" || isAdminVal || isStatic) "admin" else "user"
+                    val resolvedRole = if (
+                        rawRole == "admin" ||
+                        rawRole == "administrator" ||
+                        rawRole == "root" ||
+                        isAdminVal
+                    ) "admin" else "user"
                     
                     Log.d("AuthViewModel", "Resolved role: $resolvedRole (raw role: ${profile.role}, isAdmin: $isAdminVal, isStatic: $isStatic)")
 
@@ -294,17 +309,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Failed to fetch profile from VPS", e)
-                val currentEmail = _currentUserEmail.value ?: _email.value.trim().lowercase()
-                
-                // Если мы админ, пробуем остаться в системе даже при ошибке профиля (сетевой сбой)
-                if (AuthUtils.isStaticAdmin(currentEmail)) {
-                    Log.w("AuthViewModel", "Admin profile fetch failed, but keeping session due to network error")
-                    
-                    // Принудительно устанавливаем роль админа в памяти
-                    _currentUserRole.value = "admin"
-                    
-                    onSuccess(currentEmail.ifBlank { "verso0100@gmail.com" }, "1")
-                } else if (!_isSessionLoaded.value) {
+                if (!_isSessionLoaded.value) {
                     // Только если сессия еще не была успешно загружена, выходим
                     // Это предотвращает случайный логаут при сбое интернета во время опроса (polling)
                     clearSession(getApplication())
@@ -349,7 +354,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         return@launch
                     }
                     
-                    val rawRole = profile.role?.toString()?.lowercase() ?: ""
+                    val rawRole = profile.role?.toString()?.trim()?.lowercase() ?: ""
                     val isAdminVal = when(profile.isAdmin) {
                         is Boolean -> profile.isAdmin
                         is Number -> profile.isAdmin.toInt() == 1
@@ -358,7 +363,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     
                     val isStatic = isStaticAdmin(profile.email)
-                    val resolvedRole = if (rawRole == "admin" || isAdminVal || isStatic) "admin" else "user"
+                    val resolvedRole = if (
+                        rawRole == "admin" ||
+                        rawRole == "administrator" ||
+                        rawRole == "root" ||
+                        isAdminVal
+                    ) "admin" else "user"
 
                     saveSession(getApplication(), profile.email, if (_authMode.value == "phone") identifier else null, token, refresh, profileUid, resolvedRole)
                     saveCredentials(if (_authMode.value == "email") identifier else profile.email, passwordValue)
@@ -472,14 +482,19 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         return@launch
                     }
 
-                    val rawRole = profile.role?.toString()?.lowercase() ?: ""
+                    val rawRole = profile.role?.toString()?.trim()?.lowercase() ?: ""
                     val isAdminVal = when(profile.isAdmin) {
                         is Boolean -> profile.isAdmin
                         is Number -> profile.isAdmin.toInt() == 1
                         is String -> profile.isAdmin.lowercase() == "true" || profile.isAdmin == "1"
                         else -> false
                     }
-                    val resolvedRole = if (rawRole == "admin" || isAdminVal) "admin" else "user"
+                    val resolvedRole = if (
+                        rawRole == "admin" ||
+                        rawRole == "administrator" ||
+                        rawRole == "root" ||
+                        isAdminVal
+                    ) "admin" else "user"
 
                     saveSession(getApplication(), profile.email, phone, token, refresh, profileUid, resolvedRole)
                     if (email != null) saveCredentials(email, "")
@@ -586,21 +601,69 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun fetchPendingUsers() {
+        if (adminAccessDenied) {
+            Log.d("AuthViewModel", "Skipping pending users request: server denied admin access")
+            return
+        }
         viewModelScope.launch {
             try {
+                // The cached role can be stale while the session profile is refreshing.
+                // Always verify the current server-side role before calling an admin endpoint.
+                val profile = localApiService.getProfile()
+                val rawRole = profile.role?.toString()?.trim()?.lowercase() ?: ""
+                val isAdminValue = when (profile.isAdmin) {
+                    is Boolean -> profile.isAdmin
+                    is Number -> profile.isAdmin.toInt() == 1
+                    is String -> profile.isAdmin.equals("true", ignoreCase = true) || profile.isAdmin == "1"
+                    else -> false
+                }
+                val serverGrantsAdmin = rawRole == "admin" ||
+                    rawRole == "administrator" ||
+                    rawRole == "root" ||
+                    isAdminValue
+
+                _currentUserRole.value = if (serverGrantsAdmin) "admin" else "user"
+                getApplication<Application>()
+                    .getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("user_session_role", _currentUserRole.value)
+                    .apply()
+
+                if (!serverGrantsAdmin) {
+                    Log.w(
+                        "AuthViewModel",
+                        "Skipping pending users request: server role='$rawRole', isAdmin=$isAdminValue"
+                    )
+                    return@launch
+                }
+
                 Log.d("AuthViewModel", "Fetching pending users...")
                 _pendingUsers.value = localApiService.getPendingUsers()
                 Log.d("AuthViewModel", "Successfully fetched ${pendingUsers.value.size} pending users")
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Fetch pending failed", e)
                 if (e is retrofit2.HttpException && e.code() == 403) {
-                    Log.w("AuthViewModel", "403 Forbidden on fetchPendingUsers - checking if session needs refresh")
+                    adminAccessDenied = true
+                    _currentUserRole.value = "user"
+                    getApplication<Application>()
+                        .getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                        .edit()
+                        .putString("user_session_role", "user")
+                        .apply()
+                    val responseBody = e.response()?.errorBody()?.string()?.take(1024)
+                    Log.e(
+                        "AuthViewModel",
+                        "403 on fetchPendingUsers: url=${e.response()?.raw()?.request?.url} " +
+                            "body=$responseBody",
+                        e
+                    )
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(getApplication(), "Ошибка доступа (403): сервер отклонил запрос", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            getApplication(),
+                            "Нет прав администратора (403). Подробности в Logcat: AuthViewModel",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
-                    // Если получили 403, возможно роль на сервере не совпадает с локальной.
-                    // Пытаемся обновить профиль, чтобы синхронизировать состояние.
-                    fetchAndSaveProfile { _, _ -> }
                 }
             }
         }
@@ -710,7 +773,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         statusJob?.cancel()
         statusJob = viewModelScope.launch {
             var iterations = 0
-            while (true) {
+            while (isActive) {
+                if (_jwtToken.value.isNullOrBlank() || _jwtToken.value == "guest_token") {
+                    Log.d("AuthViewModel", "Stopping status polling: JWT is no longer available")
+                    break
+                }
                 try {
                     val response = localApiService.getAuthStatus()
                     val status = response["status"]
@@ -755,6 +822,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun signOut() {
+        stopStatusPolling()
+        adminAccessDenied = false
         _isLoading.value = false
         _currentUserEmail.value = null
         _jwtToken.value = null

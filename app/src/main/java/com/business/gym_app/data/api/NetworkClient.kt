@@ -10,15 +10,14 @@ import retrofit2.converter.gson.GsonConverterFactory
 object NetworkClient {
     private fun getBaseUrl(context: Context): String {
         val globalPref = context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
-        var savedIp = globalPref.getString("server_ip", "verso0100.fvds.ru") ?: "verso0100.fvds.ru"
-        
-        if (savedIp.contains("5.35.98.149")) {
-            savedIp = "verso0100.fvds.ru"
+        var savedIp = globalPref.getString("server_ip", "https://verso0100.fvds.ru/") ?: "https://verso0100.fvds.ru/"
+        if (savedIp.contains("5.35.98.149", ignoreCase = true) || savedIp.startsWith("http://")) {
+            savedIp = "https://verso0100.fvds.ru/"
         }
 
         return when {
-            savedIp.startsWith("https://") -> savedIp
-            savedIp.startsWith("http://") -> savedIp.replace("http://", "https://")
+            savedIp.startsWith("https://") -> if (savedIp.endsWith("/")) savedIp else "$savedIp/"
+            savedIp.startsWith("http://") -> if (savedIp.endsWith("/")) savedIp else "$savedIp/"
             else -> "https://$savedIp/"
         }
     }

@@ -85,6 +85,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.business.gym_app.data.api.NewsApiService
 import com.business.gym_app.service.PlaybackService
 import com.business.gym_app.ui.component.GymBackground
 import com.business.gym_app.ui.component.ScrollableTabRow
@@ -273,14 +274,23 @@ class MainActivity : AppCompatActivity() {
         updateListenerJob = lifecycleScope.launch(Dispatchers.IO) {
             while (isActive) {
                 try {
-                    // Используем wss для защищенного соединения
+                    val baseUrl = NewsApiService.getBaseUrl()
+                    val hostPart = baseUrl.removePrefix("https://").removePrefix("http://").substringBefore("/")
+                    val host = hostPart.substringBefore(":")
+                    val port = hostPart.substringAfter(":", "").toIntOrNull()
+                        ?: if (baseUrl.startsWith("https://")) 443 else 80
+                    val protocol = if (baseUrl.startsWith("https://")) {
+                        io.ktor.http.URLProtocol.WSS
+                    } else {
+                        io.ktor.http.URLProtocol.WS
+                    }
                     client.webSocket(
                         method = io.ktor.http.HttpMethod.Get,
-                        host = "5.35.98.149",
-                        port = 5557,
+                        host = host,
+                        port = port,
                         path = "/subscribe",
                         request = {
-                            url.protocol = io.ktor.http.URLProtocol.WSS
+                            url.protocol = protocol
                             header(HttpHeaders.Authorization, "Bearer $token")
                         }
                     ) {

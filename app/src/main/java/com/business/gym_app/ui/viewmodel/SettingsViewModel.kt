@@ -48,7 +48,7 @@ class SettingsViewModel(
     private val _privacyAgreed = mutableStateOf(false)
     val privacyAgreed: State<Boolean> = _privacyAgreed
 
-    private val _serverIp = mutableStateOf("5.35.98.149:5557")
+    private val _serverIp = mutableStateOf("https://verso0100.fvds.ru/")
     val serverIp: State<String> = _serverIp
 
     private val _userName = mutableStateOf("")
@@ -88,10 +88,11 @@ class SettingsViewModel(
 
     init {
         val globalPref = getApplication<Application>().getSharedPreferences("settings_global", Context.MODE_PRIVATE)
-        var savedIp = globalPref.getString("server_ip", "verso0100.fvds.ru") ?: "verso0100.fvds.ru"
+        var savedIp = globalPref.getString("server_ip", "https://verso0100.fvds.ru/") ?: "https://verso0100.fvds.ru/"
         
-        if (savedIp.contains("5.35.98.149")) {
-            savedIp = "verso0100.fvds.ru"
+        if (savedIp.contains("5.35.98.149") || savedIp.startsWith("http://")) {
+            savedIp = "https://verso0100.fvds.ru/"
+            globalPref.edit().putString("server_ip", savedIp).apply()
         }
         
         _serverIp.value = savedIp
@@ -479,7 +480,7 @@ class SettingsViewModel(
         _serverIp.value = ip
         context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
             .edit().putString("server_ip", ip).apply()
-        NewsApiService.updateBaseUrl("https://$ip/")
+        NewsApiService.updateBaseUrl(ip)
     }
 
     /**

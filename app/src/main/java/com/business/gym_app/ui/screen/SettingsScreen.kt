@@ -151,6 +151,34 @@ fun SettingsScreen(
         
         Spacer(modifier = Modifier.height(24.dp))
 
+        if (isAdmin) {
+            Card(
+                modifier = contentModifier.padding(bottom = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Blue.copy(alpha = 0.2f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(Icons.Default.AdminPanelSettings, null, tint = Color.Blue, modifier = Modifier.size(48.dp))
+                    Text(
+                        text = userName,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "СТАТУС: АДМИНИСТРАТОР",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.Blue,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+
         if (isGuest && !isAdmin) {
             Card(
                 modifier = contentModifier.padding(bottom = 16.dp),
@@ -457,33 +485,6 @@ fun SettingsScreen(
         }
 
         if (isAdmin) {
-            Spacer(modifier = Modifier.height(32.dp))
-            Card(
-                modifier = contentModifier.padding(bottom = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Blue.copy(alpha = 0.2f)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(Icons.Default.AdminPanelSettings, null, tint = Color.Blue, modifier = Modifier.size(48.dp))
-                    Text(
-                        text = userName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "СТАТУС: АДМИНИСТРАТОР",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.Blue,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-            }
-
             Row(
                 modifier = contentModifier,
                 horizontalArrangement = Arrangement.Center,

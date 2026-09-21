@@ -17,10 +17,12 @@ class TokenManagerImpl(private val context: Context) : TokenManager {
     }
 
     override fun saveToken(token: String, refreshToken: String?) {
+        val normalizedToken = token.trim().removePrefix("Bearer ").trim()
+        val normalizedRefreshToken = refreshToken?.trim()?.removePrefix("Bearer ")?.trim()
         prefs.edit().apply {
-            putString("user_session_token", token)
-            if (refreshToken != null) {
-                putString("user_session_refresh_token", refreshToken)
+            putString("user_session_token", normalizedToken)
+            if (normalizedRefreshToken != null) {
+                putString("user_session_refresh_token", normalizedRefreshToken)
             }
             apply()
         }
