@@ -81,7 +81,7 @@ class PlaylistViewModel(
     fun uploadTrackToLocalServer(context: Context, uri: Uri, token: String?) {
         Log.d("PlaylistViewModel", "Starting uploadTrackToLocalServer")
         if (token == null) {
-            Toast.makeText(context, "Ошибка: Авторизуйтесь для загрузки", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, context.getString(com.business.gym_app.R.string.not_authorized), Toast.LENGTH_LONG).show()
             return
         }
 
@@ -105,11 +105,11 @@ class PlaylistViewModel(
 
                 repository.uploadTrack(token, fileName, filePart)
                 
-                Toast.makeText(context, "Трек добавлен!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(com.business.gym_app.R.string.track_added), Toast.LENGTH_SHORT).show()
                 repository.refreshTracks(token)
             } catch (e: Exception) {
                 Log.e("PlaylistViewModel", "Local upload failed", e)
-                Toast.makeText(context, "Ошибка сервера: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(com.business.gym_app.R.string.server_error, e.message ?: ""), Toast.LENGTH_LONG).show()
             } finally {
                 _isUploading.value = false
             }

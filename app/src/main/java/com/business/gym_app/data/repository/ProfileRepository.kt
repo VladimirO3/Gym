@@ -96,7 +96,7 @@ class ProfileRepository(
             Log.e("ProfileRepository", "CRITICAL: Failed to refresh profile. Error: ${e.message}", e)
             // Показываем ошибку пользователю, чтобы он понимал, почему данные не подгрузились
             withContext(Dispatchers.Main) {
-                android.widget.Toast.makeText(context, "Ошибка синхронизации профиля", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.profile_sync_error), android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }

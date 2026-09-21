@@ -226,7 +226,7 @@ class CartViewModel(
                     val errorBody = e.response()?.errorBody()?.string()
                     Log.e("CartViewModel", "Checkout HTTP Error: ${e.code()}, Body: $errorBody")
                 }
-                android.widget.Toast.makeText(context, "Ошибка оформления", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.order_error), android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }

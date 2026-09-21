@@ -24,6 +24,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.business.gym_app.data.api.NewsApiService
+import com.business.gym_app.R
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
@@ -89,10 +90,10 @@ fun VideoPlayer(
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 errorMessage = when (error.errorCode) {
-                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "Ошибка сети: Сервер недоступен"
-                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Тайм-аут: Сервер не отвечает"
-                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "Файл не найден на сервере"
-                    else -> "Ошибка воспроизведения: ${error.localizedMessage}"
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> context.getString(R.string.network_error)
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> context.getString(R.string.timeout_error)
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> context.getString(R.string.file_not_found_error)
+                    else -> context.getString(R.string.playback_error, error.localizedMessage ?: "")
                 }
                 Log.e("VideoPlayer", "Player error: ${error.errorCodeName} (${error.errorCode})", error)
             }
@@ -117,7 +118,7 @@ fun VideoPlayer(
             if (autoPlay) activePlayer.play()
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error loading video", e)
-            errorMessage = "Ошибка загрузки: ${e.localizedMessage}"
+            errorMessage = context.getString(R.string.video_load_error, e.localizedMessage ?: "")
         }
     }
     
@@ -264,7 +265,7 @@ private fun VideoPlayerContent(
                     modifier = Modifier.height(32.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                 ) {
-                    Text("Повторить", fontSize = 12.sp)
+                    Text(context.getString(R.string.retry), fontSize = 12.sp)
                 }
             }
         }

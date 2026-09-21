@@ -128,7 +128,7 @@ class MainActivity : AppCompatActivity() {
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (!isGranted) {
-                Toast.makeText(this, "Уведомления отключены", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.notifications_disabled), Toast.LENGTH_SHORT).show()
             }
         }
     // 1. Объявляем клиент как свойство класса

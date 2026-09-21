@@ -133,11 +133,11 @@ class NewsViewModel(
                 // Сразу обновляем список новостей
                 repository.refreshNews(token)
                 
-                Toast.makeText(context, "Новость успешно добавлена!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(com.business.gym_app.R.string.news_added), Toast.LENGTH_SHORT).show()
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("NewsViewModel", "Local upload failed", e)
-                Toast.makeText(context, "Ошибка загрузки на сервер", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(com.business.gym_app.R.string.news_upload_error), Toast.LENGTH_LONG).show()
             } finally {
                 _isUploading.value = false
             }
@@ -198,11 +198,11 @@ class NewsViewModel(
                 // Сразу обновляем список новостей
                 repository.refreshNews(token)
                 
-                Toast.makeText(context, "Новость успешно обновлена!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(com.business.gym_app.R.string.news_updated), Toast.LENGTH_SHORT).show()
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("NewsViewModel", "Local update failed", e)
-                Toast.makeText(context, "Ошибка обновления на сервере", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(com.business.gym_app.R.string.news_update_error), Toast.LENGTH_LONG).show()
             } finally {
                 _isUploading.value = false
             }

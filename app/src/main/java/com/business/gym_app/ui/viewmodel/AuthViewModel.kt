@@ -702,14 +702,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 localApiService.approveUser(userUid = idToApprove)
                 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication<Application>(), "Пользователь одобрен", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(getApplication<Application>(), getApplication<Application>().getString(com.business.gym_app.R.string.user_approved), Toast.LENGTH_SHORT).show()
                 }
                 
                 fetchPendingUsers()
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Approve failed", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication<Application>(), "Ошибка одобрения: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(getApplication<Application>(), getApplication<Application>().getString(com.business.gym_app.R.string.approval_error, e.message ?: ""), Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -744,7 +744,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 
                 if (userId.isBlank()) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(getApplication<Application>(), "Ошибка: ID пользователя не найден", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(getApplication<Application>(), getApplication<Application>().getString(com.business.gym_app.R.string.user_id_not_found), Toast.LENGTH_SHORT).show()
                     }
                     return@launch
                 }
@@ -771,7 +771,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 localApiService.adminUpdateProfile(userId = userId, body = updateBody)
 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication<Application>(), "Права администратора успешно выданы", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(getApplication<Application>(), getApplication<Application>().getString(com.business.gym_app.R.string.admin_granted), Toast.LENGTH_SHORT).show()
                 }
 
                 delay(1000)
@@ -780,7 +780,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 Log.e("AuthViewModel", "Make admin critical failure", e)
                 val errorMessage = e.message ?: "неизвестная ошибка"
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication<Application>(), "Ошибка: $errorMessage", Toast.LENGTH_LONG).show()
+                    Toast.makeText(getApplication<Application>(), getApplication<Application>().getString(com.business.gym_app.R.string.server_error, errorMessage), Toast.LENGTH_LONG).show()
                 }
             }
         }

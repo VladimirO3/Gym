@@ -351,14 +351,14 @@ class ChatViewModel(
      */
     fun sendLocalMessage(peerUid: String, text: String, token: String?, context: android.content.Context) {
         if (token == null) {
-            android.widget.Toast.makeText(context, "Ошибка: Вы не авторизованы", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.not_authorized), android.widget.Toast.LENGTH_SHORT).show()
             return
         }
         Log.d("ChatViewModel", "sendLocalMessage to $peerUid: $text")
         viewModelScope.launch {
             val success = repository.sendMessage(token, peerUid, text)
             if (!success) {
-                android.widget.Toast.makeText(context, "Не удалось отправить сообщение. Проверьте подключение к серверу.", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.chat_send_error), android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -380,7 +380,7 @@ class ChatViewModel(
                     
                     val success = repository.sendMediaMessage(token, peerUid, text, filePart)
                     if (!success) {
-                        android.widget.Toast.makeText(context, "Ошибка при отправке медиа", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.media_send_error), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (e: Exception) {
@@ -402,9 +402,9 @@ class ChatViewModel(
                     _messages.value = emptyList()
                     stopPolling()
                 }
-                android.widget.Toast.makeText(context, "История переписки удалена", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.chat_history_deleted), android.widget.Toast.LENGTH_SHORT).show()
             } else {
-                android.widget.Toast.makeText(context, "Ошибка при удалении истории", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.chat_history_delete_error), android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -414,7 +414,7 @@ class ChatViewModel(
      */
     fun deleteUser(context: android.content.Context, uid: String, token: String?) {
         if (token == null) {
-            android.widget.Toast.makeText(context, "Ошибка: вы не авторизованы", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.not_authorized), android.widget.Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -435,7 +435,7 @@ class ChatViewModel(
                     _messages.value = emptyList()
                     stopPolling()
                 }
-                android.widget.Toast.makeText(context, "Пользователь удален из системы", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.user_deleted), android.widget.Toast.LENGTH_SHORT).show()
             } else {
                 // Если даже репозиторий вернул false (например, полная потеря связи),
                 // пользователь всё равно остается в deletedUserUids, то есть скрыт из списка.
@@ -448,11 +448,11 @@ class ChatViewModel(
         viewModelScope.launch {
             val success = repository.makeAdmin(uid, email)
             if (success) {
-                android.widget.Toast.makeText(context, "Права администратора выданы", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.admin_granted), android.widget.Toast.LENGTH_SHORT).show()
                 val token = getApplication<GymApplication>().getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE).getString("user_session_token", "") ?: ""
                 fetchLocalUsers(token, force = true)
             } else {
-                android.widget.Toast.makeText(context, "Ошибка при выдаче прав", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.admin_grant_error, ""), android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -461,11 +461,11 @@ class ChatViewModel(
         viewModelScope.launch {
             val success = repository.removeAdmin(uid, email)
             if (success) {
-                android.widget.Toast.makeText(context, "Права администратора отозваны", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.admin_revoked), android.widget.Toast.LENGTH_SHORT).show()
                 val token = getApplication<GymApplication>().getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE).getString("user_session_token", "") ?: ""
                 fetchLocalUsers(token, force = true)
             } else {
-                android.widget.Toast.makeText(context, "Ошибка при отзыве прав", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.admin_revoke_error, ""), android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -474,7 +474,7 @@ class ChatViewModel(
         viewModelScope.launch {
             val success = repository.adminUpdateProfile(uid, name, age)
             if (success) {
-                android.widget.Toast.makeText(context, "Профиль обновлен", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.profile_updated), android.widget.Toast.LENGTH_SHORT).show()
                 val token = getApplication<com.business.gym_app.GymApplication>().getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE).getString("user_session_token", "") ?: ""
                 fetchLocalUsers(token, force = true)
                 // Если редактировали текущего выбранного, обновляем его
@@ -482,7 +482,7 @@ class ChatViewModel(
                     _selectedUser.value = _selectedUser.value?.copy(name = name, age = age)
                 }
             } else {
-                android.widget.Toast.makeText(context, "Ошибка обновления профиля", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.profile_update_error), android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -491,7 +491,7 @@ class ChatViewModel(
         viewModelScope.launch {
             val success = repository.adminDeleteUserPhoto(uid)
             if (success) {
-                android.widget.Toast.makeText(context, "Фото пользователя удалено", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.user_photo_deleted), android.widget.Toast.LENGTH_SHORT).show()
                 val token = getApplication<com.business.gym_app.GymApplication>().getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE).getString("user_session_token", "") ?: ""
                 fetchLocalUsers(token, force = true)
                 // Если удаляли у текущего выбранного, обновляем его
@@ -499,7 +499,7 @@ class ChatViewModel(
                     _selectedUser.value = _selectedUser.value?.copy(avatarUrl = null)
                 }
             } else {
-                android.widget.Toast.makeText(context, "Ошибка удаления фото", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.user_photo_delete_error), android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
