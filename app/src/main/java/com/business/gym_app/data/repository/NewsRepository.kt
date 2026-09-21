@@ -39,12 +39,6 @@ class NewsRepository(
     }
 
     suspend fun refreshNews(token: String? = null) {
-        val sharedPref = context.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
-        val savedToken = sharedPref.getString("user_session_token", null)
-        val effectiveToken = if (!token.isNullOrBlank()) token else savedToken
-
-        if (effectiveToken == "guest_token") return
-
         try {
             val news = apiService.getLocalNews(AppLanguage.current(context))
             android.util.Log.d("NewsRepository", "Refreshing news, count: ${news.size}")
