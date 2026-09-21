@@ -208,7 +208,7 @@
     <string name="photo_upload_error">Photo upload error</string>
     <string name="photo_deleted">Photo deleted</string>
     <string name="photo_delete_error">Photo deletion error</string>
-    <string name="our_coaches">Our coaches</string>
+    <string name="our_coaches">Our coaches:</string>
     <string name="coaches_coming_soon">Information about coaches will be available soon...</string>
     <string name="contact_author">Contact the author:</string>
     <string name="photo_processing_error">Error processing photo</string>

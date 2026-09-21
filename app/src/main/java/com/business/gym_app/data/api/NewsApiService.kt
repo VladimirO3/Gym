@@ -1,6 +1,7 @@
 package com.business.gym_app.data.api
 
 import android.util.Log
+import androidx.annotation.Keep
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
@@ -87,6 +88,7 @@ data class LoginRequest(
     val password: String
 )
 
+@Keep
 data class LoginResponse(
     val token: String,
     val refreshToken: String? = null
@@ -139,6 +141,7 @@ data class ProductResponse(
 /**
  * Модели для профиля и заметок.
  */
+@Keep
 data class ProfileResponse(
     @SerializedName("id") val id: String? = null,
     @SerializedName("uid") val uid: String? = null, 

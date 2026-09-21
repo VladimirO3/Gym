@@ -35,19 +35,10 @@ class ProfileRepository(
         try {
             Log.d("ProfileRepository", "Refreshing profile from server for UID: $uid")
             
-            // Если мы запрашиваем не свой профиль (админ), используем спец. эндпоинт
-            val remote = if (AuthUtils.isStaticAdmin(uid) || uid == "1") {
-                apiService.getProfile()
-            } else {
-                try {
-                    // Пробуем получить через админский доступ
-                    val encodedUid = android.net.Uri.encode(uid)
-                    apiService.getUserProfile(encodedUid)
-                } catch (e: Exception) {
-                    // Если не админ или эндпоинт не найден, пробуем обычный
-                    apiService.getProfile()
-                }
-            }
+            // This repository refreshes the signed-in user's own profile.
+            // The admin endpoint is only for explicit admin operations and must
+            // never be used for an ordinary user's profile refresh.
+            val remote = apiService.getProfile()
 
             Log.d("ProfileRepository", "Profile received: ${remote.email}, Name: ${remote.name}, Age: ${remote.age}")
             

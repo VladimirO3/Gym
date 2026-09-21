@@ -578,13 +578,19 @@ fun CoachDetailDialog(
             color = Color.Black
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.fillMaxWidth().height(350.dp)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(420.dp)
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center
+                ) {
                     if (coach.imageUrl != null) {
                         AsyncImage(
                             model = NewsApiService.getFullUrl(context, coach.imageUrl),
                             contentDescription = coach.name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+                            contentScale = ContentScale.Fit
                         )
                     } else {
                         Box(

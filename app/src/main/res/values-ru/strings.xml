@@ -208,7 +208,7 @@
     <string name="photo_upload_error">Ошибка загрузки фото</string>
     <string name="photo_deleted">Фото удалено</string>
     <string name="photo_delete_error">Ошибка при удалении фото</string>
-    <string name="our_coaches">Наши инструктора</string>
+    <string name="our_coaches">Наши инструктора:</string>
     <string name="coaches_coming_soon">Информация о тренерах скоро появится...</string>
     <string name="contact_author">Связаться с автором:</string>
     <string name="photo_processing_error">Ошибка при обработке фото</string>
