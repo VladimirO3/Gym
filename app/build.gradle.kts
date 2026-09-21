@@ -30,7 +30,7 @@ android {
 	defaultConfig {
 		applicationId = "com.business.gym_app"
 		minSdk = 23
-		targetSdk = 35
+		targetSdk = 36
 		versionCode = currentVersionCode
 		versionName = "1.$currentVersionCode"
 
