@@ -187,7 +187,7 @@ fun ShopScreen(
                 }
             } else if (products.isEmpty()) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Text("Товары не найдены", color = Color.Gray)
+                    Text(stringResource(R.string.products_not_found), color = Color.Gray)
                 }
             } else if (products.size == 1) {
                 val product = products.first()
@@ -750,7 +750,7 @@ fun ProductActionButtons(
             ) {
                 Icon(Icons.Default.AddShoppingCart, null)
                 Spacer(Modifier.width(8.dp))
-                Text("В корзину")
+                Text(stringResource(R.string.add_to_cart))
             }
         }
 
@@ -760,7 +760,7 @@ fun ProductActionButtons(
             colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Оформить")
+            Text(stringResource(R.string.checkout))
         }
     }
 }
@@ -785,7 +785,7 @@ fun ProductEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Редактировать товар") },
+        title = { Text(stringResource(R.string.edit_product)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Box(
@@ -817,27 +817,27 @@ fun ProductEditDialog(
                         onClick = onDeletePhoto,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     ) {
-                        Text("Удалить текущее фото", color = Color.Red, fontSize = 12.sp)
+                        Text(stringResource(R.string.remove_current_photo), color = Color.Red, fontSize = 12.sp)
                     }
                 } else {
-                    Text("Нажмите, чтобы сменить фото", style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.CenterHorizontally))
+                    Text(stringResource(R.string.change_photo), style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.CenterHorizontally))
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Название") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.product_name)) }, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Цена (например: 1 500 ₽)") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text(stringResource(R.string.product_price)) }, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Описание") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text(stringResource(R.string.product_description)) }, minLines = 3, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
             Button(onClick = { onSave(name, price, desc, selectedUri) }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
-                Text("Сохранить")
+                Text(stringResource(R.string.save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 }
@@ -858,7 +858,7 @@ fun ProductAddDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Добавить товар") },
+        title = { Text(stringResource(R.string.add_product)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Box(
@@ -876,11 +876,11 @@ fun ProductAddDialog(
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Название") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.product_name)) }, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Цена (например: 1 500 ₽)") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text(stringResource(R.string.product_price)) }, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Описание") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text(stringResource(R.string.product_description)) }, minLines = 3, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
@@ -889,11 +889,11 @@ fun ProductAddDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                 enabled = name.isNotBlank() && price.isNotBlank() && selectedUri != null
             ) {
-                Text("Добавить")
+                Text(stringResource(R.string.add_product_action))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 }

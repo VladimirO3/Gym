@@ -420,7 +420,7 @@ fun NewsScreen(
         AlertDialog(
             onDismissRequest = { showLocalEditDialog = false },
             containerColor = Color.Black,
-            title = { Text("Редактировать новость", color = Color.Red) },
+            title = { Text(stringResource(R.string.edit_news), color = Color.Red) },
             text = {
                 Column(
                     modifier = Modifier
@@ -486,7 +486,7 @@ fun NewsScreen(
                     ) {
                         Icon(Icons.Default.AttachFile, null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Изменить фото/видео")
+                        Text(stringResource(R.string.change_media))
                     }
                 }
             },
@@ -515,7 +515,7 @@ fun NewsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                 ) {
                     if (isUploading) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
-                    else Text("Сохранить")
+                    else Text(stringResource(R.string.save))
                 }
             },
             dismissButton = {

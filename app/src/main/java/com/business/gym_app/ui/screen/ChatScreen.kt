@@ -271,7 +271,7 @@ fun AdminUserProfileDialog(
                         onClick = onDeletePhoto,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     ) {
-                        Text("Удалить фото", color = Color.Red, fontSize = 12.sp)
+                        Text(stringResource(R.string.user_photo_delete), color = Color.Red, fontSize = 12.sp)
                     }
                 }
 
@@ -282,25 +282,30 @@ fun AdminUserProfileDialog(
                     OutlinedTextField(
                         value = nameInput,
                         onValueChange = { nameInput = it },
-                        label = { Text("Имя") },
+                        label = { Text(stringResource(R.string.name_label)) },
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = ageInput,
                         onValueChange = { if (it.all { c -> c.isDigit() }) ageInput = it },
-                        label = { Text("Возраст") },
+                        label = { Text(stringResource(R.string.age_label)) },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                     )
                 } else {
-                    Text("Имя: ${user.name}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Возраст: ${user.age ?: "не указан"}", style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.user_name, user.name), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.user_age, user.age ?: stringResource(R.string.age_not_set)), style = MaterialTheme.typography.bodyLarge)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                Text("Статус: ${if (isTargetAdmin) (if (isTargetRoot) "root-администратор" else "Администратор") else "Пользователь"}", style = MaterialTheme.typography.bodyMedium)
+                val status = when {
+                    isTargetRoot -> stringResource(R.string.root_administrator)
+                    isTargetAdmin -> stringResource(R.string.administrator)
+                    else -> stringResource(R.string.regular_user)
+                }
+                Text(stringResource(R.string.user_status, status), style = MaterialTheme.typography.bodyMedium)
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
@@ -311,10 +316,10 @@ fun AdminUserProfileDialog(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = if (isTargetAdmin) Color.Gray else Color.Blue)
                     ) {
-                        Text(if (isTargetAdmin) "Снять права администратора" else "Сделать администратором")
+                        Text(if (isTargetAdmin) stringResource(R.string.revoke_admin) else stringResource(R.string.grant_admin))
                     }
                 } else if (isTargetRoot) {
-                    Text("Это главный администратор. Права управлению не подлежат.", color = Color.Gray, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(stringResource(R.string.root_admin_locked), color = Color.Gray, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
                 
                 // Только Root может удалять других пользователей/админов
@@ -325,7 +330,7 @@ fun AdminUserProfileDialog(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                     ) {
-                        Text("Удалить пользователя")
+                        Text(stringResource(R.string.delete))
                     }
                 }
             }
@@ -336,13 +341,13 @@ fun AdminUserProfileDialog(
                     onUpdate(nameInput, ageInput.toIntOrNull())
                     onDismiss()
                 }) {
-                    Text("Сохранить")
+                    Text(stringResource(R.string.save))
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(if (isRootAdmin || !isTargetAdmin) "Отмена" else "Закрыть")
+                Text(if (isRootAdmin || !isTargetAdmin) stringResource(R.string.cancel) else stringResource(R.string.close))
             }
         }
     )
@@ -365,19 +370,19 @@ fun UserListScreen(
     if (userToDelete != null) {
         AlertDialog(
             onDismissRequest = { userToDelete = null },
-            title = { Text("Удалить пользователя?") },
-            text = { Text("Это действие удалит пользователя ${userToDelete?.name} и всю его переписку из базы данных.") },
+            title = { Text(stringResource(R.string.delete_user_title)) },
+            text = { Text(stringResource(R.string.delete_user_message, userToDelete?.name.orEmpty())) },
             confirmButton = {
                 TextButton(onClick = { 
                     userToDelete?.let { onDeleteUser(it.uid) }
                     userToDelete = null 
                 }) {
-                    Text("Удалить", color = Color.Red)
+                    Text(stringResource(R.string.delete), color = Color.Red)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { userToDelete = null }) {
-                    Text("Отмена")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -593,19 +598,19 @@ fun ConversationScreen(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Удалить чат?") },
-            text = { Text("Это действие безвозвратно удалит всю историю переписки с этим пользователем.") },
+            title = { Text(stringResource(R.string.delete_chat_title)) },
+            text = { Text(stringResource(R.string.delete_chat_message)) },
             confirmButton = {
                 TextButton(onClick = { 
                     onDeleteChat()
                     showDeleteConfirm = false 
                 }) {
-                    Text("Удалить", color = Color.Red)
+                    Text(stringResource(R.string.delete), color = Color.Red)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Отмена")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )

@@ -151,7 +151,7 @@ fun AboutScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (showEditor) "Режим редактирования" else "Предпросмотр (как видит юзер)",
+                    text = if (showEditor) stringResource(R.string.edit_mode) else stringResource(R.string.preview_mode),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -168,12 +168,12 @@ fun AboutScreen(
             
             if (showEditor) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Редактирование текста", style = MaterialTheme.typography.titleMedium, color = Color.Red, modifier = contentModifier)
+                Text(stringResource(R.string.edit_text), style = MaterialTheme.typography.titleMedium, color = Color.Red, modifier = contentModifier)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = aboutTitle,
                     onValueChange = { if (effectiveIsAdmin) viewModel.updateAboutTitle(it) },
-                    label = { Text("Заголовок", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
+                    label = { Text(stringResource(R.string.auth_title_label), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
                     modifier = contentModifier,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = MaterialTheme.colorScheme.onBackground,
@@ -186,7 +186,7 @@ fun AboutScreen(
                 OutlinedTextField(
                     value = aboutDescription,
                     onValueChange = { if (effectiveIsAdmin) viewModel.updateAboutDescription(it) },
-                    label = { Text("Описание", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
+                    label = { Text(stringResource(R.string.auth_desc_label), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
                     modifier = contentModifier,
                     minLines = 3,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -200,7 +200,7 @@ fun AboutScreen(
                 OutlinedTextField(
                     value = aboutServices,
                     onValueChange = { if (effectiveIsAdmin) viewModel.updateAboutServices(it) },
-                    label = { Text("Услуги", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
+                    label = { Text(stringResource(R.string.auth_services_label), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
                     modifier = contentModifier,
                     minLines = 3,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -214,7 +214,7 @@ fun AboutScreen(
                 OutlinedTextField(
                     value = aboutFooter,
                     onValueChange = { if (effectiveIsAdmin) viewModel.updateAboutFooter(it) },
-                    label = { Text("Футер (низ)", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
+                    label = { Text(stringResource(R.string.footer_label), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
                     modifier = contentModifier,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = MaterialTheme.colorScheme.onBackground,
@@ -225,12 +225,12 @@ fun AboutScreen(
                 )
                 
                 Spacer(modifier = Modifier.height(24.dp))
-                Text("Контактные данные", style = MaterialTheme.typography.titleMedium, color = Color.Red, modifier = contentModifier)
+                Text(stringResource(R.string.contact_details), style = MaterialTheme.typography.titleMedium, color = Color.Red, modifier = contentModifier)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = contactTitle,
                     onValueChange = { if (effectiveIsAdmin) viewModel.updateContactTitle(it) },
-                    label = { Text("Описание контактов", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
+                    label = { Text(stringResource(R.string.auth_contact_desc_label), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
                     modifier = contentModifier,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = MaterialTheme.colorScheme.onBackground,
@@ -243,7 +243,7 @@ fun AboutScreen(
                 OutlinedTextField(
                     value = contactPhone,
                     onValueChange = { if (effectiveIsAdmin) viewModel.updateContactPhone(it) },
-                    label = { Text("Номер телефона", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
+                    label = { Text(stringResource(R.string.auth_phone_label_simple), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
                     modifier = contentModifier,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = MaterialTheme.colorScheme.onBackground,
@@ -638,7 +638,7 @@ fun CoachDetailDialog(
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Назад", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.back), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -661,20 +661,20 @@ fun CoachEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (coach == null) "Добавить тренера" else "Редактировать тренера") },
+        title = { Text(if (coach == null) stringResource(R.string.add_coach) else stringResource(R.string.edit_coach)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Имя") },
+                    label = { Text(stringResource(R.string.name_label)) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = desc,
                     onValueChange = { desc = it },
-                    label = { Text("Описание") },
+                    label = { Text(stringResource(R.string.product_description)) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2
                 )
@@ -685,7 +685,7 @@ fun CoachEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
                 ) {
-                    Text(if (selectedUri != null) "Фото выбрано" else "Выбрать фото")
+                    Text(if (selectedUri != null) stringResource(R.string.photo_selected) else stringResource(R.string.choose_photo))
                 }
             }
         },
@@ -696,8 +696,7 @@ fun CoachEditDialog(
             ) { Text("OK") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 }
-

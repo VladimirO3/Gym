@@ -145,7 +145,7 @@ fun SettingsScreen(
                 onClick = { authViewModel.loadSession(context) },
                 modifier = Modifier.align(Alignment.CenterEnd)
             ) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh Profile", tint = Color.Gray)
+                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.profile_edit), tint = Color.Gray)
             }
         }
         
@@ -170,7 +170,7 @@ fun SettingsScreen(
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "СТАТУС: АДМИНИСТРАТОР",
+                        text = stringResource(R.string.status_administrator),
                         style = MaterialTheme.typography.labelLarge,
                         color = Color.Blue,
                         fontWeight = FontWeight.ExtraBold
@@ -298,7 +298,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         TextButton(onClick = { isEditMode = true }) {
-                            Text("Редактировать профиль", color = Color.Gray, fontSize = 12.sp)
+                            Text(stringResource(R.string.profile_edit), color = Color.Gray, fontSize = 12.sp)
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -311,7 +311,7 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Default.ShoppingCart, null, tint = Color.White, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Моя корзина", color = Color.White, fontSize = 12.sp)
+                            Text(stringResource(R.string.my_cart), color = Color.White, fontSize = 12.sp)
                         }
                         
                         Spacer(modifier = Modifier.height(8.dp))
@@ -332,7 +332,7 @@ fun SettingsScreen(
                                 ) {
                                     Column(modifier = Modifier.padding(8.dp)) {
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("Заказ #${order.id.take(8)}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Text(stringResource(R.string.order_number, order.id.take(8)), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                             Text(order.status, color = if (order.status == "completed") Color.Green else Color.Yellow, fontSize = 10.sp)
                                         }
                                         Text("${order.totalPrice} ₽", color = Color.Red, fontSize = 12.sp)
@@ -344,7 +344,7 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = nameInput,
                             onValueChange = { nameInput = it },
-                            label = { Text("Имя") },
+                            label = { Text(stringResource(R.string.name_label)) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
@@ -354,7 +354,7 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = ageInput,
                             onValueChange = { if (it.all { char -> char.isDigit() }) ageInput = it },
-                            label = { Text("Возраст") },
+                            label = { Text(stringResource(R.string.age_label)) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
@@ -373,7 +373,7 @@ fun SettingsScreen(
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text("Отмена")
+                                    Text(stringResource(R.string.cancel))
                                 }
                             }
                             
@@ -387,7 +387,7 @@ fun SettingsScreen(
                                 enabled = !isUpdating && nameInput.isNotBlank(),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Сохранить", color = Color.White)
+                                Text(stringResource(R.string.save), color = Color.White)
                             }
                         }
                     }
@@ -440,8 +440,8 @@ fun SettingsScreen(
             if (showDeleteDialog) {
                 AlertDialog(
                     onDismissRequest = { showDeleteDialog = false },
-                    title = { Text("Удаление аккаунта", color = Color.Red) },
-                    text = { Text("Вы уверены, что хотите безвозвратно удалить свой аккаунт и все связанные с ним данные? Это действие нельзя отменить.") },
+                    title = { Text(stringResource(R.string.account_delete_title), color = Color.Red) },
+                    text = { Text(stringResource(R.string.account_delete_message)) },
                     confirmButton = {
                         Button(
                             onClick = {
@@ -450,12 +450,12 @@ fun SettingsScreen(
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                         ) {
-                            Text("Удалить", color = Color.White)
+                            Text(stringResource(R.string.delete), color = Color.White)
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showDeleteDialog = false }) {
-                            Text("Отмена", color = Color.Gray)
+                            Text(stringResource(R.string.cancel), color = Color.Gray)
                         }
                     }
                 )
@@ -479,7 +479,7 @@ fun SettingsScreen(
                     onClick = { showDeleteDialog = true },
                     modifier = Modifier.widthIn(max = 300.dp).fillMaxWidth()
                 ) {
-                    Text("Удалить аккаунт", color = Color.Gray, fontSize = 12.sp)
+                    Text(stringResource(R.string.delete_account), color = Color.Gray, fontSize = 12.sp)
                 }
             }
         }
@@ -536,7 +536,7 @@ fun SettingsScreen(
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                                 ) {
-                                    Text("Одобрить", color = Color.Black, fontSize = 12.sp)
+                                    Text(stringResource(R.string.auth_register), color = Color.Black, fontSize = 12.sp)
                                 }
                                 Spacer(Modifier.width(4.dp))
                                 Button(
@@ -544,7 +544,7 @@ fun SettingsScreen(
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.Blue),
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
-                                    Text("Админ", color = Color.White, fontSize = 12.sp)
+                                    Text(stringResource(R.string.administrator), color = Color.White, fontSize = 12.sp)
                                 }
                                 Spacer(Modifier.width(4.dp))
                                 IconButton(
@@ -590,27 +590,27 @@ fun GymCalendar(viewModel: SettingsViewModel, modifier: Modifier) {
     if (showNoteDialog) {
         AlertDialog(
             onDismissRequest = { showNoteDialog = false },
-            title = { Text("Заметка на ${selectedDate}") },
+            title = { Text(stringResource(R.string.note_for_date, selectedDate)) },
             text = {
                 OutlinedTextField(
                     value = noteText,
                     onValueChange = { noteText = it },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
-                    placeholder = { Text("Введите текст заметки...") }
+                    placeholder = { Text(stringResource(R.string.note_hint)) }
                 )
             },
             confirmButton = {
                 Button(onClick = {
                     viewModel.saveNote(selectedDate, noteText)
                     showNoteDialog = false
-                }) { Text("Сохранить") }
+                }) { Text(stringResource(R.string.save)) }
             },
             dismissButton = {
                 TextButton(onClick = { 
                     viewModel.deleteNote(selectedDate)
                     showNoteDialog = false 
-                }) { Text("Удалить", color = Color.Red) }
+                }) { Text(stringResource(R.string.delete), color = Color.Red) }
             }
         )
     }
@@ -751,7 +751,7 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
             },
             confirmButton = {
                 Button(onClick = { selectedTutorialImage = null }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
-                    Text("Понятно", color = Color.White)
+                    Text(stringResource(R.string.got_it), color = Color.White)
                 }
             }
         )

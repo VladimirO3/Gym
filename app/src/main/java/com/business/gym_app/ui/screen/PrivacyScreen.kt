@@ -107,12 +107,12 @@ fun PrivacyScreen(
                     focusedContainerColor = Color.Black.copy(alpha = 0.3f),
                     unfocusedContainerColor = Color.Black.copy(alpha = 0.3f)
                 ),
-                label = { Text("Текст Оферты (Markdown/Plain)", color = Color.Gray) }
+                label = { Text(stringResource(R.string.text_offer), color = Color.Gray) }
             )
             
             Row(modifier = Modifier.padding(top = 16.dp)) {
                 TextButton(onClick = { isEditing = false }) {
-                    Text("Отмена", color = Color.Gray)
+                    Text(stringResource(R.string.cancel), color = Color.Gray)
                 }
             }
         } else {
@@ -166,4 +166,3 @@ fun PrivacyScreen(
         Spacer(modifier = Modifier.height(48.dp))
     }
 }
-

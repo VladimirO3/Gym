@@ -116,7 +116,7 @@ fun AuthScreen(
                     OutlinedTextField(
                         value = otpEmail,
                         onValueChange = { viewModel.onOtpEmailChange(it) },
-                        label = { Text("Email") },
+                        label = { Text(stringResource(R.string.auth_email_label)) },
                         modifier = contentModifier,
                         singleLine = true,
                         enabled = !isLoading,
@@ -184,7 +184,7 @@ fun AuthScreen(
                 OutlinedTextField(
                     value = otpEmail,
                     onValueChange = { viewModel.onOtpEmailChange(it) },
-                    label = { Text("Email") },
+                    label = { Text(stringResource(R.string.auth_email_label)) },
                     modifier = contentModifier,
                     singleLine = true,
                     enabled = !isLoading,
@@ -430,4 +430,3 @@ fun AgreementDialog(onDismiss: () -> Unit) {
         }
     }
 }
-
