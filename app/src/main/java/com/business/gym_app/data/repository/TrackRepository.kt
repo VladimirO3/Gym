@@ -26,8 +26,13 @@ class TrackRepository(
             android.util.Log.d("TrackRepository", "Refreshing tracks from local server...")
             val localTracks = apiService.getLocalTracks()
             android.util.Log.d("TrackRepository", "Received ${localTracks.size} tracks from server")
-            val entities = localTracks.map { 
-                TrackEntity(id = it.id.toString(), name = it.name, url = it.url) 
+            val entities = localTracks.mapNotNull { track ->
+                val id = track.id ?: return@mapNotNull null
+                TrackEntity(
+                    id = id.toString(),
+                    name = track.name.orEmpty(),
+                    url = track.url.orEmpty()
+                )
             }
             // Используем транзакцию для атомарного обновления: удалить всё и вставить новое
             trackDao.updateData(entities)

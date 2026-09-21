@@ -44,7 +44,7 @@ class PlaylistViewModel(
         viewModelScope.launch {
             repository.allTracks.collect { tracks ->
                 _localTracks.value = tracks.map { 
-                    LocalTrack(id = it.id.toIntOrNull() ?: 0, name = it.name, url = it.url) 
+                    LocalTrack(id = it.id.toIntOrNull() ?: 0, name = it.name, url = it.url)
                 }
             }
         }

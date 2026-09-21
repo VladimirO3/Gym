@@ -58,11 +58,11 @@ class NewsRepository(
                     mediaType = it.mediaType,
                     createdAt = it.createdAt,
                     userReaction = it.userReaction,
-                    fireCount = it.reactions["fire"] ?: 0,
-                    heartCount = it.reactions["heart"] ?: 0,
-                    muscleCount = it.reactions["muscle"] ?: 0,
-                    thumbCount = it.reactions["thumb"] ?: 0,
-                    wowCount = it.reactions["wow"] ?: 0
+                    fireCount = it.reactions?.get("fire") ?: 0,
+                    heartCount = it.reactions?.get("heart") ?: 0,
+                    muscleCount = it.reactions?.get("muscle") ?: 0,
+                    thumbCount = it.reactions?.get("thumb") ?: 0,
+                    wowCount = it.reactions?.get("wow") ?: 0
                 )
             }
             newsDao.deleteAll()

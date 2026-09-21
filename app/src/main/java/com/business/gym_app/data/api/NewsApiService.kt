@@ -30,6 +30,7 @@ import java.io.File
 /**
  * Модель данных для локального API.
  */
+@Keep
 data class LocalNews(
     @SerializedName("id") val id: String = "",
     @SerializedName("title") val title: String = "",
@@ -38,16 +39,17 @@ data class LocalNews(
     @SerializedName("type", alternate = ["media_type", "mediaType"]) val mediaType: String = "image",
     @SerializedName("created_at", alternate = ["createdAt"]) val createdAt: String = "",
     @SerializedName("user_reaction", alternate = ["userReaction", "my_reaction", "myReaction"]) val userReaction: String? = null,
-    @SerializedName("reactions") val reactions: Map<String, Int> = emptyMap()
+    @SerializedName("reactions") val reactions: Map<String, Int>? = emptyMap()
 )
 
 /**
  * Модель данных для локального трека.
  */
+@Keep
 data class LocalTrack(
-    @SerializedName("id") val id: Int = 0,
-    @SerializedName("name") val name: String = "",
-    @SerializedName("url") val url: String = "",
+    @SerializedName("id") val id: Int? = 0,
+    @SerializedName("name") val name: String? = "",
+    @SerializedName("url") val url: String? = "",
     @SerializedName("created_at") val createdAt: String = ""
 )
 
@@ -130,8 +132,9 @@ data class CreateOrderResponse(
 /**
  * Модели для магазина.
  */
+@Keep
 data class ProductResponse(
-    @SerializedName("id") val id: Any, // Может быть Int или String
+    @SerializedName("id") val id: Any? = null, // Может быть Int или String
     @SerializedName("name") val name: String? = "",
     @SerializedName("price") val price: String? = "",
     @SerializedName("description") val description: String? = "",

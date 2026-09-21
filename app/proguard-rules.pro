@@ -3,5 +3,10 @@
 -dontwarn org.slf4j.impl.StaticLoggerBinder
 
 # Retrofit/Gson response models are accessed reflectively in minified release builds.
--keep class com.business.gym_app.data.api.LoginResponse { *; }
--keep class com.business.gym_app.data.api.ProfileResponse { *; }
+-keep class com.business.gym_app.data.api.** { *; }
+-keep interface com.business.gym_app.ApiService { *; }
+-keep class com.business.gym_app.data.model.Coach { *; }
+
+# These models are serialized/deserialized manually by Gson.
+-keep class com.business.gym_app.ui.viewmodel.Exercise { *; }
+-keep class com.business.gym_app.ui.viewmodel.DailyWorkout { *; }

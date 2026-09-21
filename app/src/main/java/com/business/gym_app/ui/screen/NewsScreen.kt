@@ -670,7 +670,7 @@ fun NewsScreen(
                         content = localItem.content,
                         timestamp = localItem.createdAt.toLongOrNull() ?: 0,
                         userReaction = localItem.userReaction,
-                        reactions = localItem.reactions
+                        reactions = localItem.reactions ?: emptyMap()
                     )
                     NewsMediaItem(
                         item = newsItem, 

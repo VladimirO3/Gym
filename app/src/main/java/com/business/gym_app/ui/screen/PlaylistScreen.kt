@@ -167,8 +167,8 @@ fun PlaylistScreen(
         if (mediaItem != null) {
             val url = mediaItem.localConfiguration?.uri?.toString() ?: ""
             val allTracks = localTracks.map { 
-                val fullUrl = NewsApiService.getFullUrl(context, it.url)
-                Track(id = it.id.toString(), url = fullUrl, name = it.name)
+                val fullUrl = NewsApiService.getFullUrl(context, it.url.orEmpty())
+                Track(id = it.id.toString(), url = fullUrl, name = it.name.orEmpty())
             }
             currentTrack = allTracks.find { it.url == url } 
                 ?: Track(id = "remote", url = url, name = mediaItem.mediaMetadata.title?.toString() ?: "Неизвестный трек")
@@ -186,8 +186,8 @@ fun PlaylistScreen(
                 if (mediaItem != null) {
                     val url = mediaItem.localConfiguration?.uri?.toString() ?: ""
                     val allTracksList = localTracks.map {
-                        val fullUrl = NewsApiService.getFullUrl(context, it.url)
-                        Track(id = it.id.toString(), url = fullUrl, name = it.name)
+                        val fullUrl = NewsApiService.getFullUrl(context, it.url.orEmpty())
+                        Track(id = it.id.toString(), url = fullUrl, name = it.name.orEmpty())
                     }
                     // Синхронизируем currentTrack с тем, что реально играет в плеере для подсветки
                     currentTrack = allTracksList.find { it.url == url }
@@ -261,18 +261,18 @@ fun PlaylistScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 val allTracksList = localTracks.map { 
-                    val fullUrl = NewsApiService.getFullUrl(context, it.url)
-                    Track(id = it.id.toString(), url = fullUrl, name = it.name)
+                    val fullUrl = NewsApiService.getFullUrl(context, it.url.orEmpty())
+                    Track(id = it.id.toString(), url = fullUrl, name = it.name.orEmpty())
                 }
 
                 items(localTracks.indices.toList()) { index ->
                     val localTrack = localTracks[index]
-                    val fullUrl = NewsApiService.getFullUrl(context, localTrack.url)
+                    val fullUrl = NewsApiService.getFullUrl(context, localTrack.url.orEmpty())
                     val absoluteIndex = index
                     // Учитываем наличие элементов в плеере, чтобы первый клик всегда запускал плейлист
                     val isThisTrackSelected = currentTrackIndex == absoluteIndex && player.mediaItemCount > 0
                     TrackItem(
-                        track = Track(id = localTrack.id.toString(), url = fullUrl, name = localTrack.name),
+                        track = Track(id = localTrack.id.toString(), url = fullUrl, name = localTrack.name.orEmpty()),
                         isSelected = isThisTrackSelected,
                         isPlaying = isPlaying,
                         isAdmin = effectiveIsAdmin,

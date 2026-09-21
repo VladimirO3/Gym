@@ -29,15 +29,15 @@ class ProductRepository(
                 Log.d("ProductRepository", "Received ${response.size} products from server")
             }
 
-            val entities = response.map {
-                Log.d("ProductRepository", "Mapping product: ID=${it.id}, Name=${it.name}, Price=${it.price}, Image=${it.imageUrl}")
-                val safeId = it.id.toString() // Сохраняем ID как есть в виде строки
+            val entities = response.mapNotNull { product ->
+                Log.d("ProductRepository", "Mapping product: ID=${product.id}, Name=${product.name}, Price=${product.price}, Image=${product.imageUrl}")
+                val safeId = product.id?.toString() ?: return@mapNotNull null
                 ProductEntity(
                     safeId,
-                    it.name ?: "Без названия", 
-                    it.price ?: "0 ₽", 
-                    it.description ?: "", 
-                    it.imageUrl ?: ""
+                    product.name ?: "Без названия",
+                    product.price ?: "0 ₽",
+                    product.description ?: "",
+                    product.imageUrl ?: ""
                 )
             }
             productDao.updateData(entities)
