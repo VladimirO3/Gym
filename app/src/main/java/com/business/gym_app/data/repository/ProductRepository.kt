@@ -5,6 +5,7 @@ import android.util.Log
 import com.business.gym_app.data.api.NewsApiService
 import com.business.gym_app.data.local.dao.ProductDao
 import com.business.gym_app.data.local.entity.ProductEntity
+import com.business.gym_app.util.AppLanguage
 import kotlinx.coroutines.flow.Flow
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -20,7 +21,7 @@ class ProductRepository(
     suspend fun refreshProducts() {
         try {
             Log.d("ProductRepository", "Requesting products from API...")
-            val response = api.getProducts()
+            val response = api.getProducts(AppLanguage.current(context))
             
             if (response.isEmpty()) {
                 Log.w("ProductRepository", "Server returned an EMPTY product list.")

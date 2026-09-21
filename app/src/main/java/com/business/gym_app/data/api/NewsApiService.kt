@@ -196,7 +196,7 @@ interface NewsApiService {
 
     // --- МАГАЗИН ---
     @GET("shop/products")
-    suspend fun getProducts(): List<ProductResponse>
+    suspend fun getProducts(@Query("lang") language: String? = null): List<ProductResponse>
 
     @Multipart
     @POST("admin/shop/products")
@@ -319,7 +319,7 @@ interface NewsApiService {
 
     // --- НОВОСТИ ---
     @GET("news")
-    suspend fun getLocalNews(): List<LocalNews>
+    suspend fun getLocalNews(@Query("lang") language: String? = null): List<LocalNews>
 
     @Multipart
     @POST("admin/news")
@@ -485,7 +485,7 @@ interface NewsApiService {
 
     // --- ТРЕНЕРЫ ---
     @GET("coaches")
-    suspend fun getCoaches(): List<CoachResponse>
+    suspend fun getCoaches(@Query("lang") language: String? = null): List<CoachResponse>
 
     @Multipart
     @POST("admin/coaches")

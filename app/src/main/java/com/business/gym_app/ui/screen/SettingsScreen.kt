@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.business.gym_app.util.AppLanguage
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.business.gym_app.ui.viewmodel.SettingsViewModel
 import com.business.gym_app.ui.viewmodel.AuthViewModel
@@ -186,7 +187,7 @@ fun SettingsScreen(
                 border = BorderStroke(2.dp, Color.Red)
             ) {
                 Text(
-                    text = "ВЫ ВОШЛИ КАК ГОСТЬ",
+                    text = stringResource(R.string.guest_logged_in),
                     style = MaterialTheme.typography.titleLarge,
                     color = Color.Red,
                     fontWeight = FontWeight.ExtraBold,
@@ -199,7 +200,7 @@ fun SettingsScreen(
         if (canEditProfile) {
             // Блок профиля
             Text(
-                text = "Профиль",
+                text = stringResource(R.string.profile_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.Red,
                 modifier = contentModifier,
@@ -287,7 +288,7 @@ fun SettingsScreen(
                         )
                         if (userAge != null) {
                             Text(
-                                text = "Возраст: $userAge",
+                                text = stringResource(R.string.age_value, userAge.toString()),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.Gray,
                                 textAlign = TextAlign.Center,
@@ -320,7 +321,7 @@ fun SettingsScreen(
                         val orders by viewModel.orderHistory
                         if (orders.isNotEmpty()) {
                             Text(
-                                "История заказов", 
+                                stringResource(R.string.order_history), 
                                 style = MaterialTheme.typography.titleSmall, 
                                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                                 textAlign = TextAlign.Start
@@ -398,7 +399,7 @@ fun SettingsScreen(
             
             // --- КАЛЕНДАРЬ ЗАМЕТОК ---
             Text(
-                text = "Мои тренировки и заметки",
+                text = stringResource(R.string.my_workouts_notes),
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.Red,
                 modifier = contentModifier,
@@ -491,7 +492,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Заявки на регистрацию (Admin)", 
+                    text = stringResource(R.string.registration_requests), 
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.Red,
                     textAlign = TextAlign.Center
@@ -509,7 +510,7 @@ fun SettingsScreen(
 
             if (pendingUsers.isEmpty()) {
                 Text(
-                    "Нет новых заявок", 
+                    stringResource(R.string.no_new_requests), 
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.Gray,
                     modifier = contentModifier.padding(vertical = 8.dp),
@@ -550,7 +551,7 @@ fun SettingsScreen(
                                 IconButton(
                                     onClick = { authViewModel.deleteUser(user) }
                                 ) {
-                                    Icon(Icons.Default.Delete, "Отклонить", tint = Color.Red)
+                                    Icon(Icons.Default.Delete, stringResource(R.string.reject), tint = Color.Red)
                                 }
                             }
                         }
@@ -562,7 +563,8 @@ fun SettingsScreen(
         if (currentUserEmail != null) {
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = if (isGuest) "Режим гостя: $currentUserEmail" else "Вы вошли как: $currentUserEmail", 
+                text = if (isGuest) stringResource(R.string.guest_mode, currentUserEmail)
+                else stringResource(R.string.logged_in_as, currentUserEmail), 
                 style = MaterialTheme.typography.bodyMedium, 
                 color = if (isGuest) Color.Red else Color.Gray,
                 fontWeight = if (isGuest) FontWeight.Bold else FontWeight.Normal,
@@ -631,7 +633,10 @@ fun GymCalendar(viewModel: SettingsViewModel, modifier: Modifier) {
                     Icon(Icons.Default.ChevronLeft, null, tint = Color.White)
                 }
                 Text(
-                    text = "${currentMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale("ru"))} ${currentMonth.year}",
+                    text = "${currentMonth.month.getDisplayName(
+                        TextStyle.FULL_STANDALONE,
+                        Locale.getDefault()
+                    )} ${currentMonth.year}",
                     color = Color.White,
                     fontWeight = FontWeight.Bold
                 )
@@ -644,7 +649,15 @@ fun GymCalendar(viewModel: SettingsViewModel, modifier: Modifier) {
 
             // Дни недели
             Row(modifier = Modifier.fillMaxWidth()) {
-                listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс").forEach {
+                listOf(
+                    stringResource(R.string.weekday_mon),
+                    stringResource(R.string.weekday_tue),
+                    stringResource(R.string.weekday_wed),
+                    stringResource(R.string.weekday_thu),
+                    stringResource(R.string.weekday_fri),
+                    stringResource(R.string.weekday_sat),
+                    stringResource(R.string.weekday_sun)
+                ).forEach {
                     Text(it, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, color = Color.Gray, fontSize = 12.sp)
                 }
             }
@@ -708,7 +721,7 @@ fun GymCalendar(viewModel: SettingsViewModel, modifier: Modifier) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Заметка: $selectedNote",
+                        text = stringResource(R.string.note_value, selectedNote),
                         modifier = Modifier.padding(8.dp),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Cyan
@@ -717,6 +730,49 @@ fun GymCalendar(viewModel: SettingsViewModel, modifier: Modifier) {
             }
         }
     }
+}
+
+private fun localizedWorkout(workout: com.business.gym_app.ui.viewmodel.DailyWorkout, english: Boolean): com.business.gym_app.ui.viewmodel.DailyWorkout {
+    if (!english) return workout
+
+    val titles = mapOf(
+        "Силовая: Ноги и ягодицы" to "Strength: Legs and Glutes",
+        "Верх тела: Грудь и Спина" to "Upper Body: Chest and Back",
+        "Кардио и Выносливость" to "Cardio and Endurance",
+        "Пресс и Кор" to "Abs and Core",
+        "Руки: Бицепс и Трицепс" to "Arms: Biceps and Triceps"
+    )
+    val names = mapOf(
+        "Приседания" to "Squats", "Жим ногами" to "Leg Press", "Выпады" to "Lunges",
+        "Разгибание ног" to "Leg Extensions", "Сгибание ног" to "Leg Curls",
+        "Подъем на носки" to "Calf Raises", "Жим лежа" to "Bench Press",
+        "Тяга блока" to "Lat Pulldown", "Отжимания" to "Push-ups",
+        "Разводка гантелей" to "Dumbbell Flyes", "Тяга гантели" to "Dumbbell Row",
+        "Гиперэкстензия" to "Hyperextensions", "Бег" to "Running", "Берпи" to "Burpees",
+        "Скакалка" to "Jump Rope", "Джампинг Джек" to "Jumping Jacks",
+        "Альпинист" to "Mountain Climbers", "Прыжки на бокс" to "Box Jumps",
+        "Скручивания" to "Crunches", "Планка" to "Plank", "Велосипед" to "Bicycle Crunches",
+        "Боковая планка" to "Side Plank", "Подъем ног" to "Leg Raises",
+        "Русский твист" to "Russian Twist", "Подъем гантелей" to "Shoulder Press",
+        "Обратные отжимания" to "Bench Dips", "Молотки" to "Hammer Curls",
+        "Франц. жим" to "Skull Crushers", "Конц. подъем" to "Concentration Curls",
+        "Разгибания рук" to "Triceps Pushdown"
+    )
+    val descriptions = mapOf(
+        "до отказа" to "to failure", "минут" to "minutes", "интенсивно" to "intense",
+        "пульс" to "heart rate", "раз" to "reps", "подх." to "sets", "сек" to "sec",
+        "по 1 мин" to "for 1 min"
+    )
+    return workout.copy(
+        title = titles[workout.title] ?: workout.title,
+        exercises = workout.exercises.map { exercise ->
+            var description = exercise.desc
+            descriptions.forEach { (russian, englishText) ->
+                description = description.replace(russian, englishText)
+            }
+            exercise.copy(name = names[exercise.name] ?: exercise.name, desc = description)
+        }
+    )
 }
 
 @Composable
@@ -742,7 +798,7 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Техника выполнения: внимательно следите за положением спины и дыханием.", 
+                        text = stringResource(R.string.execution_technique), 
                         fontSize = 13.sp, 
                         color = Color.Gray,
                         textAlign = TextAlign.Center
@@ -757,11 +813,17 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
         )
     }
 
-    val workout = remember(plan) {
+    val dailyExerciseLabel = stringResource(R.string.daily_exercise)
+    val trainingPlanLabel = stringResource(R.string.training_plan)
+    val currentLanguage = AppLanguage.current(context)
+    val workout = remember(plan, dailyExerciseLabel, trainingPlanLabel, currentLanguage) {
         if (plan.isNullOrBlank()) null
         else if (plan.startsWith("{")) {
             try {
-                com.google.gson.Gson().fromJson(plan, com.business.gym_app.ui.viewmodel.DailyWorkout::class.java)
+                localizedWorkout(
+                    com.google.gson.Gson().fromJson(plan, com.business.gym_app.ui.viewmodel.DailyWorkout::class.java),
+                    currentLanguage == "en"
+                )
             } catch (e: Exception) { null }
         } else {
             // Конвертация старого текстового формата в новый для отображения
@@ -770,11 +832,14 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
                 com.business.gym_app.ui.viewmodel.Exercise(
                     it.trim(), 
                     defaultUrl, 
-                    "Ежедневное упражнение",
+                    dailyExerciseLabel,
                     defaultUrl
                 )
             }
-            com.business.gym_app.ui.viewmodel.DailyWorkout("Ваш план тренировок", exercises)
+            localizedWorkout(
+                com.business.gym_app.ui.viewmodel.DailyWorkout(trainingPlanLabel, exercises),
+                currentLanguage == "en"
+            )
         }
     }
 
@@ -800,7 +865,7 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
                     Icon(Icons.Default.FitnessCenter, null, tint = Color.Red)
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        text = workout?.title ?: "ПЛАН ТРЕНИРОВОК",
+                        text = workout?.title ?: stringResource(R.string.training_plan),
                         style = MaterialTheme.typography.titleLarge,
                         color = Color.Red,
                         fontWeight = FontWeight.ExtraBold
@@ -808,7 +873,7 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
                 }
                 
                 Text(
-                    text = "Ваш персональный план на ${LocalDate.now()}",
+                    text = stringResource(R.string.personal_plan, LocalDate.now()),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.Gray,
                     modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
@@ -863,7 +928,7 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
                                     )
                                     if (exercise.tutorialImageUrl != null) {
                                         Text(
-                                            text = "Нажмите для инструкции 📸",
+                                            text = stringResource(R.string.tap_for_instruction),
                                             color = Color.Gray,
                                             style = MaterialTheme.typography.labelSmall,
                                             modifier = Modifier.padding(top = 4.dp)
@@ -881,7 +946,7 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
 
                 Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "💡 Нажмите на упражнение, чтобы увидеть фото-инструкцию.",
+                text = stringResource(R.string.tap_exercise_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.Gray,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic

@@ -122,7 +122,7 @@ fun AboutScreen(
                     editingCoach = null
                 } catch (e: Exception) {
                     android.util.Log.e("AboutScreen", "Failed to process coach data", e)
-                    android.widget.Toast.makeText(context, "Ошибка при обработке фото", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, context.getString(R.string.photo_processing_error), android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
         )
@@ -354,7 +354,7 @@ fun AboutScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Наши инструктора",
+                text = stringResource(R.string.our_coaches),
                 style = MaterialTheme.typography.titleLarge,
                 color = Color.Red,
                 fontWeight = FontWeight.Bold
@@ -387,7 +387,7 @@ fun AboutScreen(
 
         if (coaches.isEmpty()) {
             Text(
-                text = "Информация о тренерах скоро появится...",
+                text = stringResource(R.string.coaches_coming_soon),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.Gray,
                 modifier = contentModifier
@@ -412,7 +412,7 @@ fun AboutScreen(
 
         // --- Связь с автором ---
         Text(
-            text = "Связаться с автором:",
+            text = stringResource(R.string.contact_author),
             style = MaterialTheme.typography.titleMedium,
             color = Color.Red,
             modifier = Modifier.padding(bottom = 16.dp)

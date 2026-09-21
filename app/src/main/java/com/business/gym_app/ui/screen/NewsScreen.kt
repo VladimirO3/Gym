@@ -242,7 +242,7 @@ fun NewsScreen(
                     selectedMediaUri = it
                 }
             } else {
-                Toast.makeText(context, "Это не фото или видео файл!", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.invalid_media_file), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -267,7 +267,7 @@ fun NewsScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (!isGranted) {
-            Toast.makeText(context, "Разрешение на камеру отклонено", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.camera_permission_denied), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -346,7 +346,7 @@ fun NewsScreen(
                                     tempUri = uri
                                     cameraLauncher.launch(uri)
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Ошибка камеры: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.camera_error, e.message.orEmpty()), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier.weight(1f),
@@ -366,7 +366,7 @@ fun NewsScreen(
                                     tempUri = uri
                                     videoLauncher.launch(uri)
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Ошибка видео: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.video_error, e.message.orEmpty()), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier.weight(1f),
@@ -400,7 +400,7 @@ fun NewsScreen(
                                 )
                             }
                         } else {
-                            Toast.makeText(context, "Ошибка: Токен авторизации не найден. Попробуйте перезайти.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.auth_token_missing), Toast.LENGTH_LONG).show()
                         }
                     },
                     enabled = !isUploading && localTitle.isNotBlank(), // Кнопка активна, если введен заголовок
@@ -467,7 +467,7 @@ fun NewsScreen(
                         )
                     } else if (!editingNewsItem!!.mediaUrl.isNullOrBlank()) {
                         Text(
-                            text = "Оставлено текущее медиа", 
+                            text = stringResource(R.string.current_media_kept), 
                             color = Color.Gray, 
                             style = MaterialTheme.typography.bodySmall
                         )

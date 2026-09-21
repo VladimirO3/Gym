@@ -18,6 +18,7 @@ import com.business.gym_app.data.local.dao.OrderDao
 import com.business.gym_app.data.local.entity.DailyNoteEntity
 import com.business.gym_app.data.repository.ProfileRepository
 import com.business.gym_app.util.AuthUtils
+import com.business.gym_app.util.AppEventBus
 import com.google.gson.Gson
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -387,10 +388,10 @@ class SettingsViewModel(
                 kotlinx.coroutines.delay(1000)
                 repository.refreshProfileFromServer(currentUid!!)
                 
-                android.widget.Toast.makeText(context, "Профиль успешно сохранен", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.profile_saved), android.widget.Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Log.e("SettingsViewModel", "Profile update failed", e)
-                android.widget.Toast.makeText(context, "Ошибка сохранения", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.profile_save_error), android.widget.Toast.LENGTH_SHORT).show()
             } finally {
                 _isUpdatingProfile.value = false
             }
@@ -434,10 +435,10 @@ class SettingsViewModel(
                 diskCache?.remove(fullUrl)
                 imageLoader.memoryCache?.remove(coil.memory.MemoryCache.Key(fullUrl))
                 
-                android.widget.Toast.makeText(context, "Фото успешно обновлено", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.photo_updated), android.widget.Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Log.e("SettingsViewModel", "Avatar upload failed: ${e.message}", e)
-                android.widget.Toast.makeText(context, "Ошибка загрузки фото", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.photo_upload_error), android.widget.Toast.LENGTH_SHORT).show()
             } finally {
                 _isUpdatingProfile.value = false
             }
@@ -451,9 +452,9 @@ class SettingsViewModel(
             val success = repository.deleteAvatar(uid)
             if (success) {
                 _avatarUrl.value = null
-                android.widget.Toast.makeText(context, "Фото удалено", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.photo_deleted), android.widget.Toast.LENGTH_SHORT).show()
             } else {
-                android.widget.Toast.makeText(context, "Ошибка при удалении фото", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.photo_delete_error), android.widget.Toast.LENGTH_SHORT).show()
             }
             _isUpdatingProfile.value = false
         }
@@ -463,7 +464,7 @@ class SettingsViewModel(
         applyLanguage(lang)
         context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
             .edit().putString("lang", lang).apply()
-            
+        viewModelScope.launch { AppEventBus.emit("LANGUAGE_CHANGED") }
         currentUid?.let { uid ->
             viewModelScope.launch { repository.updateLang(uid, lang) }
         }

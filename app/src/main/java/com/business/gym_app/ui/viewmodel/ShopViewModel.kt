@@ -14,6 +14,7 @@ import com.business.gym_app.data.api.ProductResponse
 import com.business.gym_app.data.local.GymDatabase
 import com.business.gym_app.data.repository.ProductRepository
 import kotlinx.coroutines.launch
+import com.business.gym_app.util.AppEventBus
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -43,6 +44,11 @@ class ShopViewModel(
                 _products.value = entities.map {
                     ProductResponse(it.id, it.name, it.price, it.description, it.imageUrl)
                 }
+            }
+        }
+        viewModelScope.launch {
+            AppEventBus.events.collect { event ->
+                if (event == "LANGUAGE_CHANGED") fetchProducts()
             }
         }
         // Автоматическая загрузка при создании

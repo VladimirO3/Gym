@@ -75,7 +75,7 @@ fun ShopScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(jwtToken, currentUid) {
         shopViewModel.fetchProducts()
     }
 
@@ -344,7 +344,7 @@ fun CartScreenInternal(
             Button(
                 onClick = { 
                     cartViewModel.checkout(context) {
-                        android.widget.Toast.makeText(context, "Заказ успешно оформлен!", android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(context, context.getString(R.string.order_created), android.widget.Toast.LENGTH_LONG).show()
                         onBack()
                     }
                 },

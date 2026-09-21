@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.map
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.business.gym_app.util.AppLanguage
 
 class NewsRepository(
     private val newsDao: NewsDao,
@@ -45,7 +46,7 @@ class NewsRepository(
         if (effectiveToken == "guest_token") return
 
         try {
-            val news = apiService.getLocalNews()
+            val news = apiService.getLocalNews(AppLanguage.current(context))
             android.util.Log.d("NewsRepository", "Refreshing news, count: ${news.size}")
             
             val entities = news.map { 

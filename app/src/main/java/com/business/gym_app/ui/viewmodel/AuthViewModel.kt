@@ -309,11 +309,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Failed to fetch profile from VPS", e)
-                if (!_isSessionLoaded.value) {
-                    // Только если сессия еще не была успешно загружена, выходим
-                    // Это предотвращает случайный логаут при сбое интернета во время опроса (polling)
+                if (e is retrofit2.HttpException && (e.code() == 401 || e.code() == 403)) {
                     clearSession(getApplication())
                     signOut()
+                } else {
+                    val prefs = getApplication<Application>()
+                        .getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                    _currentUserEmail.value = prefs.getString("user_session_email", null)
+                    _currentUid.value = prefs.getString("user_session_uid", _currentUserEmail.value ?: "")
+                        ?: ""
+                    _isSessionLoaded.value = true
                 }
             }
         }
@@ -400,8 +405,26 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         _isLoading.value = false
                         onSuccess(identifier)
                     } else {
+                        // Login already authenticated the user. Do not discard a valid
+                        // session only because the optional profile request is unavailable.
+                        val fallbackUid = identifier
+                        saveSession(
+                            getApplication(),
+                            identifier,
+                            if (_authMode.value == "phone") identifier else null,
+                            token,
+                            refresh,
+                            fallbackUid,
+                            "user"
+                        )
+                        saveCredentials(identifier, passwordValue)
+                        _jwtToken.value = token
+                        _refreshToken.value = refresh
+                        _currentUserEmail.value = identifier
+                        _currentUid.value = fallbackUid
+                        _currentUserRole.value = "user"
                         _isLoading.value = false
-                        _error.value = "Ошибка проверки профиля. Аккаунт не активирован."
+                        onSuccess(identifier)
                     }
                 }
             } catch (e: Exception) {

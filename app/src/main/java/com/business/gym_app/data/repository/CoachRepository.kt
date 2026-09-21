@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import com.business.gym_app.util.AppLanguage
 
 class CoachRepository(
     private val coachDao: CoachDao,
@@ -21,7 +22,7 @@ class CoachRepository(
     suspend fun refreshCoaches(): Boolean {
         return try {
             Log.d("CoachRepository", "Refreshing coaches from API...")
-            val response = apiService.getCoaches()
+            val response = apiService.getCoaches(AppLanguage.current(context))
             Log.d("CoachRepository", "Received ${response.size} coaches from server")
             val entities = response.map {
                 CoachEntity(

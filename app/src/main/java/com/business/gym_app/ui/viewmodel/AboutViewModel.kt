@@ -12,6 +12,7 @@ import com.business.gym_app.data.local.entity.CoachEntity
 import com.business.gym_app.data.repository.CoachRepository
 import com.business.gym_app.data.repository.AboutRepository
 import kotlinx.coroutines.launch
+import com.business.gym_app.util.AppEventBus
 import okhttp3.MultipartBody
 
 class AboutViewModel(
@@ -64,6 +65,11 @@ class AboutViewModel(
             coachRepository.allCoaches.collect { list ->
                 android.util.Log.d("AboutViewModel", "Coaches from Room updated: ${list.size}")
                 _coaches.value = list
+            }
+        }
+        viewModelScope.launch {
+            AppEventBus.events.collect { event ->
+                if (event == "LANGUAGE_CHANGED") refreshData()
             }
         }
         
@@ -121,4 +127,3 @@ class AboutViewModel(
         }
     }
 }
-

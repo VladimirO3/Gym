@@ -53,7 +53,7 @@ class NewsViewModel(
         // Слушатель глобальных обновлений через WebSocket
         viewModelScope.launch {
             com.business.gym_app.util.AppEventBus.events.collect { event ->
-                if (event.contains("NEWS_UPDATE")) {
+                if (event.contains("NEWS_UPDATE") || event.contains("LANGUAGE_CHANGED")) {
                     val sharedPref = application.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
                     val token = sharedPref.getString("user_session_token", null)
                     fetchLocalNews(token)
