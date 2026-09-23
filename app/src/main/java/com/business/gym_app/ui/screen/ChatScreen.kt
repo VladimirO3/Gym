@@ -216,7 +216,8 @@ fun ChatScreen(
                         isAdmin = isRootAdmin,
                         onDeleteUser = { viewModel.deleteUser(context, it, jwtToken) },
                         onEditUser = { userForProfile = it },
-                        jwtToken = jwtToken
+                        jwtToken = jwtToken,
+                        showSearch = false // В альбомной ориентации поиск контактов скрыт
                     )
                 }
                 VerticalDivider(color = Color.DarkGray)
@@ -570,13 +571,20 @@ fun UserListScreen(
     isAdmin: Boolean = false,
     onDeleteUser: (String) -> Unit = {},
     onEditUser: (UserProfile) -> Unit = {},
-    jwtToken: String? = null
+    jwtToken: String? = null,
+    showSearch: Boolean = true
 ) {
     var userToDelete by remember { mutableStateOf<UserProfile?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
-    val filteredUsers = remember(users, searchQuery) {
-        if (searchQuery.isBlank()) users
+    // В альбомной ориентации поиск скрыт: сбрасываем запрос, чтобы список
+    // контактов не остался отфильтрованным без возможности очистить поиск
+    LaunchedEffect(showSearch) {
+        if (!showSearch) searchQuery = ""
+    }
+
+    val filteredUsers = remember(users, searchQuery, showSearch) {
+        if (!showSearch || searchQuery.isBlank()) users
         else users.filter { 
             it.name.contains(searchQuery, ignoreCase = true) || 
             it.email.contains(searchQuery, ignoreCase = true) 
@@ -615,27 +623,29 @@ fun UserListScreen(
         )
         Spacer(modifier = Modifier.height(12.dp))
 
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            placeholder = { Text("Поиск пользователя...", color = Color.Gray) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Поиск", tint = Color.Gray) },
-            trailingIcon = if (searchQuery.isNotEmpty()) {
-                {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Очистить", tint = Color.Gray)
+        if (showSearch) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                placeholder = { Text("Поиск пользователя...", color = Color.Gray) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Поиск", tint = Color.Gray) },
+                trailingIcon = if (searchQuery.isNotEmpty()) {
+                    {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Очистить", tint = Color.Gray)
+                        }
                     }
-                }
-            } else null,
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color.Red,
-                unfocusedBorderColor = Color.DarkGray,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+                } else null,
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Red,
+                    unfocusedBorderColor = Color.DarkGray,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                )
             )
-        )
+        }
 
         if (filteredUsers.isEmpty()) {
             Log.d("ChatScreen", "User list is empty in UI")

@@ -1,6 +1,7 @@
 package com.business.gym_app.ui.screen
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import com.business.gym_app.R // <-- ДОБАВЛЕНО: Теперь класс ресурсов R подключен правильно
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -570,7 +571,6 @@ fun CoachDetailDialog(
     coach: CoachEntity,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
@@ -579,77 +579,119 @@ fun CoachDetailDialog(
             modifier = Modifier.fillMaxSize(),
             color = Color.Black
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(420.dp)
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (coach.imageUrl != null) {
-                        AsyncImage(
-                            model = NewsApiService.getFullUrl(context, coach.imageUrl),
-                            contentDescription = coach.name,
-                            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
-                            contentScale = ContentScale.Fit
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier.fillMaxSize().background(Color.DarkGray),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Person, null, tint = Color.Gray, modifier = Modifier.size(100.dp))
-                        }
-                    }
-                    
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(16.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                    ) {
-                        Icon(Icons.Default.Close, null, tint = Color.White)
-                    }
-                }
+            val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-                Column(
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    Text(
-                        text = coach.name,
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = Color.Red,
-                        fontWeight = FontWeight.Bold
+            if (isLandscape) {
+                // В альбомной ориентации фото и текст располагаются рядом: в портретной
+                // вёрстке фото занимало 420dp и на низком экране блок с именем и
+                // описанием получал 0dp, поэтому они не отображались.
+                Row(modifier = Modifier.fillMaxSize()) {
+                    CoachDetailPhoto(
+                        coach = coach,
+                        onDismiss = onDismiss,
+                        modifier = Modifier.weight(0.42f).fillMaxHeight()
                     )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Text(
-                        text = coach.description,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White,
-                        lineHeight = 24.sp
-                    )
+                    Column(modifier = Modifier.weight(0.58f).fillMaxHeight()) {
+                        CoachDetailInfo(
+                            coach = coach,
+                            modifier = Modifier.padding(24.dp).weight(1f)
+                        )
+                        CoachDetailBackButton(onDismiss = onDismiss)
+                    }
                 }
-                
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(stringResource(R.string.back), fontWeight = FontWeight.Bold)
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    CoachDetailPhoto(
+                        coach = coach,
+                        onDismiss = onDismiss,
+                        modifier = Modifier.fillMaxWidth().height(420.dp)
+                    )
+                    CoachDetailInfo(
+                        coach = coach,
+                        modifier = Modifier.padding(24.dp).weight(1f)
+                    )
+                    CoachDetailBackButton(onDismiss = onDismiss)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CoachDetailPhoto(
+    coach: CoachEntity,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    Box(
+        modifier = modifier.background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        if (coach.imageUrl != null) {
+            AsyncImage(
+                model = NewsApiService.getFullUrl(context, coach.imageUrl),
+                contentDescription = coach.name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color.DarkGray),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Person, null, tint = Color.Gray, modifier = Modifier.size(100.dp))
+            }
+        }
+
+        IconButton(
+            onClick = onDismiss,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+        ) {
+            Icon(Icons.Default.Close, null, tint = Color.White)
+        }
+    }
+}
+
+@Composable
+private fun CoachDetailInfo(
+    coach: CoachEntity,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.verticalScroll(rememberScrollState())) {
+        Text(
+            text = coach.name,
+            style = MaterialTheme.typography.headlineLarge,
+            color = Color.Red,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = coach.description,
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color.White,
+            lineHeight = 24.sp
+        )
+    }
+}
+
+@Composable
+private fun CoachDetailBackButton(onDismiss: () -> Unit) {
+    Button(
+        onClick = onDismiss,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .height(50.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(stringResource(R.string.back), fontWeight = FontWeight.Bold)
     }
 }
 

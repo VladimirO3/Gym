@@ -59,6 +59,7 @@ class ProfileRepository(
             
             // Сохраняем локальные данные, которые не приходят с сервера (план тренировок)
             val currentLocal = profileDao.getProfile(uid).firstOrNull()
+                ?: profileDao.getProfile(finalUid).firstOrNull()
             
             val entity = ProfileEntity(
                 uid = finalUid,

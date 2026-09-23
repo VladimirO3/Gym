@@ -242,6 +242,9 @@ class SettingsViewModel(
             if (isAdmin) {
                 repository.updatePrivacy(id, true)
             }
+            // Назначения администратора уже сохранены в SharedPrefs —
+            // сразу показываем программу админа вместо сгенерированной, не дожидаясь Room
+            reapplyAssignedPlan(id)
         }
 
         // Подписка на локальный кэш профиля
@@ -260,14 +263,27 @@ class SettingsViewModel(
                     // Обновляем URL аватара, даже если он пустой (для сброса)
                     _avatarUrl.value = it.avatarUrl
                     
-                    _dailyPlan.value = it.dailyPlan
-
                     // Проверка и генерация плана тренировок на сегодня
                     val today = LocalDate.now().toString()
                     val planText = it.dailyPlan ?: ""
 
-                    // Программы, назначенные администратором, заменяют автоматический план
-                    if (applyAssignedPlan(id, today, planText)) return@let
+                    // Программы от администратора имеют приоритет: если они назначены,
+                    // показываем только их и не генерируем автоматический план.
+                    // Запись идёт напрямую в suspend-контексте collect, поэтому эмиссия
+                    // Room не перезаписывает назначенную программу сгенерированной.
+                    val assignedJson = assignedPlanJson(id)
+                    if (assignedJson != null) {
+                        setAssignedPlanFlag(id, true)
+                        if (_dailyPlan.value != assignedJson) {
+                            _dailyPlan.value = assignedJson
+                            repository.updateDailyPlan(id, today, assignedJson)
+                        }
+                        return@let
+                    }
+
+                    // Назначений нет — показываем сгенерированный ранее план
+                    _dailyPlan.value = planText
+                    val wasAssigned = wasAssignedPlan(id)
 
                     // Считаем количество упражнений в JSON
                     val exerciseCount = try {
@@ -293,7 +309,7 @@ class SettingsViewModel(
                     
                     Log.d("SettingsViewModel", "Plan check: today=$today, count=$exerciseCount, isOld=$isOldPlan")
 
-                    if (it.lastPlanDate != today || isOldPlan || wasAssignedPlan(id)) {
+                    if (it.lastPlanDate != today || isOldPlan || wasAssigned) {
                         Log.i("SettingsViewModel", "Triggering new plan generation (count=$exerciseCount)")
                         generateDailyPlan(id, today)
                     }
@@ -455,21 +471,27 @@ class SettingsViewModel(
     }
 
     /**
-     * Если администратор назначил программы, ставит на сегодня одну из них
-     * (по очереди по дням) и возвращает true. Иначе — false, работает автоплан.
+     * Программа, назначенная администратором на сегодня (назначенные программы
+     * чередуются по дням), в виде JSON. null — назначений нет, работает автоплан.
      */
-    private fun applyAssignedPlan(uid: String, today: String, currentPlan: String): Boolean {
-        val assigned = AssignedPrograms.load(getApplication(), uid) ?: return false
-        val workout = assigned.programForDay(LocalDate.now().toEpochDay()) ?: return false
-        val jsonPlan = Gson().toJson(workout)
-        if (currentPlan != jsonPlan) {
-            setAssignedPlanFlag(uid, true)
-            viewModelScope.launch {
-                repository.updateDailyPlan(uid, today, jsonPlan)
-                _dailyPlan.value = jsonPlan
-            }
+    private fun assignedPlanJson(uid: String): String? =
+        AssignedPrograms.load(getApplication(), uid)
+            ?.programForDay(LocalDate.now().toEpochDay())
+            ?.let { Gson().toJson(it) }
+
+    /**
+     * Принудительно показывает программу администратора из SharedPrefs поверх
+     * сгенерированного плана: SharedPrefs обновляется в refreshProfileFromServer
+     * раньше, чем Room-эмиссия приходит в коллектор выше, из-за чего пользователь
+     * видел сгенерированный план. Вызывается сразу после refreshProfileFromServer.
+     */
+    private fun reapplyAssignedPlan(uid: String) {
+        val jsonPlan = assignedPlanJson(uid) ?: return
+        setAssignedPlanFlag(uid, true)
+        _dailyPlan.value = jsonPlan
+        viewModelScope.launch {
+            repository.updateDailyPlan(uid, LocalDate.now().toString(), jsonPlan)
         }
-        return true
     }
 
     // Флаг «текущий план от администратора»: после отмены назначения сразу возвращаем автоплан

@@ -80,13 +80,38 @@ fun ShopScreen(
     }
 
     val configuration = LocalConfiguration.current
-    val columns = if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) 3 else 2
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val cartItems by cartViewModel.cartItems
     val totalItemsInCart = cartItems.sumOf { it.second }
 
     var editingProduct by remember { mutableStateOf<ProductResponse?>(null) }
     var isAddingProduct by remember { mutableStateOf(false) }
     val effectiveIsAdmin = authViewModel.isAdmin()
+
+    // Единый рендер карточки товара: используется и в сетке, и в центрированном ряду
+    val renderProductCard: @Composable (ProductResponse) -> Unit = { product ->
+        val countInCart = cartItems.find { it.first.id == product.id.toString() }?.second ?: 0
+        ShopProductCard(
+            product = product,
+            countInCart = countInCart,
+            isAdmin = effectiveIsAdmin,
+            onClick = { selectedProductForDetail = product },
+            onAddToCart = {
+                cartViewModel.addToCart(context, product.toPlaceholder())
+            },
+            onRemoveFromCart = {
+                cartViewModel.removeFromCart(context, product.toPlaceholder())
+            },
+            onBuyNow = {
+                if (countInCart == 0) {
+                    cartViewModel.addToCart(context, product.toPlaceholder())
+                }
+                isShowingCart = true
+            },
+            onEdit = { editingProduct = product },
+            onDelete = { shopViewModel.deleteProduct(product.id.toString()) }
+        )
+    }
 
     // Dialogs
     if (editingProduct != null) {
@@ -189,73 +214,41 @@ fun ShopScreen(
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.products_not_found), color = Color.Gray)
                 }
-            } else if (products.size == 1) {
-                val product = products.first()
-                val cartItem = cartViewModel.cartItems.value.find { it.first.id == product.id.toString() }
-                val countInCart = cartItem?.second ?: 0
-                
-                Box(
+            } else if (products.size == 1 || (isLandscape && products.size == 2)) {
+                // Одна карточка или (в альбомной ориентации) две: раскладываем их в Row и
+                // центрируем по экрану, чтобы отступы слева и справа были одинаковыми.
+                // В LazyVerticalGrid неполный ряд прижимается влево, поэтому эти случаи
+                // обрабатываются отдельно
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
+                        .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.TopCenter
+                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Box(modifier = Modifier.width(if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) 240.dp else 180.dp)) {
-                        ShopProductCard(
-                            product = product,
-                            countInCart = countInCart,
-                            isAdmin = effectiveIsAdmin,
-                            onClick = { selectedProductForDetail = product },
-                            onAddToCart = { 
-                                cartViewModel.addToCart(context, product.toPlaceholder()) 
-                            },
-                            onRemoveFromCart = { 
-                                cartViewModel.removeFromCart(context, product.toPlaceholder()) 
-                            },
-                            onBuyNow = {
-                                if (countInCart == 0) {
-                                    cartViewModel.addToCart(context, product.toPlaceholder())
-                                }
-                                isShowingCart = true
-                            },
-                            onEdit = { editingProduct = product },
-                            onDelete = { shopViewModel.deleteProduct(product.id.toString()) }
-                        )
+                    products.forEach { product ->
+                        Box(modifier = Modifier.width(if (isLandscape) 240.dp else 180.dp)) {
+                            renderProductCard(product)
+                        }
                     }
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(columns),
+                    // В альбомной ориентации карточки фиксированной ширины, а свободное
+                    // место распределяется по краям (Arrangement.CenterHorizontally) —
+                    // отступы слева и справа от экрана одинаковые, блок товаров по центру.
+                    columns = if (isLandscape) GridCells.FixedSize(200.dp) else GridCells.Fixed(2),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth().weight(1f)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
                 ) {
                     items(products) { product ->
-                        val cartItem = cartViewModel.cartItems.value.find { it.first.id == product.id.toString() }
-                        val countInCart = cartItem?.second ?: 0
-
-                        ShopProductCard(
-                            product = product,
-                            countInCart = countInCart,
-                            isAdmin = effectiveIsAdmin,
-                            onClick = { selectedProductForDetail = product },
-                            onAddToCart = { 
-                                cartViewModel.addToCart(context, product.toPlaceholder()) 
-                            },
-                            onRemoveFromCart = { 
-                                cartViewModel.removeFromCart(context, product.toPlaceholder()) 
-                            },
-                            onBuyNow = {
-                                if (countInCart == 0) {
-                                    cartViewModel.addToCart(context, product.toPlaceholder())
-                                }
-                                isShowingCart = true
-                            },
-                            onEdit = { editingProduct = product },
-                            onDelete = { shopViewModel.deleteProduct(product.id.toString()) }
-                        )
+                        renderProductCard(product)
                     }
                 }
             }
