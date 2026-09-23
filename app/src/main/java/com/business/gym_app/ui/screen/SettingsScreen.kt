@@ -80,6 +80,7 @@ fun SettingsScreen(
     var isEditMode by remember { mutableStateOf(false) }
     var showIpDialog by remember { mutableStateOf(false) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val canEditProfile = currentUserEmail != null && !isAdmin && !isGuest
 
     LaunchedEffect(userName, userAge) {
@@ -105,6 +106,30 @@ fun SettingsScreen(
                 )
             },
             isLoading = viewModel.isChangingPassword.value
+        )
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text(stringResource(R.string.account_delete_title), color = Color.Red) },
+            text = { Text(stringResource(R.string.account_delete_message)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDialog = false
+                        authViewModel.deleteAccount { onLogout() }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text(stringResource(R.string.delete), color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text(stringResource(R.string.cancel), color = Color.Gray)
+                }
+            }
         )
     }
 
@@ -548,56 +573,6 @@ fun SettingsScreen(
             LanguageOption("ru", currentLocale, stringResource(R.string.language_russian)) { viewModel.setLanguage(context, currentUserEmail, it) }
         }
 
-        if (currentUserEmail != null) {
-            var showDeleteDialog by remember { mutableStateOf(false) }
-
-            if (showDeleteDialog) {
-                AlertDialog(
-                    onDismissRequest = { showDeleteDialog = false },
-                    title = { Text(stringResource(R.string.account_delete_title), color = Color.Red) },
-                    text = { Text(stringResource(R.string.account_delete_message)) },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                showDeleteDialog = false
-                                authViewModel.deleteAccount { onLogout() }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                        ) {
-                            Text(stringResource(R.string.delete), color = Color.White)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showDeleteDialog = false }) {
-                            Text(stringResource(R.string.cancel), color = Color.Gray)
-                        }
-                    }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-            Button(
-                onClick = onLogout,
-                modifier = Modifier.widthIn(max = 300.dp).fillMaxWidth().height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Logout, null, tint = Color.White)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.auth_logout), color = Color.White)
-            }
-
-            if (!isGuest && !isAdmin) {
-                Spacer(modifier = Modifier.height(16.dp))
-                TextButton(
-                    onClick = { showDeleteDialog = true },
-                    modifier = Modifier.widthIn(max = 300.dp).fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.delete_account), color = Color.Gray, fontSize = 12.sp)
-                }
-            }
-        }
-
         if (isAdmin) {
             AdminWorkoutSection(viewModel = viewModel, contentModifier = contentModifier)
 
@@ -688,6 +663,28 @@ fun SettingsScreen(
                 modifier = contentModifier,
                 textAlign = TextAlign.Center
             )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onLogout,
+                modifier = Modifier.widthIn(max = 300.dp).fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Logout, null, tint = Color.White)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.auth_logout), color = Color.White)
+            }
+
+            if (!isGuest && !isAdmin) {
+                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(
+                    onClick = { showDeleteDialog = true },
+                    modifier = Modifier.widthIn(max = 300.dp).fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.delete_account), color = Color.Gray, fontSize = 12.sp)
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

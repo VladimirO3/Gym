@@ -30,6 +30,13 @@
 -keepattributes RuntimeVisibleAnnotations, RuntimeInvisibleAnnotations
 -keepattributes RuntimeVisibleParameterAnnotations, RuntimeInvisibleParameterAnnotations
 
+# Gson: TypeToken опирается на generic-сигнатуру анонимного подкласса.
+# Без этих keep-правил R8 вырезает сигнатуру и падает
+# "TypeToken must be created with a type argument" в release-сборке.
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken { *; }
+-keepattributes Signature
+
 -keepclassmembers class * {
     @com.google.gson.annotations.SerializedName <fields>;
     @com.google.gson.annotations.Expose <fields>;

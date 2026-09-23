@@ -31,7 +31,9 @@ class TrainingProgramRepository(
 ) {
     private val api get() = NewsApiService.create(context)
     private val gson = Gson()
-    private val exerciseListType = object : TypeToken<List<Exercise>>() {}.type
+    // TypeToken.getParameterized НЕ зависит от generic-сигнатуры анонимного класса,
+    // поэтому неуязвим к R8/ProGuard ("TypeToken must be created with a type argument").
+    private val exerciseListType = TypeToken.getParameterized(List::class.java, Exercise::class.java).type
 
     enum class SaveResult { SYNCED, LOCAL_ONLY }
 
@@ -185,7 +187,8 @@ class TrainingProgramRepository(
         val prefs = context.getSharedPreferences(LEGACY_PREFS, Context.MODE_PRIVATE)
         val json = prefs.getString(LEGACY_KEY, null) ?: return
         try {
-            val legacy: List<DailyWorkout> = gson.fromJson(json, object : TypeToken<List<DailyWorkout>>() {}.type) ?: emptyList()
+            val legacyType = TypeToken.getParameterized(List::class.java, DailyWorkout::class.java).type
+            val legacy: List<DailyWorkout> = gson.fromJson(json, legacyType) ?: emptyList()
             legacy.forEach { workout ->
                 if (dao.getById(workout.id) == null) {
                     dao.upsert(workout.toEntity(serverId = null, createdAt = System.currentTimeMillis(), pendingSync = true))
