@@ -5,11 +5,26 @@
         <include domain="database" path="." />
         <include domain="sharedpref" path="." />
         <include domain="external" path="." />
+        <!-- Исключаем БД/токены из переноса на новое устройство
+             (см. backup_rules.xml): иначе первая композиция падает
+             в WrappedComposition.setContent -> Lifecycle.addObserver.
+             Кэш cacheDir (exo_video_cache, image_cache) в бэкап не входит
+             по умолчанию. -->
+        <exclude domain="database" path="gym_database" />
+        <exclude domain="database" path="gym_database-wal" />
+        <exclude domain="database" path="gym_database-shm" />
+        <exclude domain="sharedpref" path="auth_prefs.xml" />
+        <exclude domain="sharedpref" path="chat_unread_notifier.xml" />
     </cloud-backup>
     <device-transfer>
         <include domain="file" path="." />
         <include domain="database" path="." />
         <include domain="sharedpref" path="." />
         <include domain="external" path="." />
+        <exclude domain="database" path="gym_database" />
+        <exclude domain="database" path="gym_database-wal" />
+        <exclude domain="database" path="gym_database-shm" />
+        <exclude domain="sharedpref" path="auth_prefs.xml" />
+        <exclude domain="sharedpref" path="chat_unread_notifier.xml" />
     </device-transfer>
 </data-extraction-rules>

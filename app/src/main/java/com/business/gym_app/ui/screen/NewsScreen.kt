@@ -50,6 +50,13 @@ fun NewsScreen(
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as android.app.Application
+
+    // Строки для Toast читаем через stringResource в композиции (без ошибки Lint LocalContextGetResourceValueCall)
+    val invalidMediaFileText = stringResource(R.string.invalid_media_file)
+    val cameraPermissionDeniedText = stringResource(R.string.camera_permission_denied)
+    val cameraErrorTemplate = stringResource(R.string.camera_error)
+    val videoErrorTemplate = stringResource(R.string.video_error)
+    val authTokenMissingText = stringResource(R.string.auth_token_missing)
     val viewModel: NewsViewModel = viewModel(
         factory = NewsViewModel.Factory(application)
     )
@@ -242,7 +249,7 @@ fun NewsScreen(
                     selectedMediaUri = it
                 }
             } else {
-                Toast.makeText(context, context.getString(R.string.invalid_media_file), Toast.LENGTH_LONG).show()
+                Toast.makeText(context, invalidMediaFileText, Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -267,7 +274,7 @@ fun NewsScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (!isGranted) {
-            Toast.makeText(context, context.getString(R.string.camera_permission_denied), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, cameraPermissionDeniedText, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -346,7 +353,7 @@ fun NewsScreen(
                                     tempUri = uri
                                     cameraLauncher.launch(uri)
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, context.getString(R.string.camera_error, e.message.orEmpty()), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, cameraErrorTemplate.format(e.message.orEmpty()), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier.weight(1f),
@@ -366,7 +373,7 @@ fun NewsScreen(
                                     tempUri = uri
                                     videoLauncher.launch(uri)
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, context.getString(R.string.video_error, e.message.orEmpty()), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, videoErrorTemplate.format(e.message.orEmpty()), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier.weight(1f),
@@ -400,7 +407,7 @@ fun NewsScreen(
                                 )
                             }
                         } else {
-                            Toast.makeText(context, context.getString(R.string.auth_token_missing), Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, authTokenMissingText, Toast.LENGTH_LONG).show()
                         }
                     },
                     enabled = !isUploading && localTitle.isNotBlank(), // Кнопка активна, если введен заголовок
@@ -661,7 +668,8 @@ fun NewsScreen(
         ) {
             // ПРИОРИТЕТ: Новости с вашего VPS сервера
             if (localNews.isNotEmpty()) {
-                items(localNews) { localItem ->
+                // Стабильный ключ сохраняет позицию прокрутки при обновлении реакций
+                items(localNews, key = { it.id }) { localItem ->
                     val newsItem = NewsItem(
                         id = localItem.id,
                         url = NewsApiService.getFullUrl(context, localItem.mediaUrl),

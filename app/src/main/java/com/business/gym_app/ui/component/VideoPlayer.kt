@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,6 +81,13 @@ fun VideoPlayer(
     var isLoading by remember { mutableStateOf(value = true) }
     var errorMessage by remember { mutableStateOf<String?>(value = null) }
 
+    // Строки читаем через stringResource в композиции — наблюдаемо и без ошибки Lint
+    val networkErrorText = stringResource(R.string.network_error)
+    val timeoutErrorText = stringResource(R.string.timeout_error)
+    val fileNotFoundText = stringResource(R.string.file_not_found_error)
+    val playbackErrorTemplate = stringResource(R.string.playback_error)
+    val videoLoadErrorTemplate = stringResource(R.string.video_load_error)
+
     // Listener для отслеживания состояния
     DisposableEffect(activePlayer) {
         val listener = object : Player.Listener {
@@ -90,10 +98,10 @@ fun VideoPlayer(
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 errorMessage = when (error.errorCode) {
-                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> context.getString(R.string.network_error)
-                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> context.getString(R.string.timeout_error)
-                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> context.getString(R.string.file_not_found_error)
-                    else -> context.getString(R.string.playback_error, error.localizedMessage ?: "")
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> networkErrorText
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> timeoutErrorText
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> fileNotFoundText
+                    else -> playbackErrorTemplate.format(error.localizedMessage ?: "")
                 }
                 Log.e("VideoPlayer", "Player error: ${error.errorCodeName} (${error.errorCode})", error)
             }
@@ -118,7 +126,7 @@ fun VideoPlayer(
             if (autoPlay) activePlayer.play()
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error loading video", e)
-            errorMessage = context.getString(R.string.video_load_error, e.localizedMessage ?: "")
+            errorMessage = videoLoadErrorTemplate.format(e.localizedMessage ?: "")
         }
     }
     
@@ -265,7 +273,7 @@ private fun VideoPlayerContent(
                     modifier = Modifier.height(32.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                 ) {
-                    Text(context.getString(R.string.retry), fontSize = 12.sp)
+                    Text(stringResource(R.string.retry), fontSize = 12.sp)
                 }
             }
         }

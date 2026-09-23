@@ -4,9 +4,15 @@ import android.app.Application
 import com.business.gym_app.ui.viewmodel.AuthViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.mockito.ArgumentMatchers.anyInt
+import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.`when`
 
 /**
  * Юнит-тесты для логики авторизации.
@@ -14,12 +20,20 @@ import org.mockito.Mockito.mock
  */
 class AuthViewModelTest {
 
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
     private lateinit var viewModel: AuthViewModel
     private val mockApplication = mock(Application::class.java)
 
     @Before
     fun setup() {
-        // Используем мок Application, так как AuthViewModel является AndroidViewModel
+        // AuthViewModel при создании читает сохраненные данные входа и сессию из SharedPreferences.
+        // Пустое хранилище = пользователь не авторизован, сетевых запросов не будет.
+        val prefs = mutableMapOf<String, InMemorySharedPreferences>()
+        `when`(mockApplication.getSharedPreferences(anyString(), anyInt())).thenAnswer { invocation ->
+            prefs.getOrPut(invocation.getArgument(0)) { InMemorySharedPreferences() }
+        }
         viewModel = AuthViewModel(mockApplication)
     }
 
@@ -55,6 +69,11 @@ class AuthViewModelTest {
         assertFalse(AuthViewModel.isStaticAdmin("regular@user.com"))
         assertFalse(AuthViewModel.isStaticAdmin(null))
     }
-    
-    private fun assertTrue(condition: Boolean) = assert(condition)
+
+    @Test
+    fun testNoSavedSession_LoadsWithoutToken() {
+        // Без сохраненного токена сессия считается загруженной, пользователь не авторизован
+        assertTrue(viewModel.isSessionLoaded.value)
+        assertNull(viewModel.jwtToken.value)
+    }
 }

@@ -27,9 +27,31 @@ android {
 	versionProps["versionName"] = "1.$nextVersionCode"
 	versionProps.store(versionPropsFile.writer(), null)
 
+	// Подпись release-сборки.
+	// Пароли и путь к keystore лежат в keystore.properties (файл НЕ коммитится, см. .gitignore).
+	// Как создать:
+	//   keytool -genkeypair -v -keystore gym-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias gym
+	// и заполнить keystore.properties (образец — keystore.properties.example).
+	val keystorePropsFile = rootProject.file("keystore.properties")
+	val keystoreProps = Properties()
+	if (keystorePropsFile.exists()) {
+		keystorePropsFile.inputStream().use { keystoreProps.load(it) }
+	}
+
+	signingConfigs {
+		if (keystorePropsFile.exists()) {
+			create("release") {
+				storeFile = rootProject.file(keystoreProps.getProperty("storeFile", "gym-release.jks"))
+				storePassword = keystoreProps.getProperty("storePassword")
+				keyAlias = keystoreProps.getProperty("keyAlias", "gym")
+				keyPassword = keystoreProps.getProperty("keyPassword")
+			}
+		}
+	}
+
 	defaultConfig {
 		applicationId = "com.business.gym_app"
-		minSdk = 23
+		minSdk = 24
 		targetSdk = 36
 		versionCode = currentVersionCode
 		versionName = "1.$currentVersionCode"
@@ -48,6 +70,14 @@ android {
 			ndk {
 				debugSymbolLevel = "FULL"
 			}
+			// Подпись подключается только если keystore.properties существует;
+			// иначе assembleRelease даст unsigned APK (как раньше), сборка не упадёт.
+			// debug-ключом release НЕ подписываем — чтобы случайно не загрузить его в Play.
+			signingConfig = if (keystorePropsFile.exists()) {
+				signingConfigs.getByName("release")
+			} else {
+				null
+			}
 		}
 	}
 	compileOptions {
@@ -57,6 +87,10 @@ android {
 	}
 	buildFeatures {
 		compose = true
+	}
+	testOptions {
+		// android.util.Log и прочие заглушки android.jar в JVM-тестах возвращают значения по умолчанию
+		unitTests.isReturnDefaultValues = true
 	}
 }
 
@@ -77,12 +111,14 @@ dependencies {
 	implementation("androidx.media3:media3-ui:1.1.1")
 	implementation("androidx.media3:media3-common:1.1.1")
 	implementation("androidx.media3:media3-session:1.1.1")
-	implementation("androidx.activity:activity-ktx:1.8.0")
+	implementation("androidx.activity:activity-ktx:1.13.0")
 	implementation(libs.androidx.appcompat)
 	implementation(libs.androidx.compose.material.icons.extended)
 	implementation(libs.androidx.navigation.compose)
 	implementation(libs.androidx.lifecycle.viewmodel.compose)
 	implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+	implementation("androidx.biometric:biometric:1.1.0")
+	implementation("androidx.work:work-runtime-ktx:2.10.1")
 
 	// Room
 	implementation(libs.room.runtime)
@@ -110,6 +146,7 @@ dependencies {
 
 	testImplementation(libs.junit)
 	testImplementation(libs.mockito.core)
+	testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 	androidTestImplementation(platform(libs.androidx.compose.bom))
 	androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 	androidTestImplementation(libs.androidx.espresso.core)

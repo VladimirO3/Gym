@@ -114,6 +114,12 @@
     <string name="auth_login_guest">ВОЙТИ КАК ГОСТЬ</string>
     <string name="auth_use_otp">Использовать OTP</string>
     <string name="auth_use_password">Войти по паролю</string>
+    <string name="change_password_title">Смена пароля</string>
+    <string name="change_password_button">Изменить пароль</string>
+    <string name="old_password_label">Старый пароль</string>
+    <string name="new_password_label">Новый пароль</string>
+    <string name="confirm_new_password_label">Повторите новый пароль</string>
+    <string name="change_password_success">Пароль успешно изменен</string>
     <string name="auth_otp_sent">Код отправлен!</string>
     <string name="auth_phone_hint">Номер телефона (+7...)</string>
     <string name="auth_otp_label">Код подтверждения (OTP)</string>
@@ -257,4 +263,13 @@
     <string name="account_deleted_by_admin">Ваш аккаунт был удален администратором</string>
     <string name="account_deleted">Аккаунт успешно удален</string>
     <string name="account_delete_error">Ошибка при удалении аккаунта</string>
+    <string name="biometric_launch_failed">Не удалось запустить биометрию</string>
+    <string name="workout_saved">Программа тренировок сохранена</string>
+    <string name="workout_updated">Программа обновлена</string>
+    <string name="workout_deleted">Программа удалена</string>
+    <string name="user_hide_server_error">Ошибка связи с сервером, пользователь скрыт локально</string>
+    <string name="program_assign_failed">Не удалось назначить программу</string>
+    <string name="program_assignments_cleared">Назначения сняты, пользователю вернется автоматическая программа</string>
+    <string name="program_assigned_count">Назначено программ: %1$d</string>
+    <string name="program_delete_server_error">Не удалось удалить программу на сервере</string>
 </resources>

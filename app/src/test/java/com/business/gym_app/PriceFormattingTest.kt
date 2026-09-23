@@ -10,7 +10,7 @@ class PriceFormattingTest {
     fun testPriceFormatting() {
         val price = 1500
         val formatted = String.format(Locale("ru", "RU"), "%, d", price).replace(",", " ").trim() + " ₽"
-        assertEquals("1 500 ₽", formatted)
+        assertEquals("1 500 ₽", normalizeSpaces(formatted))
     }
 
     @Test

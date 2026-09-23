@@ -7,6 +7,7 @@ import com.business.gym_app.data.local.dao.DailyNoteDao
 import com.business.gym_app.data.local.dao.ProfileDao
 import com.business.gym_app.data.local.entity.DailyNoteEntity
 import com.business.gym_app.data.local.entity.ProfileEntity
+import com.business.gym_app.data.model.AssignedPrograms
 import com.business.gym_app.util.AuthUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -49,6 +50,12 @@ class ProfileRepository(
 
             // Используем тот же алгоритм выбора ID, что и в AuthViewModel: ID > UID > Email
             val finalUid = remote.id?.toString() ?: remote.uid ?: uid
+
+            // Программы от администратора сохраняем до записи профиля в Room:
+            // подписчик профиля в SettingsViewModel сразу увидит актуальные назначения
+            val assigned = AssignedPrograms.parse(remote.dailyPlan)
+            AssignedPrograms.save(context, uid, assigned)
+            if (finalUid != uid) AssignedPrograms.save(context, finalUid, assigned)
             
             // Сохраняем локальные данные, которые не приходят с сервера (план тренировок)
             val currentLocal = profileDao.getProfile(uid).firstOrNull()
@@ -237,6 +244,16 @@ class ProfileRepository(
         }
     }
 
+    suspend fun changePassword(oldPass: String, newPass: String): Boolean {
+        return try {
+            apiService.changePassword(oldPass, newPass)
+            true
+        } catch (e: Exception) {
+            Log.e("ProfileRepository", "Failed to change password on VPS", e)
+            false
+        }
+    }
+
     // --- ГЛОБАЛЬНЫЙ КОНТЕНТ ---
 
     suspend fun getPrivacyPolicy(): String {
@@ -305,6 +322,8 @@ class ProfileRepository(
         dailyNoteDao.deleteNote(uid, date)
         try {
             apiService.deleteNote(date)
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            Log.e("ProfileRepository", "Failed to delete note on VPS: ${e.message}", e)
+        }
     }
 }

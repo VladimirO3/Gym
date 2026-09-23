@@ -3,23 +3,27 @@ package com.business.gym_app.ui.viewmodel
 import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.business.gym_app.data.api.NewsApiService
 import com.business.gym_app.data.api.LocalUser
+import com.business.gym_app.data.api.NewsApiService
+import com.business.gym_app.receiver.ChatAlarmReceiver
+import com.business.gym_app.service.ChatForegroundService
 import com.business.gym_app.util.AuthUtils
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import android.widget.Toast
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import retrofit2.HttpException
 
 /**
  * ViewModel для управления процессами авторизации через локальный сервер (VPS).
@@ -148,12 +152,26 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         if (isStaticAdmin(newValue)) _isPasswordMode.value = true
     }
 
-    fun saveCredentials(email: String, pass: String) {
+    private val _registeredMethod = mutableStateOf<String?>(null)
+    val registeredMethod: State<String?> = _registeredMethod
+
+    fun hasSavedCredentials(): Boolean {
+        val emailToUse = _email.value.ifBlank { _otpEmail.value }
+        val passToUse = _password.value
+        return emailToUse.isNotBlank() && passToUse.isNotBlank()
+    }
+
+    fun saveCredentials(email: String, pass: String, method: String = "email") {
         val sharedPref = getApplication<Application>().getSharedPreferences("auth_credentials", Context.MODE_PRIVATE)
         sharedPref.edit().apply {
             putString("saved_email", email)
             putString("saved_password", pass)
+            putString("registered_method", method)
             apply()
+        }
+        _registeredMethod.value = method
+        if (method.isNotBlank()) {
+            _authMode.value = method
         }
     }
 
@@ -161,6 +179,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val sharedPref = getApplication<Application>().getSharedPreferences("auth_credentials", Context.MODE_PRIVATE)
         val savedEmail = sharedPref.getString("saved_email", "") ?: ""
         val savedPassword = sharedPref.getString("saved_password", "") ?: ""
+        val savedMethod = sharedPref.getString("registered_method", null)
+            ?: if (savedEmail.isNotBlank()) "email" else null
+
+        _registeredMethod.value = savedMethod
+        if (!savedMethod.isNullOrBlank()) {
+            _authMode.value = savedMethod
+        }
         if (savedEmail.isNotBlank()) {
             _otpEmail.value = savedEmail
             _email.value = savedEmail
@@ -172,6 +197,17 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     init {
         loadCredentials()
         loadSession(getApplication())
+    }
+
+    fun signInWithBiometrics(onSuccess: (String) -> Unit) {
+        val emailToUse = _email.value.ifBlank { _otpEmail.value }
+        val passToUse = _password.value
+        
+        if (emailToUse.isBlank() || passToUse.isBlank()) {
+            _error.value = "Нет сохраненных данных для входа по биометрии. Войдите по паролю."
+            return
+        }
+        signInWithEmail(onSuccess)
     }
 
     fun onOtpPhoneChange(newValue: String) { _otpPhone.value = newValue; _error.value = null }
@@ -248,6 +284,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun clearSession(context: Context) {
+        context.stopService(Intent(context, ChatForegroundService::class.java))
+        com.business.gym_app.service.ChatCheckWorker.cancel(context)
+        ChatAlarmReceiver.cancel(context)
+        com.business.gym_app.util.ChatUnreadNotifier.clear(context)
         context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
             .edit().clear().apply()
     }
@@ -603,6 +643,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 localApiService.register(emailValue, passwordValue, phoneValue, emailValue.substringBefore("@"), _privacyAgreed.value)
+                saveCredentials(emailValue, passwordValue, "email")
                 _isLoading.value = false
                 _isLogin.value = true
                 _error.value = "Заявка отправлена!"
@@ -628,43 +669,66 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             Log.d("AuthViewModel", "Skipping pending users request: server denied admin access")
             return
         }
+        val token = _jwtToken.value
+        if (token.isNullOrBlank() || token == "guest_token") {
+            Log.d("AuthViewModel", "Skipping pending users request: guest or unauthenticated user")
+            return
+        }
         viewModelScope.launch {
             try {
                 // The cached role can be stale while the session profile is refreshing.
                 // Always verify the current server-side role before calling an admin endpoint.
-                val profile = localApiService.getProfile()
-                val rawRole = profile.role?.toString()?.trim()?.lowercase() ?: ""
-                val isAdminValue = when (profile.isAdmin) {
-                    is Boolean -> profile.isAdmin
-                    is Number -> profile.isAdmin.toInt() == 1
-                    is String -> profile.isAdmin.equals("true", ignoreCase = true) || profile.isAdmin == "1"
-                    else -> false
+                val profile = try {
+                    localApiService.getProfile()
+                } catch (e: Exception) {
+                    if (e is HttpException && e.code() == 403) {
+                        adminAccessDenied = true
+                        _currentUserRole.value = "user"
+                        getApplication<Application>()
+                            .getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                            .edit()
+                            .putString("user_session_role", "user")
+                            .apply()
+                        Log.w("AuthViewModel", "Access denied when getting profile (403), setting role to user")
+                        return@launch
+                    }
+                    Log.w("AuthViewModel", "Failed to fetch profile before pending users check", e)
+                    null
                 }
-                val serverGrantsAdmin = rawRole == "admin" ||
-                    rawRole == "administrator" ||
-                    rawRole == "root" ||
-                    isAdminValue
 
-                _currentUserRole.value = if (serverGrantsAdmin) "admin" else "user"
-                getApplication<Application>()
-                    .getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
-                    .edit()
-                    .putString("user_session_role", _currentUserRole.value)
-                    .apply()
+                if (profile != null) {
+                    val rawRole = profile.role?.toString()?.trim()?.lowercase() ?: ""
+                    val isAdminValue = when (profile.isAdmin) {
+                        is Boolean -> profile.isAdmin
+                        is Number -> profile.isAdmin.toInt() == 1
+                        is String -> profile.isAdmin.equals("true", ignoreCase = true) || profile.isAdmin == "1"
+                        else -> false
+                    }
+                    val serverGrantsAdmin = rawRole == "admin" ||
+                        rawRole == "administrator" ||
+                        rawRole == "root" ||
+                        isAdminValue
 
-                if (!serverGrantsAdmin) {
-                    Log.w(
-                        "AuthViewModel",
-                        "Skipping pending users request: server role='$rawRole', isAdmin=$isAdminValue"
-                    )
-                    return@launch
+                    _currentUserRole.value = if (serverGrantsAdmin) "admin" else "user"
+                    getApplication<Application>()
+                        .getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                        .edit()
+                        .putString("user_session_role", _currentUserRole.value)
+                        .apply()
+
+                    if (!serverGrantsAdmin) {
+                        Log.w(
+                            "AuthViewModel",
+                            "Skipping pending users request: server role='$rawRole', isAdmin=$isAdminValue"
+                        )
+                        return@launch
+                    }
                 }
 
                 Log.d("AuthViewModel", "Fetching pending users...")
                 _pendingUsers.value = localApiService.getPendingUsers()
                 Log.d("AuthViewModel", "Successfully fetched ${pendingUsers.value.size} pending users")
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Fetch pending failed", e)
                 if (e is retrofit2.HttpException && e.code() == 403) {
                     adminAccessDenied = true
                     _currentUserRole.value = "user"
@@ -673,20 +737,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         .edit()
                         .putString("user_session_role", "user")
                         .apply()
-                    val responseBody = e.response()?.errorBody()?.string()?.take(1024)
-                    Log.e(
-                        "AuthViewModel",
-                        "403 on fetchPendingUsers: url=${e.response()?.raw()?.request?.url} " +
-                            "body=$responseBody",
-                        e
-                    )
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(
-                            getApplication(),
-                            "Нет прав администратора (403). Подробности в Logcat: AuthViewModel",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
+                    Log.w("AuthViewModel", "403 on fetchPendingUsers: user lacks admin permissions on server")
+                } else {
+                    Log.e("AuthViewModel", "Fetch pending failed", e)
                 }
             }
         }
@@ -808,7 +861,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     if (status != lastKnownStatus && lastKnownStatus != null) {
                         if (status == "deleted") {
                             viewModelScope.launch(Dispatchers.Main) {
-                                Toast.makeText(getApplication(), "Ваш аккаунт был удален администратором", Toast.LENGTH_LONG).show()
+                                Toast.makeText(getApplication<Application>(), getApplication<Application>().getString(com.business.gym_app.R.string.account_deleted_by_admin), Toast.LENGTH_LONG).show()
                             }
                             signOut()
                             break
@@ -874,13 +927,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 localApiService.deleteAccount()
                 signOut()
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication(), "Аккаунт успешно удален", Toast.LENGTH_LONG).show()
+                    Toast.makeText(getApplication<Application>(), getApplication<Application>().getString(com.business.gym_app.R.string.account_deleted), Toast.LENGTH_LONG).show()
                     onSuccess()
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Account deletion failed", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication(), "Ошибка при удалении аккаунта", Toast.LENGTH_LONG).show()
+                    Toast.makeText(getApplication<Application>(), getApplication<Application>().getString(com.business.gym_app.R.string.account_delete_error), Toast.LENGTH_LONG).show()
                 }
             } finally {
                 _isLoading.value = false

@@ -1,9 +1,13 @@
 package com.business.gym_app
 
 import android.app.Application
+import android.util.Log
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.business.gym_app.data.api.NewsApiService
+import com.business.gym_app.receiver.ChatAlarmReceiver
+import com.business.gym_app.service.ChatCheckWorker
+import com.business.gym_app.util.ChatUnreadNotifier
 
 /**
  * Базовый класс приложения. 
@@ -13,12 +17,36 @@ class GymApplication : Application(), ImageLoaderFactory {
         private var _instance: GymApplication? = null
         val instance: GymApplication
             get() = _instance ?: throw IllegalStateException("GymApplication not initialized")
+
+        private var startedActivities = 0
+
+        /** true, пока хотя бы одна Activity приложения видна пользователю. */
+        val isInForeground: Boolean
+            get() = startedActivities > 0
     }
 
     override fun onCreate() {
         super.onCreate()
         _instance = this
-        android.util.Log.d("GymApplication", "onCreate started")
+        Log.d("GymApplication", "onCreate started")
+
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityStarted(activity: android.app.Activity) { startedActivities++ }
+            override fun onActivityStopped(activity: android.app.Activity) {
+                startedActivities = (startedActivities - 1).coerceAtLeast(0)
+            }
+            override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) {}
+            override fun onActivityResumed(activity: android.app.Activity) {}
+            override fun onActivityPaused(activity: android.app.Activity) {}
+            override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) {}
+            override fun onActivityDestroyed(activity: android.app.Activity) {}
+        })
+
+        // Резервная периодическая проверка сообщений на случай, если система остановила сервис чата
+        if (ChatUnreadNotifier.sessionToken(this) != null) {
+            ChatCheckWorker.schedule(this)
+            ChatAlarmReceiver.schedule(this)
+        }
 
         // Инициализация базового URL из настроек при запуске
         val globalPref = getSharedPreferences("settings_global", MODE_PRIVATE)
@@ -31,12 +59,44 @@ class GymApplication : Application(), ImageLoaderFactory {
         NewsApiService.updateBaseUrl(savedIp)
         
         // Глобальный перехватчик ошибок для отладки вылетов при запуске
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            android.util.Log.e("GymApplication", "CRITICAL CRASH in thread ${thread.name}", throwable)
+            if (isSystemDeathNotificationException(throwable)) {
+                Log.w("GymApplication", "Ignored system AppOps death notification SecurityException in thread ${thread.name}", throwable)
+                return@setDefaultUncaughtExceptionHandler
+            }
+
+            Log.e("GymApplication", "CRITICAL CRASH in thread ${thread.name}", throwable)
             // Даем время логу записаться
-            try { Thread.sleep(2000) } catch (e: Exception) {}
-            // Мы не выходим здесь, чтобы системный обработчик тоже мог сработать
+            try { Thread.sleep(2000) } catch (_: Exception) {}
+            defaultHandler?.uncaughtException(thread, throwable)
         }
+    }
+
+    private fun isSystemDeathNotificationException(throwable: Throwable?): Boolean {
+        var current = throwable
+        while (current != null) {
+            if (current is SecurityException) {
+                val msg = current.message ?: ""
+                if (msg.contains("com.google.android.googlequicksearchbox") ||
+                    msg.contains("under uid 1000") ||
+                    msg.contains("stopWatchingAsyncNoted") ||
+                    msg.contains("verifyAndGetBypass")
+                ) {
+                    return true
+                }
+            }
+            val hasAppOpsInStack = current.stackTrace.any { element ->
+                element.className.contains("AppOpsService") ||
+                element.methodName.contains("stopWatchingAsyncNoted") ||
+                element.methodName.contains("verifyAndGetBypass")
+            }
+            if (hasAppOpsInStack) {
+                return true
+            }
+            current = current.cause
+        }
+        return false
     }
 
     override fun newImageLoader(): ImageLoader {

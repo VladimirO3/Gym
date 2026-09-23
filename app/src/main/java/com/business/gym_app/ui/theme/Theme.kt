@@ -1,6 +1,8 @@
 package com.business.gym_app.ui.theme
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.os.Build
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -61,7 +63,7 @@ fun GymTheme(
 	val view = LocalView.current
 	if (!view.isInEditMode) {
 		SideEffect {
-			val window = (view.context as Activity).window
+			val window = (findActivity(view.context))?.window ?: return@SideEffect
 			// Устанавливаем светлые иконки (белые) для темной темы и темные для светлой
 			WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
 		}
@@ -72,4 +74,13 @@ fun GymTheme(
 		typography = Typography,
 		content = content
 	)
+}
+
+private fun findActivity(context: Context): Activity? {
+	var ctx: Context? = context
+	while (ctx is ContextWrapper) {
+		if (ctx is Activity) return ctx
+		ctx = ctx.baseContext
+	}
+	return null
 }

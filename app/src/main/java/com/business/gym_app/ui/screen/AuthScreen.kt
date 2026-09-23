@@ -1,5 +1,7 @@
 package com.business.gym_app.ui.screen
 
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -27,10 +30,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.business.gym_app.ui.viewmodel.AuthViewModel
 import com.business.gym_app.ui.viewmodel.SettingsViewModel
 import com.business.gym_app.R
+import com.business.gym_app.util.BiometricHelper
+
 @Composable
 fun AuthScreen(
     viewModel: AuthViewModel = viewModel(),
@@ -50,7 +56,11 @@ fun AuthScreen(
     val confirmPassword by viewModel.confirmPassword
     val privacyAgreed by viewModel.privacyAgreed
 
+    val registeredMethod by viewModel.registeredMethod
+    val isRegisteredUser = !registeredMethod.isNullOrBlank() || viewModel.hasSavedCredentials()
+
     val context = LocalContext.current
+    val biometricLaunchFailedText = stringResource(R.string.biometric_launch_failed)
     var passwordVisible by remember { mutableStateOf(false) }
     var showAgreement by remember { mutableStateOf(false) }
     
@@ -84,35 +94,10 @@ fun AuthScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             if (isLogin) {
-                // ПЕРЕКЛЮЧАТЕЛЬ Login/Register
-                TabRow(
-                    selectedTabIndex = if (authMode == "email") 0 else 1,
-                    containerColor = Color.Transparent,
-                    contentColor = Color.Red,
-                    divider = {},
-                    modifier = contentModifier,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[if (authMode == "email") 0 else 1]),
-                            color = Color.Red
-                        )
+                if (registeredMethod == "email") {
+                    LaunchedEffect(Unit) {
+                        viewModel.setAuthMode("email")
                     }
-                ) {
-                    Tab(
-                        selected = authMode == "email",
-                        onClick = { viewModel.setAuthMode("email") },
-                        text = { Text(stringResource(R.string.auth_email_label), color = if (authMode == "email") Color.Red else Color.Gray) }
-                    )
-                    Tab(
-                        selected = authMode == "phone",
-                        onClick = { viewModel.setAuthMode("phone") },
-                        text = { Text(stringResource(R.string.auth_phone_label), color = if (authMode == "phone") Color.Red else Color.Gray) }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                if (authMode == "email") {
                     OutlinedTextField(
                         value = otpEmail,
                         onValueChange = { viewModel.onOtpEmailChange(it) },
@@ -127,7 +112,10 @@ fun AuthScreen(
                             focusedBorderColor = Color.Red
                         )
                     )
-                } else {
+                } else if (registeredMethod == "phone") {
+                    LaunchedEffect(Unit) {
+                        viewModel.setAuthMode("phone")
+                    }
                     OutlinedTextField(
                         value = otpPhone,
                         onValueChange = { viewModel.onOtpPhoneChange(it) },
@@ -142,6 +130,66 @@ fun AuthScreen(
                             focusedBorderColor = Color.Red
                         )
                     )
+                } else {
+                    // ПЕРЕКЛЮЧАТЕЛЬ Login/Register для не зарегистрованных
+                    TabRow(
+                        selectedTabIndex = if (authMode == "email") 0 else 1,
+                        containerColor = Color.Transparent,
+                        contentColor = Color.Red,
+                        divider = {},
+                        modifier = contentModifier,
+                        indicator = { tabPositions ->
+                            TabRowDefaults.SecondaryIndicator(
+                                Modifier.tabIndicatorOffset(tabPositions[if (authMode == "email") 0 else 1]),
+                                color = Color.Red
+                            )
+                        }
+                    ) {
+                        Tab(
+                            selected = authMode == "email",
+                            onClick = { viewModel.setAuthMode("email") },
+                            text = { Text(stringResource(R.string.auth_email_label), color = if (authMode == "email") Color.Red else Color.Gray) }
+                        )
+                        Tab(
+                            selected = authMode == "phone",
+                            onClick = { viewModel.setAuthMode("phone") },
+                            text = { Text(stringResource(R.string.auth_phone_label), color = if (authMode == "phone") Color.Red else Color.Gray) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    if (authMode == "email") {
+                        OutlinedTextField(
+                            value = otpEmail,
+                            onValueChange = { viewModel.onOtpEmailChange(it) },
+                            label = { Text(stringResource(R.string.auth_email_label)) },
+                            modifier = contentModifier,
+                            singleLine = true,
+                            enabled = !isLoading,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                                focusedLabelColor = Color.Red,
+                                focusedBorderColor = Color.Red
+                            )
+                        )
+                    } else {
+                        OutlinedTextField(
+                            value = otpPhone,
+                            onValueChange = { viewModel.onOtpPhoneChange(it) },
+                            label = { Text(stringResource(R.string.auth_phone_hint)) },
+                            modifier = contentModifier,
+                            singleLine = true,
+                            enabled = !isLoading,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                                focusedLabelColor = Color.Red,
+                                focusedBorderColor = Color.Red
+                            )
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -330,7 +378,49 @@ fun AuthScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (isLogin) {
+                if (isLogin && isRegisteredUser) {
+                    val canUseBiometrics = remember(context) { BiometricHelper.canAuthenticate(context) }
+                    if (canUseBiometrics) {
+                        OutlinedButton(
+                            onClick = {
+                                val activity = context as? FragmentActivity
+                                if (activity != null) {
+                                    BiometricHelper.showBiometricPrompt(
+                                        activity = activity,
+                                        title = "Вход в Gym",
+                                        subtitle = "Подтвердите личность отпечатком пальца или лицом",
+                                        onSuccess = {
+                                            viewModel.signInWithBiometrics { onAuthSuccess(it) }
+                                        },
+                                        onError = { err ->
+                                            Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                } else {
+                                    Toast.makeText(context, biometricLaunchFailedText, Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = contentModifier.height(50.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color.Red)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Fingerprint,
+                                contentDescription = "Отпечаток / Лицо",
+                                tint = Color.Red,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Вход по отпечатку / лицу",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
                     OutlinedButton(
                         onClick = { 
                             viewModel.loginAsGuest { onAuthSuccess(AuthViewModel.GUEST_EMAIL) }

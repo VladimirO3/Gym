@@ -341,10 +341,11 @@ fun CartScreenInternal(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            val orderCreatedText = stringResource(R.string.order_created)
             Button(
                 onClick = { 
                     cartViewModel.checkout(context) {
-                        android.widget.Toast.makeText(context, context.getString(R.string.order_created), android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(context, orderCreatedText, android.widget.Toast.LENGTH_LONG).show()
                         onBack()
                     }
                 },

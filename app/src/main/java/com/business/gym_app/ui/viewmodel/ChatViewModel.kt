@@ -439,7 +439,7 @@ class ChatViewModel(
             } else {
                 // Если даже репозиторий вернул false (например, полная потеря связи),
                 // пользователь всё равно остается в deletedUserUids, то есть скрыт из списка.
-                android.widget.Toast.makeText(context, "Ошибка связи с сервером, пользователь скрыт локально", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.user_hide_server_error), android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -484,6 +484,25 @@ class ChatViewModel(
             } else {
                 android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.profile_update_error), android.widget.Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    fun adminAssignPrograms(uid: String, programs: List<DailyWorkout>, context: android.content.Context, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            val success = repository.adminAssignPrograms(uid, programs)
+            val message = when {
+                !success -> context.getString(com.business.gym_app.R.string.program_assign_failed)
+                programs.isEmpty() -> context.getString(com.business.gym_app.R.string.program_assignments_cleared)
+                else -> context.getString(com.business.gym_app.R.string.program_assigned_count, programs.size)
+            }
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+            if (success) onSuccess()
+        }
+    }
+
+    fun loadAssignedProgramIds(uid: String, onLoaded: (Set<String>) -> Unit) {
+        viewModelScope.launch {
+            repository.adminGetAssignedProgramIds(uid)?.let(onLoaded)
         }
     }
 

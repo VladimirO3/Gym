@@ -75,6 +75,8 @@ fun AboutScreen(
     var showCoachDialog by remember { mutableStateOf(false) }
     var editingCoach by remember { mutableStateOf<CoachEntity?>(null) }
 
+    val photoProcessingErrorText = stringResource(R.string.photo_processing_error)
+
     val effectiveIsAdmin = authViewModel.isAdmin()
 
     if (selectedCoachId != null) {
@@ -122,7 +124,7 @@ fun AboutScreen(
                     editingCoach = null
                 } catch (e: Exception) {
                     android.util.Log.e("AboutScreen", "Failed to process coach data", e)
-                    android.widget.Toast.makeText(context, context.getString(R.string.photo_processing_error), android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, photoProcessingErrorText, android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
         )

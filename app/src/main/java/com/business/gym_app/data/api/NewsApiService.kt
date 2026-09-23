@@ -11,6 +11,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.google.gson.annotations.SerializedName
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
@@ -156,7 +157,31 @@ data class ProfileResponse(
     val lang: String?,
     @SerializedName("privacy_agreed") val privacyAgreed: Boolean?,
     @SerializedName("is_admin", alternate = ["isAdmin", "isadmin", "admin", "is_Admin"]) val isAdmin: Any? = false,
-    @SerializedName("role", alternate = ["user_role", "userRole", "role_name", "Role"]) val role: Any? = "user"
+    @SerializedName("role", alternate = ["user_role", "userRole", "role_name", "Role"]) val role: Any? = "user",
+    // Программы, назначенные администратором (JSON, см. AssignedPrograms)
+    @SerializedName("daily_plan") val dailyPlan: String? = null
+)
+
+/**
+ * Программа тренировок из таблицы training_programs (GET/POST/PUT admin/training-programs).
+ */
+@Keep
+data class TrainingProgramResponse(
+    @SerializedName("id") val id: Int = 0,
+    @SerializedName("client_id") val clientId: String? = null,
+    @SerializedName("title") val title: String? = null,
+    @SerializedName("description") val description: String? = null,
+    @SerializedName("image_url") val imageUrl: String? = null,
+    @SerializedName("exercises") val exercises: List<TrainingExerciseResponse>? = null,
+    @SerializedName("created_at") val createdAt: Long? = null
+)
+
+@Keep
+data class TrainingExerciseResponse(
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("iconUrl") val iconUrl: String? = null,
+    @SerializedName("desc") val desc: String? = null,
+    @SerializedName("tutorialImageUrl") val tutorialImageUrl: String? = null
 )
 
 data class DailyNoteResponse(
@@ -323,6 +348,35 @@ interface NewsApiService {
         @Path(value = "userId", encoded = true) userId: String
     ): okhttp3.ResponseBody
 
+    // --- ПРОГРАММЫ ТРЕНИРОВОК (таблица training_programs) ---
+    @GET("admin/training-programs")
+    suspend fun getTrainingPrograms(): List<TrainingProgramResponse>
+
+    /** files: image — обложка, exercise_image_{N} — фото N-го упражнения. */
+    @Multipart
+    @POST("admin/training-programs")
+    suspend fun createTrainingProgram(
+        @Part("client_id") clientId: RequestBody,
+        @Part("title") title: RequestBody,
+        @Part("exercises") exercises: RequestBody,
+        @Part("image_url") imageUrl: RequestBody?,
+        @Part files: List<MultipartBody.Part>
+    ): TrainingProgramResponse
+
+    @Multipart
+    @PUT("admin/training-programs/{id}")
+    suspend fun updateTrainingProgram(
+        @Path("id") id: Int,
+        @Part("client_id") clientId: RequestBody,
+        @Part("title") title: RequestBody,
+        @Part("exercises") exercises: RequestBody,
+        @Part("image_url") imageUrl: RequestBody?,
+        @Part files: List<MultipartBody.Part>
+    ): TrainingProgramResponse
+
+    @DELETE("admin/training-programs/{id}")
+    suspend fun deleteTrainingProgram(@Path("id") id: Int): okhttp3.ResponseBody
+
     // --- НОВОСТИ ---
     @GET("news")
     suspend fun getLocalNews(@Query("lang") language: String? = null): List<LocalNews>
@@ -443,6 +497,13 @@ interface NewsApiService {
 
     @DELETE("profile/photo")
     suspend fun deleteAvatar(): okhttp3.ResponseBody
+
+    @FormUrlEncoded
+    @POST("profile/change-password")
+    suspend fun changePassword(
+        @Field("oldPassword") oldPass: String,
+        @Field("newPassword") newPass: String
+    ): ResponseBody
 
     // --- ЗАМЕТКИ (КАЛЕНДАРЬ) ---
     @GET("profile/notes")

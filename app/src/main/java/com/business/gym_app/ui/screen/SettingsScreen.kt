@@ -1,6 +1,7 @@
 package com.business.gym_app.ui.screen
 
 import android.util.Log
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -35,8 +36,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import coil.request.ImageRequest
 import com.business.gym_app.data.api.NewsApiService
+import com.business.gym_app.ui.viewmodel.DailyWorkout
+import com.business.gym_app.ui.viewmodel.Exercise
+import com.business.gym_app.util.BiometricHelper
+import com.business.gym_app.util.NotificationHelper
+import androidx.compose.ui.window.DialogProperties
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -71,11 +79,33 @@ fun SettingsScreen(
     var ageInput by remember { mutableStateOf(userAge?.toString() ?: "") }
     var isEditMode by remember { mutableStateOf(false) }
     var showIpDialog by remember { mutableStateOf(false) }
+    var showChangePasswordDialog by remember { mutableStateOf(false) }
     val canEditProfile = currentUserEmail != null && !isAdmin && !isGuest
 
     LaunchedEffect(userName, userAge) {
         nameInput = userName
         ageInput = userAge?.toString() ?: ""
+    }
+
+    val changePasswordSuccessText = stringResource(R.string.change_password_success)
+
+    if (showChangePasswordDialog) {
+        ChangePasswordDialog(
+            onDismiss = { showChangePasswordDialog = false },
+            onChangePassword = { oldPass, newPass, onError ->
+                viewModel.changePassword(
+                    context = context,
+                    oldPass = oldPass,
+                    newPass = newPass,
+                    onSuccess = {
+                        showChangePasswordDialog = false
+                        Toast.makeText(context, changePasswordSuccessText, Toast.LENGTH_SHORT).show()
+                    },
+                    onError = onError
+                )
+            },
+            isLoading = viewModel.isChangingPassword.value
+        )
     }
 
     if (showIpDialog) {
@@ -298,8 +328,20 @@ fun SettingsScreen(
                         
                         Spacer(modifier = Modifier.height(16.dp))
                         
-                        TextButton(onClick = { isEditMode = true }) {
-                            Text(stringResource(R.string.profile_edit), color = Color.Gray, fontSize = 12.sp)
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            TextButton(onClick = { isEditMode = true }) {
+                                Text(stringResource(R.string.profile_edit), color = Color.Gray, fontSize = 12.sp)
+                            }
+                            if (canEditProfile) {
+                                Text("|", color = Color.Gray, fontSize = 12.sp)
+                                TextButton(onClick = { showChangePasswordDialog = true }) {
+                                    Text(stringResource(R.string.change_password_button), color = Color.Red, fontSize = 12.sp)
+                                }
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -416,6 +458,77 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
+
+        val canUseBiometrics = remember(context) { BiometricHelper.canAuthenticate(context) }
+        if (canUseBiometrics && !isGuest) {
+            var biometricEnabled by remember { mutableStateOf(BiometricHelper.isBiometricEnabled(context)) }
+            
+            Card(
+                modifier = contentModifier,
+                colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(alpha = 0.2f)),
+                border = BorderStroke(0.5.dp, Color.Gray.copy(alpha = 0.3f))
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Fingerprint, contentDescription = null, tint = Color.Red, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Вход по отпечатку / лицу", style = MaterialTheme.typography.bodyLarge, color = Color.White)
+                    }
+                    Switch(
+                        checked = biometricEnabled,
+                        onCheckedChange = {
+                            biometricEnabled = it
+                            BiometricHelper.setBiometricEnabled(context, it)
+                            val msg = if (it) "Вход по биометрии включен" else "Вход по биометрии выключен"
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color.Red, checkedTrackColor = Color.Red.copy(alpha = 0.5f))
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        // Блок настройки автозапуска и фона для стабильного получения уведомлений
+        Card(
+            modifier = contentModifier,
+            colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(alpha = 0.2f)),
+            border = BorderStroke(0.5.dp, Color.Red.copy(alpha = 0.4f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Notifications, contentDescription = null, tint = Color.Red, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text("Уведомления и фоновый режим", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Для бесперебойной доставки сообщений при закрытом приложении (особенно на устройствах Xiaomi, Samsung, Huawei) рекомендуем включить «Автозапуск» и отключить «Экономию батареи» в настройках телефона.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.LightGray
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = { NotificationHelper.openAutostartAndBatterySettings(context) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Настроить автозапуск", fontSize = 12.sp, color = Color.White)
+                    }
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
         
         Text(
             text = stringResource(R.string.settings_language), 
@@ -486,6 +599,10 @@ fun SettingsScreen(
         }
 
         if (isAdmin) {
+            AdminWorkoutSection(viewModel = viewModel, contentModifier = contentModifier)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             Row(
                 modifier = contentModifier,
                 horizontalArrangement = Arrangement.Center,
@@ -635,7 +752,7 @@ fun GymCalendar(viewModel: SettingsViewModel, modifier: Modifier) {
                 Text(
                     text = "${currentMonth.month.getDisplayName(
                         TextStyle.FULL_STANDALONE,
-                        Locale.getDefault()
+                        androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
                     )} ${currentMonth.year}",
                     color = Color.White,
                     fontWeight = FontWeight.Bold
@@ -1046,4 +1163,533 @@ fun LanguageOption(lang: String, currentLang: String, label: String, onClick: (S
         )
         Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onBackground)
     }
+}
+
+@Composable
+fun ChangePasswordDialog(
+    onDismiss: () -> Unit,
+    onChangePassword: (oldPass: String, newPass: String, onError: (String) -> Unit) -> Unit,
+    isLoading: Boolean
+) {
+    var oldPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    
+    var oldPasswordVisible by remember { mutableStateOf(false) }
+    var newPasswordVisible by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.change_password_title),
+                color = Color.Red,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage!!,
+                        color = Color.Red,
+                        fontSize = 12.sp
+                    )
+                }
+
+                OutlinedTextField(
+                    value = oldPassword,
+                    onValueChange = { oldPassword = it; errorMessage = null },
+                    label = { Text(stringResource(R.string.old_password_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = if (oldPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        val icon = if (oldPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                        IconButton(onClick = { oldPasswordVisible = !oldPasswordVisible }) {
+                            Icon(icon, contentDescription = null, tint = Color.Gray)
+                        }
+                    }
+                )
+
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it; errorMessage = null },
+                    label = { Text(stringResource(R.string.new_password_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        val icon = if (newPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                        IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
+                            Icon(icon, contentDescription = null, tint = Color.Gray)
+                        }
+                    }
+                )
+
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it; errorMessage = null },
+                    label = { Text(stringResource(R.string.confirm_new_password_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (oldPassword.isBlank() || newPassword.isBlank()) {
+                        errorMessage = "Заполните все поля"
+                        return@Button
+                    }
+                    if (newPassword.length < 6) {
+                        errorMessage = "Новый пароль должен быть не менее 6 символов"
+                        return@Button
+                    }
+                    if (newPassword != confirmPassword) {
+                        errorMessage = "Пароли не совпадают"
+                        return@Button
+                    }
+                    onChangePassword(oldPassword, newPassword) { err ->
+                        errorMessage = err
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                enabled = !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                } else {
+                    Text(stringResource(R.string.btn_save), color = Color.White)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isLoading) {
+                Text(stringResource(R.string.btn_cancel), color = Color.Gray)
+            }
+        }
+    )
+}
+
+@Composable
+fun AdminWorkoutSection(
+    viewModel: SettingsViewModel,
+    contentModifier: Modifier
+) {
+    val context = LocalContext.current
+    val customWorkouts by viewModel.customWorkouts
+    var workoutToEdit by remember { mutableStateOf<DailyWorkout?>(null) }
+    var isCreatingNew by remember { mutableStateOf(false) }
+    var workoutToDelete by remember { mutableStateOf<DailyWorkout?>(null) }
+
+    val workoutSavedText = stringResource(R.string.workout_saved)
+    val workoutUpdatedText = stringResource(R.string.workout_updated)
+    val workoutDeletedText = stringResource(R.string.workout_deleted)
+
+    if (isCreatingNew) {
+        WorkoutEditDialog(
+            workoutToEdit = null,
+            onDismiss = { isCreatingNew = false },
+            onSave = { newWorkout ->
+                viewModel.saveCustomWorkout(
+                    context = context,
+                    workout = newWorkout,
+                    onSuccess = {
+                        isCreatingNew = false
+                        Toast.makeText(context, workoutSavedText, Toast.LENGTH_SHORT).show()
+                    },
+                    onError = { err ->
+                        Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+        )
+    }
+
+    if (workoutToEdit != null) {
+        WorkoutEditDialog(
+            workoutToEdit = workoutToEdit,
+            onDismiss = { workoutToEdit = null },
+            onSave = { updatedWorkout ->
+                viewModel.saveCustomWorkout(
+                    context = context,
+                    workout = updatedWorkout,
+                    onSuccess = {
+                        workoutToEdit = null
+                        Toast.makeText(context, workoutUpdatedText, Toast.LENGTH_SHORT).show()
+                    },
+                    onError = { err ->
+                        Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+        )
+    }
+
+    if (workoutToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { workoutToDelete = null },
+            title = { Text("Удаление программы", color = Color.Red, fontWeight = FontWeight.Bold) },
+            text = { Text("Удалить программу тренировок \"${workoutToDelete?.title}\"?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        workoutToDelete?.let { viewModel.deleteCustomWorkout(context, it.id) }
+                        workoutToDelete = null
+                        Toast.makeText(context, workoutDeletedText, Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Удалить", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { workoutToDelete = null }) {
+                    Text("Отмена", color = Color.Gray)
+                }
+            }
+        )
+    }
+
+    Column(modifier = contentModifier.padding(vertical = 16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Программы тренировок (Админ)",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.Red,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Создано: ${customWorkouts.size} / 20",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+
+            Button(
+                onClick = { isCreatingNew = true },
+                enabled = customWorkouts.size < 20,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Создать программу", tint = Color.White, modifier = Modifier.size(20.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (customWorkouts.isEmpty()) {
+            Text("Нет созданных программ тренировок", color = Color.Gray, fontSize = 13.sp)
+        } else {
+            customWorkouts.forEach { workout ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(alpha = 0.3f)),
+                    border = BorderStroke(0.5.dp, Color.Gray.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            if (!workout.coverUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = workout.coverUrl,
+                                    contentDescription = "Cover",
+                                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Spacer(Modifier.width(12.dp))
+                            }
+                            Column {
+                                Text(
+                                    text = workout.title,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = "Упражнений: ${workout.exercises.size} / 20",
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+
+                        Row {
+                            IconButton(onClick = { workoutToEdit = workout }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Редактировать", tint = Color.Yellow)
+                            }
+                            IconButton(onClick = { workoutToDelete = workout }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Удалить", tint = Color.Red)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WorkoutEditDialog(
+    workoutToEdit: DailyWorkout?,
+    onDismiss: () -> Unit,
+    onSave: (DailyWorkout) -> Unit
+) {
+    var titleInput by remember { mutableStateOf(workoutToEdit?.title ?: "") }
+    var coverUrlInput by remember { mutableStateOf(workoutToEdit?.coverUrl ?: "") }
+    
+    val exercises = remember {
+        mutableStateListOf<Exercise>().apply {
+            workoutToEdit?.exercises?.let { addAll(it) }
+        }
+    }
+
+    var activeExerciseImagePickerIndex by remember { mutableStateOf<Int?>(null) }
+
+    val coverPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { coverUrlInput = it.toString() }
+    }
+
+    val exerciseImagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        val index = activeExerciseImagePickerIndex
+        if (uri != null && index != null && index in exercises.indices) {
+            val ex = exercises[index]
+            exercises[index] = ex.copy(
+                iconUrl = uri.toString(),
+                tutorialImageUrl = uri.toString()
+            )
+        }
+    }
+
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.90f),
+        title = {
+            Text(
+                text = if (workoutToEdit == null) "Создать программу тренировки" else "Редактировать программу",
+                color = Color.Red,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (errorMessage != null) {
+                    Text(errorMessage!!, color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Text("1. Заголовок вида тренировки", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                OutlinedTextField(
+                    value = titleInput,
+                    onValueChange = { titleInput = it; errorMessage = null },
+                    label = { Text("Название тренировки (например: Силовая: Ноги)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Red)
+                )
+
+                Text("2. Обложка тренировки (фото)", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (coverUrlInput.isNotBlank()) {
+                        AsyncImage(
+                            model = coverUrlInput,
+                            contentDescription = "Cover",
+                            modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    Button(
+                        onClick = { coverPickerLauncher.launch("image/*") },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
+                    ) {
+                        Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, tint = Color.White)
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (coverUrlInput.isBlank()) "Загрузить обложку" else "Изменить обложку", fontSize = 12.sp)
+                    }
+                    if (coverUrlInput.isNotBlank()) {
+                        IconButton(onClick = { coverUrlInput = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Удалить", tint = Color.Red)
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("3. Упражнения (${exercises.size} / 20)", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                    
+                    Button(
+                        onClick = {
+                            if (exercises.size < 20) {
+                                exercises.add(Exercise("Новое упражнение", "", "3 подх. по 10 раз", null))
+                            }
+                        },
+                        enabled = exercises.size < 20,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text("+", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                if (exercises.isEmpty()) {
+                    Text("Нажмите «+» выше, чтобы добавить упражнение", color = Color.Gray, fontSize = 12.sp)
+                } else {
+                    exercises.forEachIndexed { index, ex ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.4f)),
+                            border = BorderStroke(0.5.dp, Color.Red.copy(alpha = 0.4f))
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Упражнение #${index + 1}", fontWeight = FontWeight.Bold, color = Color.Red, fontSize = 12.sp)
+                                    IconButton(
+                                        onClick = { exercises.removeAt(index) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Удалить", tint = Color.Red)
+                                    }
+                                }
+
+                                OutlinedTextField(
+                                    value = ex.name,
+                                    onValueChange = { newName ->
+                                        exercises[index] = ex.copy(name = newName)
+                                    },
+                                    label = { Text("Заголовок / Название упражнения") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
+                                )
+
+                                OutlinedTextField(
+                                    value = ex.desc,
+                                    onValueChange = { newDesc ->
+                                        exercises[index] = ex.copy(desc = newDesc)
+                                    },
+                                    label = { Text("Текст описания (например: 4 подх. по 10 раз)") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
+                                )
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    val photoUrl = ex.iconUrl.ifBlank { ex.tutorialImageUrl ?: "" }
+                                    if (photoUrl.isNotBlank()) {
+                                        AsyncImage(
+                                            model = photoUrl,
+                                            contentDescription = "Exercise photo",
+                                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            activeExerciseImagePickerIndex = index
+                                            exerciseImagePickerLauncher.launch("image/*")
+                                        },
+                                        shape = RoundedCornerShape(6.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            if (photoUrl.isBlank()) "Загрузить фото (необязательно)" else "Изменить фото",
+                                            fontSize = 11.sp,
+                                            color = Color.White
+                                        )
+                                    }
+                                    if (photoUrl.isNotBlank()) {
+                                        IconButton(
+                                            onClick = {
+                                                exercises[index] = ex.copy(iconUrl = "", tutorialImageUrl = null)
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(Icons.Default.Clear, contentDescription = "Удалить фото", tint = Color.Gray)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (titleInput.isBlank()) {
+                        errorMessage = "Введите заголовок для названия вида тренировки"
+                        return@Button
+                    }
+                    if (exercises.isEmpty()) {
+                        errorMessage = "Добавьте хотя бы одно упражнение"
+                        return@Button
+                    }
+                    if (exercises.size > 20) {
+                        errorMessage = "Максимум 20 упражнений"
+                        return@Button
+                    }
+                    val resultWorkout = DailyWorkout(
+                        id = workoutToEdit?.id ?: UUID.randomUUID().toString(),
+                        title = titleInput.trim(),
+                        exercises = exercises.toList(),
+                        coverUrl = coverUrlInput.ifBlank { null }
+                    )
+                    onSave(resultWorkout)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+            ) {
+                Text("Сохранить программу", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена", color = Color.Gray)
+            }
+        }
+    )
 }

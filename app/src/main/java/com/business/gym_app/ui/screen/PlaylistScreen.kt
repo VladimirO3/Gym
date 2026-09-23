@@ -41,6 +41,7 @@ fun PlaylistScreen(
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as android.app.Application
+    val invalidAudioFileText = stringResource(R.string.invalid_audio_file)
     val viewModel: PlaylistViewModel = viewModel(
         factory = PlaylistViewModel.Factory(application)
     )
@@ -135,7 +136,7 @@ fun PlaylistScreen(
             if (mimeType.startsWith("audio/")) {
                 viewModel.uploadTrackToLocalServer(context, it, jwtToken)
             } else {
-                Toast.makeText(context, "Это не музыкальный файл!", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, invalidAudioFileText, Toast.LENGTH_LONG).show()
             }
         }
     }

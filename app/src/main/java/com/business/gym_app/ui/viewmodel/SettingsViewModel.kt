@@ -16,7 +16,9 @@ import com.business.gym_app.data.api.OrderResponse
 import com.business.gym_app.data.local.GymDatabase
 import com.business.gym_app.data.local.dao.OrderDao
 import com.business.gym_app.data.local.entity.DailyNoteEntity
+import com.business.gym_app.data.model.AssignedPrograms
 import com.business.gym_app.data.repository.ProfileRepository
+import com.business.gym_app.data.repository.TrainingProgramRepository
 import com.business.gym_app.util.AuthUtils
 import com.business.gym_app.util.AppEventBus
 import com.google.gson.Gson
@@ -24,12 +26,18 @@ import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.time.LocalDate
+import java.util.UUID
 
 /**
  * Модели данных для плана тренировок
  */
 data class Exercise(val name: String, val iconUrl: String, val desc: String, val tutorialImageUrl: String? = null)
-data class DailyWorkout(val title: String, val exercises: List<Exercise>, val coverUrl: String? = null)
+data class DailyWorkout(
+    val title: String, 
+    val exercises: List<Exercise>, 
+    val coverUrl: String? = null,
+    val id: String = UUID.randomUUID().toString()
+)
 
 /**
  * ViewModel для настроек и профиля пользователя.
@@ -39,7 +47,8 @@ data class DailyWorkout(val title: String, val exercises: List<Exercise>, val co
 class SettingsViewModel(
     application: Application,
     private val repository: ProfileRepository,
-    private val orderDao: OrderDao
+    private val orderDao: OrderDao,
+    private val programRepository: TrainingProgramRepository
 ) : AndroidViewModel(application) {
     companion object {
         private const val ADMIN_EMAIL = AuthUtils.ADMIN_EMAIL
@@ -75,6 +84,10 @@ class SettingsViewModel(
     private val _dailyPlan = mutableStateOf<String?>(null)
     val dailyPlan: State<String?> = _dailyPlan
 
+    // Программы тренировок (созданные администратором)
+    private val _customWorkouts = mutableStateOf<List<DailyWorkout>>(emptyList())
+    val customWorkouts: State<List<DailyWorkout>> = _customWorkouts
+
     // Текст Оферты
     private val _privacyPolicyText = mutableStateOf("")
     val privacyPolicyText: State<String> = _privacyPolicyText
@@ -100,6 +113,70 @@ class SettingsViewModel(
         NewsApiService.updateBaseUrl(savedIp)
         val savedLang = globalPref.getString("lang", "system") ?: "system"
         applyLanguage(savedLang)
+
+        // Программы из Room; пока их нет — стандартные
+        _customWorkouts.value = getDefaultWorkouts()
+        viewModelScope.launch {
+            programRepository.programs.collect { programs ->
+                _customWorkouts.value = programs.ifEmpty { getDefaultWorkouts() }
+            }
+        }
+        loadCustomWorkouts()
+    }
+
+    /** Синхронизирует программы с таблицей training_programs на сервере (доступно администраторам). */
+    fun loadCustomWorkouts() {
+        viewModelScope.launch {
+            programRepository.sync(getDefaultWorkouts())
+        }
+    }
+
+    fun saveCustomWorkout(context: Context, workout: DailyWorkout, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val currentList = _customWorkouts.value.toMutableList()
+        val existingIndex = currentList.indexOfFirst { it.id == workout.id || it.title.trim().equals(workout.title.trim(), ignoreCase = true) }
+
+        if (existingIndex == -1 && currentList.size >= 20) {
+            onError("Превышен лимит: можно создать не более 20 программ тренировок")
+            return
+        }
+
+        if (workout.title.isBlank()) {
+            onError("Введите заголовок названия тренировки")
+            return
+        }
+
+        if (workout.exercises.isEmpty()) {
+            onError("Добавьте хотя бы одно упражнение")
+            return
+        }
+
+        if (workout.exercises.size > 20) {
+            onError("Превышен лимит: не более 20 упражнений в одной тренировке")
+            return
+        }
+
+        // Программа с тем же названием заменяется, а не дублируется
+        val toSave = if (existingIndex != -1) workout.copy(id = currentList[existingIndex].id) else workout
+
+        viewModelScope.launch {
+            val result = programRepository.save(toSave)
+            if (result == TrainingProgramRepository.SaveResult.LOCAL_ONLY) {
+                android.widget.Toast.makeText(
+                    context,
+                    "Нет связи с сервером: программа сохранена на устройстве и будет отправлена позже",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+            onSuccess()
+        }
+    }
+
+    fun deleteCustomWorkout(context: Context, workoutId: String) {
+        viewModelScope.launch {
+            if (!programRepository.delete(workoutId)) {
+                android.widget.Toast.makeText(context, context.getString(com.business.gym_app.R.string.program_delete_server_error), android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun applyLanguage(lang: String) {
@@ -149,6 +226,9 @@ class SettingsViewModel(
 
         val id = effectiveUid
         val isAdmin = AuthUtils.isStaticAdmin(currentUserEmail)
+
+        // После входа токен уже есть — подтягиваем программы из training_programs
+        loadCustomWorkouts()
         Log.d("SettingsViewModel", "loadSettings: effectiveUid=$id, isAdmin=$isAdmin")
         
         if (isAdmin) {
@@ -185,7 +265,10 @@ class SettingsViewModel(
                     // Проверка и генерация плана тренировок на сегодня
                     val today = LocalDate.now().toString()
                     val planText = it.dailyPlan ?: ""
-                    
+
+                    // Программы, назначенные администратором, заменяют автоматический план
+                    if (applyAssignedPlan(id, today, planText)) return@let
+
                     // Считаем количество упражнений в JSON
                     val exerciseCount = try {
                         val workout = Gson().fromJson(planText, DailyWorkout::class.java)
@@ -210,7 +293,7 @@ class SettingsViewModel(
                     
                     Log.d("SettingsViewModel", "Plan check: today=$today, count=$exerciseCount, isOld=$isOldPlan")
 
-                    if (it.lastPlanDate != today || isOldPlan) {
+                    if (it.lastPlanDate != today || isOldPlan || wasAssignedPlan(id)) {
                         Log.i("SettingsViewModel", "Triggering new plan generation (count=$exerciseCount)")
                         generateDailyPlan(id, today)
                     }
@@ -286,15 +369,13 @@ class SettingsViewModel(
         }
     }
 
-    private fun generateDailyPlan(uid: String, date: String) {
-        // Используем CDN jsDelivr для GitHub, он стабильно работает без VPN
+    fun getDefaultWorkouts(): List<DailyWorkout> {
         val cdn = "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/exercises/"
-        
-        // Вспомогательная функция для выбора URL (приоритет CDN для надежности)
         fun getExUrl(path: String) = "$cdn$path"
 
-        val workouts = listOf(
+        return listOf(
             DailyWorkout(
+                id = "workout_legs",
                 title = "Силовая: Ноги и ягодицы", 
                 exercises = listOf(
                     Exercise("Приседания", getExUrl("Bodyweight_Squats/0.jpg"), "4 подх. по 10 раз", getExUrl("Bodyweight_Squats/0.jpg")),
@@ -307,6 +388,7 @@ class SettingsViewModel(
                 coverUrl = getExUrl("Barbell_Full_Squat/0.jpg")
             ),
             DailyWorkout(
+                id = "workout_upper",
                 title = "Верх тела: Грудь и Спина", 
                 exercises = listOf(
                     Exercise("Жим лежа", getExUrl("Barbell_Bench_Press_-_Medium_Grip/0.jpg"), "4 подх. по 8 раз", getExUrl("Barbell_Bench_Press_-_Medium_Grip/0.jpg")),
@@ -319,6 +401,7 @@ class SettingsViewModel(
                 coverUrl = getExUrl("Barbell_Incline_Bench_Press_-_Medium_Grip/0.jpg")
             ),
             DailyWorkout(
+                id = "workout_cardio",
                 title = "Кардио и Выносливость", 
                 exercises = listOf(
                     Exercise("Бег", getExUrl("Run/0.jpg"), "30 минут (пульс 130)", getExUrl("Run/0.jpg")),
@@ -331,6 +414,7 @@ class SettingsViewModel(
                 coverUrl = getExUrl("Run/1.jpg")
             ),
             DailyWorkout(
+                id = "workout_abs",
                 title = "Пресс и Кор", 
                 exercises = listOf(
                     Exercise("Скручивания", getExUrl("Crunches/0.jpg"), "4 подх. по 25 раз", getExUrl("Crunches/0.jpg")),
@@ -343,6 +427,7 @@ class SettingsViewModel(
                 coverUrl = getExUrl("Crunches/1.jpg")
             ),
             DailyWorkout(
+                id = "workout_arms",
                 title = "Руки: Бицепс и Трицепс", 
                 exercises = listOf(
                     Exercise("Подъем гантелей", getExUrl("Dumbbell_Shoulder_Press/0.jpg"), "4 подх. по 12 раз", getExUrl("Dumbbell_Shoulder_Press/0.jpg")),
@@ -355,14 +440,46 @@ class SettingsViewModel(
                 coverUrl = getExUrl("Dumbbell_Shoulder_Press/1.jpg")
             )
         )
-        
+    }
+
+    private fun generateDailyPlan(uid: String, date: String) {
+        val workouts = _customWorkouts.value.ifEmpty { getDefaultWorkouts() }
         val newWorkout = workouts.random()
         val jsonPlan = Gson().toJson(newWorkout)
-        
+        setAssignedPlanFlag(uid, false)
+
         viewModelScope.launch {
             repository.updateDailyPlan(uid, date, jsonPlan)
             _dailyPlan.value = jsonPlan
         }
+    }
+
+    /**
+     * Если администратор назначил программы, ставит на сегодня одну из них
+     * (по очереди по дням) и возвращает true. Иначе — false, работает автоплан.
+     */
+    private fun applyAssignedPlan(uid: String, today: String, currentPlan: String): Boolean {
+        val assigned = AssignedPrograms.load(getApplication(), uid) ?: return false
+        val workout = assigned.programForDay(LocalDate.now().toEpochDay()) ?: return false
+        val jsonPlan = Gson().toJson(workout)
+        if (currentPlan != jsonPlan) {
+            setAssignedPlanFlag(uid, true)
+            viewModelScope.launch {
+                repository.updateDailyPlan(uid, today, jsonPlan)
+                _dailyPlan.value = jsonPlan
+            }
+        }
+        return true
+    }
+
+    // Флаг «текущий план от администратора»: после отмены назначения сразу возвращаем автоплан
+    private fun assignedFlagPrefs() =
+        getApplication<Application>().getSharedPreferences("assigned_plan_state", Context.MODE_PRIVATE)
+
+    private fun wasAssignedPlan(uid: String) = assignedFlagPrefs().getBoolean("active_$uid", false)
+
+    private fun setAssignedPlanFlag(uid: String, active: Boolean) {
+        assignedFlagPrefs().edit().putBoolean("active_$uid", active).apply()
     }
 
     /**
@@ -460,6 +577,40 @@ class SettingsViewModel(
         }
     }
 
+    private val _isChangingPassword = mutableStateOf(false)
+    val isChangingPassword: State<Boolean> = _isChangingPassword
+
+    fun changePassword(context: Context, oldPass: String, newPass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        if (oldPass.isBlank() || newPass.isBlank()) {
+            onError("Заполните все поля")
+            return
+        }
+        if (newPass.length < 6) {
+            onError("Новый пароль должен быть не менее 6 символов")
+            return
+        }
+        _isChangingPassword.value = true
+        viewModelScope.launch {
+            try {
+                val success = repository.changePassword(oldPass, newPass)
+                _isChangingPassword.value = false
+                if (success) {
+                    val sharedPref = context.getSharedPreferences("auth_credentials", Context.MODE_PRIVATE)
+                    val savedEmail = sharedPref.getString("saved_email", "") ?: ""
+                    if (savedEmail.isNotBlank()) {
+                        sharedPref.edit().putString("saved_password", newPass).apply()
+                    }
+                    onSuccess()
+                } else {
+                    onError("Ошибка смены пароля. Проверьте правильность текущего пароля.")
+                }
+            } catch (e: Exception) {
+                _isChangingPassword.value = false
+                onError(e.message ?: "Ошибка сервера при смене пароля")
+            }
+        }
+    }
+
     fun setLanguage(context: Context, currentUserEmail: String?, lang: String) {
         applyLanguage(lang)
         context.getSharedPreferences("settings_global", Context.MODE_PRIVATE)
@@ -513,7 +664,8 @@ class SettingsViewModel(
                 val database = GymDatabase.getDatabase(application)
                 val repository = ProfileRepository(database.profileDao(), database.dailyNoteDao(), application)
                 @Suppress("UNCHECKED_CAST")
-                return SettingsViewModel(application, repository, database.orderDao()) as T
+                val programRepository = TrainingProgramRepository(database.trainingProgramDao(), application)
+                return SettingsViewModel(application, repository, database.orderDao(), programRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

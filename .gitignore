@@ -46,6 +46,8 @@ cmake/
 *.p12
 *.key
 *.pem
+keystore.properties
+*.keystore.properties
 # google-services.json # Uncomment if you want to keep Firebase config private
 
 # Performance & Dumps

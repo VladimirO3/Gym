@@ -7,6 +7,7 @@ import com.business.gym_app.ui.screen.ProductPlaceholder
 import com.business.gym_app.ui.viewmodel.CartViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.mockito.Mockito.mock
 
@@ -15,13 +16,17 @@ import org.mockito.Mockito.mock
  */
 class CartViewModelTest {
 
+    // addToCart/removeFromCart сохраняют корзину в Room через viewModelScope
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
     private lateinit var viewModel: CartViewModel
     private val mockContext = mock(Context::class.java)
     private val mockApplication = mock(android.app.Application::class.java)
 
     // Создаем заглушки для DAO
     private val mockDao = mock(CartDao::class.java)
-    private val mockOrderDao = mock(OrderDao::class.java) // <-- ДОБАВЛЕНО: Создали мок для OrderDao
+    private val mockOrderDao = mock(OrderDao::class.java)
 
     private val testProduct = ProductPlaceholder(
         id = "1",
@@ -33,8 +38,7 @@ class CartViewModelTest {
 
     @Before
     fun setup() {
-        // Передаем все три параметра в конструктор (Application, CartDao, OrderDao)
-        viewModel = CartViewModel(mockApplication, mockDao, mockOrderDao) // <-- ИСПРАВЛЕНО: Добавлен mockOrderDao
+        viewModel = CartViewModel(mockApplication, mockDao, mockOrderDao)
     }
 
     @Test
@@ -63,6 +67,9 @@ class CartViewModelTest {
     @Test
     fun testFormatPrice() {
         val result = viewModel.formatPrice(2500)
-        assertEquals("2 500 ₽", result.replace("\u00A0", " "))
+        assertEquals("2 500 ₽", normalizeSpaces(result))
     }
 }
+
+/** Разделитель разрядов в ru-локали — неразрывный пробел (U+00A0 или U+202F в зависимости от JDK). */
+fun normalizeSpaces(value: String): String = value.replace('\u00A0', ' ').replace('\u202F', ' ')

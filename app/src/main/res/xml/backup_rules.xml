@@ -4,4 +4,17 @@
     <include domain="database" path="." />
     <include domain="sharedpref" path="." />
     <include domain="external" path="." />
+    <!-- GymDatabase НЕ переносим на новое устройство: восстановленная БД
+         другой версии схемы ломает Room (IllegalStateException) в момент
+         первой инициализации на новом устройстве. -->
+    <exclude domain="database" path="gym_database" />
+    <exclude domain="database" path="gym_database-wal" />
+    <exclude domain="database" path="gym_database-shm" />
+    <!-- auth_prefs (JWT/токены) НЕ переносим: устройство получает guest-сессию
+         и логинится заново, иначе восстановленный токен стартует
+         ChatForegroundService / WebSocket в onCreate первой композиции. -->
+    <exclude domain="sharedpref" path="auth_prefs.xml" />
+    <exclude domain="sharedpref" path="chat_unread_notifier.xml" />
+    <!-- Кэш (cacheDir/exo_video_cache, image_cache) в Auto Backup не входит
+         по умолчанию, исключать явно не требуется. -->
 </full-backup-content>

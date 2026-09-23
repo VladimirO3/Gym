@@ -59,8 +59,7 @@ class NewsRepository(
                     wowCount = it.reactions?.get("wow") ?: 0
                 )
             }
-            newsDao.deleteAll()
-            newsDao.insertAll(entities)
+            newsDao.replaceAll(entities)
         } catch (e: Exception) {
             android.util.Log.e("NewsRepository", "Failed to refresh news", e)
         }

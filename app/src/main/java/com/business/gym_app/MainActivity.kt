@@ -2,6 +2,7 @@ package com.business.gym_app
 
 import android.Manifest
 import android.content.ComponentName
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -86,6 +87,8 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.business.gym_app.data.api.NewsApiService
+import com.business.gym_app.receiver.ChatAlarmReceiver
+import com.business.gym_app.service.ChatForegroundService
 import com.business.gym_app.service.PlaybackService
 import com.business.gym_app.ui.component.GymBackground
 import com.business.gym_app.ui.component.ScrollableTabRow
@@ -107,7 +110,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.google.firebase.analytics.FirebaseAnalytics
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.header
@@ -132,7 +135,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
     // 1. Объявляем клиент как свойство класса
-    private val client = HttpClient(CIO) {
+    private val client = HttpClient(OkHttp) {
         install(WebSockets)
     }
 
@@ -168,7 +171,16 @@ class MainActivity : AppCompatActivity() {
                 LaunchedEffect(Unit) {
                     authViewModel.loadSession(context)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        // Запрос POST_NOTIFICATIONS из LaunchedEffect первой композиции
+                        // роняет новое устройство IllegalStateException в
+                        // registerForActivityResult (композиция еще не RESUMED).
+                        // Откладываем до конца Splash — тогда Activity уже в RESUMED.
+                        kotlinx.coroutines.delay(3500)
+                        try {
+                            requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } catch (e: Exception) {
+                            android.util.Log.w("MainActivity", "Notification permission request skipped", e)
+                        }
                     }
                 }
 
@@ -187,7 +199,33 @@ class MainActivity : AppCompatActivity() {
                         cartViewModel.init(context, jwtToken, currentUid)
                         chatViewModel.startGlobalNotificationPolling(jwtToken)
                         authViewModel.startStatusPolling(context)
-                        startUpdateListener(jwtToken!!)
+                        // Слушатель обновлений не нужен гостю (сервер закрывает guest-сессию)
+                        if (jwtToken != "guest_token") {
+                            startUpdateListener(jwtToken!!)
+                        }
+                    }
+                }
+
+                // Тяжелые старты (foreground-сервис, alarm) — только ПОСЛЕ первой
+                // композиции (Splash уже показан), иначе на новом устройстве
+                // старт сервиса в onCreate роняет первую композицию:
+                // WrappedComposition.setContent -> Lifecycle.addObserver ->
+                // AndroidComposeView.onAttachedToWindow -> IllegalStateException.
+                LaunchedEffect(jwtToken) {
+                    if (jwtToken != null && jwtToken != "guest_token") {
+                        try {
+                            ChatAlarmReceiver.schedule(context)
+                            val serviceIntent = Intent(context, ChatForegroundService::class.java)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(serviceIntent)
+                            } else {
+                                context.startService(serviceIntent)
+                            }
+                        } catch (e: Exception) {
+                            // Android 12+ запрещает FGS-старт из фона —
+                            // уведомления продолжит ChatCheckWorker.
+                            android.util.Log.w("MainActivity", "Foreground service start skipped", e)
+                        }
                     }
                 }
 
@@ -265,14 +303,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var updateListenerJob: Job? = null
+    private var updateListenerToken: String? = null
 
     /**
-     * Слушатель обновлений через WebSocket (Шаг 4: Реализация на стороне клиента)
+     * Слушатель обновлений через WebSocket (Шаг 4: Реализация на стороне клиента).
+     * Защита от многократных переподключений:
+     *  - guest-токен не подключается (сервер всё равно закроет соединение);
+     *  - повторный запуск с тем же токеном игнорируется;
+     *  - экспоненциальный backoff при ошибках (до 60 сек);
+     *  - CancellationException пробрасывается, а не логируется как ошибка.
      */
     private fun startUpdateListener(token: String) {
+        if (token.isBlank() || token == "guest_token") return
+        if (updateListenerJob?.isActive == true && updateListenerToken == token) return
+        updateListenerToken = token
         updateListenerJob?.cancel()
         updateListenerJob = lifecycleScope.launch(Dispatchers.IO) {
+            var retryDelay = 5_000L
             while (isActive) {
+                var connectedAt = 0L
                 try {
                     val baseUrl = NewsApiService.getBaseUrl()
                     val hostPart = baseUrl.removePrefix("https://").removePrefix("http://").substringBefore("/")
@@ -294,7 +343,8 @@ class MainActivity : AppCompatActivity() {
                             header(HttpHeaders.Authorization, "Bearer $token")
                         }
                     ) {
-                        println("Подписка на обновления установлена!")
+                        android.util.Log.d("MainActivity", "Update subscription established")
+                        connectedAt = System.currentTimeMillis()
                         for (frame in incoming) {
                             if (frame is Frame.Text) {
                                 val message = frame.readText()
@@ -304,9 +354,22 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
                     }
+                    // Сервер закрыл соединение: если сессия жила дольше 10 сек —
+                    // это была нормальная работа, сбрасываем backoff; если сервер
+                    // закрыл почти сразу — растим паузу, чтобы не спамить переподключениями
+                    val sessionDuration = System.currentTimeMillis() - connectedAt
+                    retryDelay = if (connectedAt > 0 && sessionDuration >= 10_000L) {
+                        5_000L
+                    } else {
+                        (retryDelay * 2).coerceAtMost(60_000L)
+                    }
+                    delay(retryDelay)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e // Отмена job — не ошибка, пробрасываем дальше
                 } catch (e: Exception) {
                     android.util.Log.e("MainActivity", "WebSocket Update error: ${e.message}")
-                    delay(5000) // Пауза перед переподключением
+                    delay(retryDelay) // Пауза перед переподключением
+                    retryDelay = (retryDelay * 2).coerceAtMost(60_000L) // Backoff до 60 сек
                 }
             }
         }

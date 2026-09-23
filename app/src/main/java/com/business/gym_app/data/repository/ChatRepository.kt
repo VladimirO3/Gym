@@ -8,6 +8,7 @@ import com.business.gym_app.data.local.GymDatabase
 import com.business.gym_app.data.local.dao.ChatDao
 import com.business.gym_app.data.local.entity.ChatMessageEntity
 import com.business.gym_app.data.local.entity.UserEntity
+import com.business.gym_app.data.model.AssignedPrograms
 import com.business.gym_app.util.AuthUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -318,6 +319,35 @@ class ChatRepository(
             if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e("ChatRepository", "adminUpdateProfile failed", e)
             false
+        }
+    }
+
+    /**
+     * Назначает пользователю программы тренировок (пустой список — вернуть автоплан).
+     * Сервер хранит назначение в users.daily_plan.
+     */
+    suspend fun adminAssignPrograms(uid: String, programs: List<com.business.gym_app.ui.viewmodel.DailyWorkout>): Boolean {
+        return try {
+            val encodedUid = android.net.Uri.encode(getApiUid(uid))
+            val dailyPlan = if (programs.isEmpty()) "" else AssignedPrograms.toJson(AssignedPrograms.forUpload(programs))
+            apiService.adminUpdateProfile(userId = encodedUid, body = mapOf("daily_plan" to dailyPlan))
+            true
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Log.e("ChatRepository", "adminAssignPrograms failed", e)
+            false
+        }
+    }
+
+    /** Возвращает id программ, уже назначенных пользователю (null — не удалось загрузить). */
+    suspend fun adminGetAssignedProgramIds(uid: String): Set<String>? {
+        return try {
+            val profile = apiService.getUserProfile(android.net.Uri.encode(getApiUid(uid)))
+            AssignedPrograms.parse(profile.dailyPlan)?.programs?.map { it.id }?.toSet() ?: emptySet()
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Log.e("ChatRepository", "adminGetAssignedProgramIds failed", e)
+            null
         }
     }
 

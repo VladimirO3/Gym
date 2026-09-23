@@ -1,54 +1,108 @@
 package com.business.gym_app.ui.screen
 
+import android.content.res.Configuration
+import android.net.Uri
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.business.gym_app.data.model.UserProfile
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.business.gym_app.R
+import com.business.gym_app.data.api.NewsApiService
 import com.business.gym_app.data.model.ChatMessage
+import com.business.gym_app.data.model.UserProfile
 import com.business.gym_app.ui.component.MessageBubble
 import com.business.gym_app.ui.viewmodel.AuthViewModel
 import com.business.gym_app.ui.viewmodel.ChatViewModel
-import com.business.gym_app.util.NotificationHelper
-import com.business.gym_app.R
-import androidx.compose.ui.platform.LocalConfiguration
-import android.content.res.Configuration
-import androidx.compose.foundation.BorderStroke
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import android.net.Uri
-
-import androidx.compose.ui.graphics.Color
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import com.business.gym_app.data.api.NewsApiService
+import com.business.gym_app.ui.viewmodel.DailyWorkout
+import com.business.gym_app.ui.viewmodel.SettingsViewModel
 import com.business.gym_app.util.AuthUtils
+import com.business.gym_app.util.NotificationHelper
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun ChatScreen(
@@ -72,6 +126,12 @@ fun ChatScreen(
 
     val effectiveIsAdmin = authViewModel.isAdmin()
 
+    // Программы тренировок, созданные администратором (источник для назначения пользователю)
+    val settingsViewModel: SettingsViewModel = viewModel(
+        factory = SettingsViewModel.Factory(context.applicationContext as android.app.Application)
+    )
+    val adminPrograms by settingsViewModel.customWorkouts
+
     if (chatError != null) {
         LaunchedEffect(chatError) {
             android.widget.Toast.makeText(context, chatError, android.widget.Toast.LENGTH_SHORT).show()
@@ -88,8 +148,9 @@ fun ChatScreen(
         val isMeRoot = authViewModel.currentUserEmail.value?.trim()?.lowercase() == "verso0100@gmail.com"
         
         if (isTargetRoot && !isMeRoot) {
+            val creatorRestrictedText = stringResource(R.string.creator_profile_restricted)
             LaunchedEffect(Unit) {
-                android.widget.Toast.makeText(context, "Доступ к профилю создателя ограничен", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, creatorRestrictedText, android.widget.Toast.LENGTH_SHORT).show()
                 userForProfile = null
             }
         } else {
@@ -109,6 +170,13 @@ fun ChatScreen(
                     } else {
                         viewModel.makeAdmin(currentUserInList.uid, currentUserInList.email, context)
                     }
+                },
+                programs = adminPrograms,
+                onLoadAssignedPrograms = { onLoaded ->
+                    viewModel.loadAssignedProgramIds(currentUserInList.uid, onLoaded)
+                },
+                onAssignPrograms = { selected, onDone ->
+                    viewModel.adminAssignPrograms(currentUserInList.uid, selected, context, onDone)
                 },
                 onDelete = {
                     viewModel.deleteUser(context, currentUserInList.uid, jwtToken)
@@ -227,7 +295,10 @@ fun AdminUserProfileDialog(
     onUpdate: (String, Int?) -> Unit,
     onDeletePhoto: () -> Unit,
     onToggleAdmin: (Boolean) -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    programs: List<DailyWorkout> = emptyList(),
+    onLoadAssignedPrograms: (onLoaded: (Set<String>) -> Unit) -> Unit = {},
+    onAssignPrograms: (selected: List<DailyWorkout>, onDone: () -> Unit) -> Unit = { _, _ -> }
 ) {
     var nameInput by remember { mutableStateOf(user.name) }
     var ageInput by remember { mutableStateOf(user.age?.toString() ?: "") }
@@ -321,7 +392,17 @@ fun AdminUserProfileDialog(
                 } else if (isTargetRoot) {
                     Text(stringResource(R.string.root_admin_locked), color = Color.Gray, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
-                
+
+                // Назначение программ тренировок (вместо автоматической программы)
+                if (!isTargetRoot) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AssignProgramsButton(
+                        programs = programs,
+                        onLoadAssigned = onLoadAssignedPrograms,
+                        onAssign = onAssignPrograms
+                    )
+                }
+
                 // Только Root может удалять других пользователей/админов
                 if (isRootAdmin && !isTargetRoot) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -353,6 +434,132 @@ fun AdminUserProfileDialog(
     )
 }
 
+/**
+ * Кнопка «Добавить программу» / «Удалить программу» с выпадающим списком программ (множественный выбор).
+ * Отмеченные программы назначаются пользователю от администратора вместо автоматической программы.
+ * Если программа стоит, кнопка меняется на «Удалить программу».
+ */
+@Composable
+private fun AssignProgramsButton(
+    programs: List<DailyWorkout>,
+    onLoadAssigned: (onLoaded: (Set<String>) -> Unit) -> Unit,
+    onAssign: (selected: List<DailyWorkout>, onDone: () -> Unit) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedIds = remember { mutableStateListOf<String>() }
+
+    // Отмечаем программы, которые уже назначены пользователю
+    LaunchedEffect(Unit) {
+        onLoadAssigned { ids ->
+            selectedIds.clear()
+            selectedIds.addAll(ids)
+        }
+    }
+
+    val isAssigned = selectedIds.isNotEmpty()
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        if (!isAssigned) {
+            // Кнопка «Добавить программу» (в стиле приложения)
+            Button(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = programs.isNotEmpty(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "Добавить программу",
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        } else {
+            // Кнопка «Удалить программу» (в стиле приложения) + кнопка редактирования выбора
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = {
+                        onAssign(emptyList()) {
+                            selectedIds.clear()
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Удалить программу",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                IconButton(
+                    onClick = { expanded = true },
+                    modifier = Modifier
+                        .background(Color.DarkGray, RoundedCornerShape(8.dp))
+                        .size(40.dp)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = "Изменить программы", tint = Color.White)
+                }
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = 360.dp)
+        ) {
+            if (programs.isEmpty()) {
+                DropdownMenuItem(
+                    text = { Text("Нет доступных программ", color = Color.Gray) },
+                    onClick = { expanded = false }
+                )
+            } else {
+                programs.forEach { program ->
+                    val checked = program.id in selectedIds
+                    DropdownMenuItem(
+                        text = { Text(program.title, maxLines = 2) },
+                        leadingIcon = {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = null,
+                                colors = CheckboxDefaults.colors(checkedColor = Color.Red)
+                            )
+                        },
+                        onClick = {
+                            if (checked) selectedIds.remove(program.id) else selectedIds.add(program.id)
+                        }
+                    )
+                }
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            if (selectedIds.isEmpty()) "Снять назначения / Автоплан" else "Назначить выбранные",
+                            color = Color.Red,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    leadingIcon = { Icon(Icons.Default.Check, contentDescription = null, tint = Color.Red) },
+                    onClick = {
+                        val selected = programs.filter { it.id in selectedIds }
+                        onAssign(selected) { expanded = false }
+                    }
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun UserListScreen(
     users: List<UserProfile>,
@@ -366,6 +573,15 @@ fun UserListScreen(
     jwtToken: String? = null
 ) {
     var userToDelete by remember { mutableStateOf<UserProfile?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    val filteredUsers = remember(users, searchQuery) {
+        if (searchQuery.isBlank()) users
+        else users.filter { 
+            it.name.contains(searchQuery, ignoreCase = true) || 
+            it.email.contains(searchQuery, ignoreCase = true) 
+        }
+    }
 
     if (userToDelete != null) {
         AlertDialog(
@@ -397,20 +613,42 @@ fun UserListScreen(
             modifier = Modifier.fillMaxWidth(),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        if (users.isEmpty()) {
-            android.util.Log.d("ChatScreen", "User list is empty in UI")
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            placeholder = { Text("Поиск пользователя...", color = Color.Gray) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Поиск", tint = Color.Gray) },
+            trailingIcon = if (searchQuery.isNotEmpty()) {
+                {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Очистить", tint = Color.Gray)
+                    }
+                }
+            } else null,
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.Red,
+                unfocusedBorderColor = Color.DarkGray,
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White
+            )
+        )
+
+        if (filteredUsers.isEmpty()) {
+            Log.d("ChatScreen", "User list is empty in UI")
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Text(text = "Тут скоро будет чат", color = Color.Gray)
+                Text(text = if (searchQuery.isNotBlank()) "Пользователь не найден" else "Тут скоро будет чат", color = Color.Gray)
             }
         } else {
-            android.util.Log.d("ChatScreen", "Displaying ${users.size} users")
+            Log.d("ChatScreen", "Displaying ${filteredUsers.size} users")
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                    items(users) { user ->
+                    items(filteredUsers) { user ->
                         val isTargetAdmin = user.isAdmin || user.role == "admin" || AuthUtils.isStaticAdmin(user.email)
                         val isSelected = selectedUser?.uid == user.uid
                         
@@ -502,7 +740,7 @@ fun UserListScreen(
                                     )
                                     if (!isTargetAdmin) {
                                         val lastSeenText = if (user.lastSeen != null && user.lastSeen > 0) {
-                                            val sdf = SimpleDateFormat("dd.MM HH:mm", Locale.getDefault())
+                                            val sdf = SimpleDateFormat("dd.MM HH:mm", LocalConfiguration.current.locales[0])
                                             "был(а) в сети ${sdf.format(Date(user.lastSeen))}"
                                         } else {
                                             user.email

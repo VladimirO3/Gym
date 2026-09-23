@@ -114,6 +114,12 @@
     <string name="auth_login_guest">LOGIN AS GUEST</string>
     <string name="auth_use_otp">Use OTP</string>
     <string name="auth_use_password">Use Password</string>
+    <string name="change_password_title">Change Password</string>
+    <string name="change_password_button">Change Password</string>
+    <string name="old_password_label">Current Password</string>
+    <string name="new_password_label">New Password</string>
+    <string name="confirm_new_password_label">Confirm New Password</string>
+    <string name="change_password_success">Password changed successfully</string>
     <string name="auth_otp_sent">Code Sent!</string>
     <string name="auth_phone_hint">Phone Number (+7...)</string>
     <string name="auth_otp_label">OTP Code</string>
@@ -257,4 +263,13 @@
     <string name="account_deleted_by_admin">Your account was deleted by an administrator</string>
     <string name="account_deleted">Account deleted successfully</string>
     <string name="account_delete_error">Error deleting account</string>
+    <string name="biometric_launch_failed">Failed to start biometric authentication</string>
+    <string name="workout_saved">Workout program saved</string>
+    <string name="workout_updated">Workout program updated</string>
+    <string name="workout_deleted">Workout program deleted</string>
+    <string name="user_hide_server_error">Connection error, the user is hidden locally</string>
+    <string name="program_assign_failed">Failed to assign the program</string>
+    <string name="program_assignments_cleared">Assignments removed; the automatic program will be restored</string>
+    <string name="program_assigned_count">Programs assigned: %1$d</string>
+    <string name="program_delete_server_error">Failed to delete the program on the server</string>
 </resources>
