@@ -43,6 +43,7 @@ import com.business.gym_app.ui.viewmodel.DailyWorkout
 import com.business.gym_app.ui.viewmodel.Exercise
 import com.business.gym_app.ui.component.rememberLocalizedWorkout
 import com.business.gym_app.ui.component.rememberTranslatedTitle
+import com.business.gym_app.ui.component.rememberTranslatedText
 import com.business.gym_app.util.BiometricHelper
 import com.business.gym_app.util.NotificationHelper
 import androidx.compose.ui.window.DialogProperties
@@ -335,7 +336,7 @@ fun SettingsScreen(
 
                     if (!isEditMode && userName.isNotBlank()) {
                         Text(
-                            text = userName,
+                            text = rememberTranslatedText(userName),
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold,

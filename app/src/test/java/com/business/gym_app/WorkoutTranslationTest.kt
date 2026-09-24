@@ -88,4 +88,13 @@ class WorkoutTranslationTest {
         val localized = WorkoutDictionary.localizeTitle("Кардио и Выносливость", true)
         assertFalse(GoogleTranslate.needsTranslation(localized, "en"))
     }
+
+    @Test
+    fun testUserNamesFollowTheSameHeuristics() {
+        // Имя пользователя в чате/профиле: кириллица -> en, латиница -> ru, своё уже не трогаем
+        assertTrue(GoogleTranslate.needsTranslation("Владимир", "en"))
+        assertFalse(GoogleTranslate.needsTranslation("Vladimir", "en"))
+        assertFalse(GoogleTranslate.needsTranslation("Владимир", "ru"))
+        assertTrue(GoogleTranslate.needsTranslation("Vladimir", "ru"))
+    }
 }

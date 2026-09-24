@@ -14,7 +14,8 @@ import com.business.gym_app.util.GoogleTranslate
 import com.business.gym_app.util.WorkoutDictionary
 
 /**
- * Локализация карточек программ тренировок.
+ * Локализация текстов, которые хранятся на одном языке: карточек программ тренировок
+ * и имён пользователей (чат, профиль).
  *
  * Названия программ и упражнений хранятся одним языком (русским), поэтому при смене языка
  * перевод выполняется в два шага:
@@ -38,6 +39,29 @@ fun rememberTranslatedTitle(title: String): String {
     LaunchedEffect(base, target) {
         if (!GoogleTranslate.needsTranslation(base, target)) return@LaunchedEffect
         val translated = GoogleTranslate.translate(context, listOf(base), target)[base.trim()]
+        if (!translated.isNullOrBlank()) result = translated
+    }
+
+    return result
+}
+
+/**
+ * Произвольный текст (например, имя пользователя в чате или в профиле) на языке приложения.
+ *
+ * Словарь [WorkoutDictionary] не используется — имя не из справочника: сначала отдаётся
+ * перевод из кэша, недостающее допереводится через Google Translate.
+ */
+@Composable
+fun rememberTranslatedText(text: String): String {
+    val context = LocalContext.current
+    val target = AppLanguage.current(context)
+    var result by remember(text, target) {
+        mutableStateOf(GoogleTranslate.cached(context, text, target) ?: text)
+    }
+
+    LaunchedEffect(text, target) {
+        if (!GoogleTranslate.needsTranslation(text, target)) return@LaunchedEffect
+        val translated = GoogleTranslate.translate(context, listOf(text), target)[text.trim()]
         if (!translated.isNullOrBlank()) result = translated
     }
 

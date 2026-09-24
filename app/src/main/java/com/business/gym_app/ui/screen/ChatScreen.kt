@@ -96,6 +96,7 @@ import com.business.gym_app.data.model.ChatMessage
 import com.business.gym_app.data.model.UserProfile
 import com.business.gym_app.ui.component.MessageBubble
 import com.business.gym_app.ui.component.rememberTranslatedTitle
+import com.business.gym_app.ui.component.rememberTranslatedText
 import com.business.gym_app.ui.viewmodel.AuthViewModel
 import com.business.gym_app.ui.viewmodel.ChatViewModel
 import com.business.gym_app.ui.viewmodel.DailyWorkout
@@ -323,7 +324,7 @@ fun AdminUserProfileDialog(
     
     val displayTitle = if (isTargetAdmin) {
         if (isTargetRoot) stringResource(R.string.root_administrator) 
-        else user.name
+        else rememberTranslatedText(user.name)
     } else {
         stringResource(R.string.user_profile_title)
     }
@@ -379,7 +380,7 @@ fun AdminUserProfileDialog(
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                     )
                 } else {
-                    Text(stringResource(R.string.user_name, user.name), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.user_name, rememberTranslatedText(user.name)), style = MaterialTheme.typography.bodyLarge)
                     Text(stringResource(R.string.user_age, user.age ?: stringResource(R.string.age_not_set)), style = MaterialTheme.typography.bodyLarge)
                 }
 
@@ -608,7 +609,7 @@ fun UserListScreen(
         AlertDialog(
             onDismissRequest = { userToDelete = null },
             title = { Text(stringResource(R.string.delete_user_title)) },
-            text = { Text(stringResource(R.string.delete_user_message, userToDelete?.name.orEmpty())) },
+            text = { Text(stringResource(R.string.delete_user_message, rememberTranslatedText(userToDelete?.name.orEmpty()))) },
             confirmButton = {
                 TextButton(onClick = { 
                     userToDelete?.let { onDeleteUser(it.uid) }
@@ -755,7 +756,7 @@ fun UserListScreen(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
-                                        text = user.name, 
+                                        text = rememberTranslatedText(user.name),
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = if (isTargetAdmin) Color.Red else Color.White,
                                         fontWeight = if (isTargetAdmin || isSelected || hasNotification) FontWeight.Bold else FontWeight.Normal,
@@ -913,7 +914,7 @@ fun ConversationScreen(
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = peer.name,
+                    text = rememberTranslatedText(peer.name),
                     style = MaterialTheme.typography.titleLarge,
                     color = Color.Red,
                     fontWeight = FontWeight.Bold,
