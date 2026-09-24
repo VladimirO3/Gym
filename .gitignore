@@ -23,6 +23,11 @@ gradle-wrapper.jar
 .idea/shelf
 .idea/dictionaries
 
+# Secrets (NEVER commit real values; template — .env.example)
+.env
+.env.*
+!.env.example
+
 # Local configuration
 local.properties
 

@@ -95,6 +95,7 @@ import com.business.gym_app.data.api.NewsApiService
 import com.business.gym_app.data.model.ChatMessage
 import com.business.gym_app.data.model.UserProfile
 import com.business.gym_app.ui.component.MessageBubble
+import com.business.gym_app.ui.component.rememberTranslatedTitle
 import com.business.gym_app.ui.viewmodel.AuthViewModel
 import com.business.gym_app.ui.viewmodel.ChatViewModel
 import com.business.gym_app.ui.viewmodel.DailyWorkout
@@ -540,7 +541,7 @@ private fun AssignProgramsButton(
                 programs.forEach { program ->
                     val checked = program.id in selectedIds
                     DropdownMenuItem(
-                        text = { Text(program.title, maxLines = 2) },
+                        text = { Text(rememberTranslatedTitle(program.title), maxLines = 2) },
                         leadingIcon = {
                             Checkbox(
                                 checked = checked,

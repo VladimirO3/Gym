@@ -38,6 +38,20 @@ android {
 		keystorePropsFile.inputStream().use { keystoreProps.load(it) }
 	}
 
+	// Секреты API лежат в .env в корне проекта (файл НЕ коммитится, см. .gitignore;
+	// шаблон — .env.example). Значения попадают в BuildConfig на этапе сборки,
+	// поэтому в исходном коде и ресурсах ключей нет.
+	// Переменная окружения с тем же именем имеет приоритет (для CI).
+	val envFile = rootProject.file(".env")
+	val envProps = Properties()
+	if (envFile.exists()) {
+		envFile.inputStream().use { envProps.load(it) }
+	}
+	val translateApiKey = (
+		System.getenv("GOOGLE_TRANSLATE_API_KEY")?.takeIf { it.isNotBlank() }
+			?: envProps.getProperty("GOOGLE_TRANSLATE_API_KEY")
+		).orEmpty().trim()
+
 	signingConfigs {
 		if (keystorePropsFile.exists()) {
 			create("release") {
@@ -55,6 +69,13 @@ android {
 		targetSdk = 36
 		versionCode = currentVersionCode
 		versionName = "1.$currentVersionCode"
+
+		// Ключ Google Cloud Translation — из .env (см. .env.example), а не из кода/ресурсов.
+		buildConfigField(
+			"String",
+			"GOOGLE_TRANSLATE_API_KEY",
+			"\"" + translateApiKey.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+		)
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 	}
@@ -87,6 +108,8 @@ android {
 	}
 	buildFeatures {
 		compose = true
+		// Нужен для buildConfigField с секретами из .env (см. app/build.gradle.kts).
+		buildConfig = true
 	}
 	testOptions {
 		// android.util.Log и прочие заглушки android.jar в JVM-тестах возвращают значения по умолчанию

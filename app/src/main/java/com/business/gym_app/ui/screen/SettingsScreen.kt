@@ -15,7 +15,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.business.gym_app.util.AppLanguage
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.business.gym_app.ui.viewmodel.SettingsViewModel
 import com.business.gym_app.ui.viewmodel.AuthViewModel
@@ -42,6 +41,8 @@ import coil.request.ImageRequest
 import com.business.gym_app.data.api.NewsApiService
 import com.business.gym_app.ui.viewmodel.DailyWorkout
 import com.business.gym_app.ui.viewmodel.Exercise
+import com.business.gym_app.ui.component.rememberLocalizedWorkout
+import com.business.gym_app.ui.component.rememberTranslatedTitle
 import com.business.gym_app.util.BiometricHelper
 import com.business.gym_app.util.NotificationHelper
 import androidx.compose.ui.window.DialogProperties
@@ -924,50 +925,6 @@ fun GymCalendar(viewModel: SettingsViewModel, modifier: Modifier) {
     }
 }
 
-private fun localizedWorkout(workout: com.business.gym_app.ui.viewmodel.DailyWorkout, english: Boolean): com.business.gym_app.ui.viewmodel.DailyWorkout {
-    if (!english) return workout
-
-    val titles = mapOf(
-        "Силовая: Ноги и ягодицы" to "Strength: Legs and Glutes",
-        "Верх тела: Грудь и Спина" to "Upper Body: Chest and Back",
-        "Кардио и Выносливость" to "Cardio and Endurance",
-        "Пресс и Кор" to "Abs and Core",
-        "Руки: Бицепс и Трицепс" to "Arms: Biceps and Triceps"
-    )
-    val names = mapOf(
-        "Приседания" to "Squats", "Жим ногами" to "Leg Press", "Выпады" to "Lunges",
-        "Разгибание ног" to "Leg Extensions", "Сгибание ног" to "Leg Curls",
-        "Подъем на носки" to "Calf Raises", "Жим лежа" to "Bench Press",
-        "Тяга блока" to "Lat Pulldown", "Отжимания" to "Push-ups",
-        "Разводка гантелей" to "Dumbbell Flyes", "Тяга гантели" to "Dumbbell Row",
-        "Гиперэкстензия" to "Hyperextensions", "Бег" to "Running", "Берпи" to "Burpees",
-        "Скакалка" to "Jump Rope", "Джампинг Джек" to "Jumping Jacks",
-        "Альпинист" to "Mountain Climbers", "Прыжки на бокс" to "Box Jumps",
-        "Скручивания" to "Crunches", "Планка" to "Plank", "Велосипед" to "Bicycle Crunches",
-        "Боковая планка" to "Side Plank", "Подъем ног" to "Leg Raises",
-        "Русский твист" to "Russian Twist", "Подъем гантелей" to "Shoulder Press",
-        "Обратные отжимания" to "Bench Dips", "Молотки" to "Hammer Curls",
-        "Франц. жим" to "Skull Crushers", "Конц. подъем" to "Concentration Curls",
-        "Разгибания рук" to "Triceps Pushdown"
-    )
-    val descriptions = mapOf(
-        "до отказа" to "to failure", "минут" to "minutes", "интенсивно" to "intense",
-        "пульс" to "heart rate", "раз" to "reps", "подх." to "sets", "сек" to "sec",
-        "по 1 мин" to "for 1 min",
-        " по " to " of "
-    )
-    return workout.copy(
-        title = titles[workout.title] ?: workout.title,
-        exercises = workout.exercises.map { exercise ->
-            var description = exercise.desc
-            descriptions.forEach { (russian, englishText) ->
-                description = description.replace(russian, englishText)
-            }
-            exercise.copy(name = names[exercise.name] ?: exercise.name, desc = description)
-        }
-    )
-}
-
 @Composable
 fun TrainingPlanSection(plan: String?, modifier: Modifier) {
     val context = LocalContext.current
@@ -1009,15 +966,14 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
 
     val dailyExerciseLabel = stringResource(R.string.daily_exercise)
     val trainingPlanLabel = stringResource(R.string.training_plan)
-    val currentLanguage = AppLanguage.current(context)
-    val workout = remember(plan, dailyExerciseLabel, trainingPlanLabel, currentLanguage) {
+
+    // Разбираем план в модель. Перевод выполняется отдельно: встроенный словарь +
+    // Google Cloud Translation для всего, чего в словаре нет (программы администратора).
+    val planWorkout = remember(plan, dailyExerciseLabel, trainingPlanLabel) {
         if (plan.isNullOrBlank()) null
         else if (plan.startsWith("{")) {
             try {
-                localizedWorkout(
-                    com.google.gson.Gson().fromJson(plan, com.business.gym_app.ui.viewmodel.DailyWorkout::class.java),
-                    currentLanguage == "en"
-                )
+                com.google.gson.Gson().fromJson(plan, com.business.gym_app.ui.viewmodel.DailyWorkout::class.java)
             } catch (e: Exception) { null }
         } else {
             // Конвертация старого текстового формата в новый для отображения
@@ -1030,12 +986,10 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
                     defaultUrl
                 )
             }
-            localizedWorkout(
-                com.business.gym_app.ui.viewmodel.DailyWorkout(trainingPlanLabel, exercises),
-                currentLanguage == "en"
-            )
+            com.business.gym_app.ui.viewmodel.DailyWorkout(trainingPlanLabel, exercises)
         }
     }
+    val workout = rememberLocalizedWorkout(planWorkout)
 
     Card(
         modifier = modifier,
@@ -1420,7 +1374,7 @@ fun AdminWorkoutSection(
         AlertDialog(
             onDismissRequest = { workoutToDelete = null },
             title = { Text(stringResource(R.string.workout_delete_dialog_title), color = Color.Red, fontWeight = FontWeight.Bold) },
-            text = { Text(stringResource(R.string.workout_delete_dialog_message, workoutToDelete?.title ?: "")) },
+            text = { Text(stringResource(R.string.workout_delete_dialog_message, rememberTranslatedTitle(workoutToDelete?.title ?: ""))) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -1500,7 +1454,7 @@ fun AdminWorkoutSection(
                             }
                             Column {
                                 Text(
-                                    text = workout.title,
+                                    text = rememberTranslatedTitle(workout.title),
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
                                     fontSize = 14.sp
