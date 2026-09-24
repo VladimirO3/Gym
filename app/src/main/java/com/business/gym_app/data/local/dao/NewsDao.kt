@@ -19,6 +19,14 @@ interface NewsDao {
     @Query("DELETE FROM news")
     suspend fun deleteAll()
 
+    /** Точечное удаление одной новости из кэша (после подтверждённого DELETE на сервере). */
+    @Query("DELETE FROM news WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    /** Количество новостей в кэше (для защиты от вычистки кэша пустым ответом сервера). */
+    @Query("SELECT COUNT(*) FROM news")
+    suspend fun count(): Int
+
     /**
      * Атомарная замена кэша: Flow не увидит промежуточный пустой список,
      * поэтому лента не сбрасывает позицию прокрутки.

@@ -232,6 +232,9 @@ class NewsViewModel(
         viewModelScope.launch {
             try {
                 localApiService.deleteLocalNews(id)
+                // Сразу убираем из локального кэша, чтобы новость исчезла со страницы
+                // мгновенно и не «воскресла», если следующий refresh вернёт пустой список.
+                repository.deleteCached(id)
                 repository.refreshNews(token)
             } catch (e: Exception) {
                 Log.e("NewsViewModel", "Failed to delete local news", e)

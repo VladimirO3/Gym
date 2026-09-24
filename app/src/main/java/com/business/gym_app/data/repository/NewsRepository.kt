@@ -59,10 +59,25 @@ class NewsRepository(
                     wowCount = it.reactions?.get("wow") ?: 0
                 )
             }
+            // Защита от «исчезновения» новостей: если сервер вернул пустой список
+            // (сбой, ошибка перевода и т.п.), а в кэше новости есть — не вычищаем кэш,
+            // иначе лента на странице станет пустой до следующего успешного ответа.
+            if (entities.isEmpty() && newsDao.count() > 0) {
+                android.util.Log.w("NewsRepository", "Server returned empty news list, keeping local cache")
+                return
+            }
             newsDao.replaceAll(entities)
         } catch (e: Exception) {
             android.util.Log.e("NewsRepository", "Failed to refresh news", e)
         }
+    }
+
+    /**
+     * Удаление новости из локального кэша (когда сервер вернул пустой список
+     * после массовых изменений, но после явного удаления одной новости).
+     */
+    suspend fun deleteCached(id: String) {
+        newsDao.deleteById(id)
     }
 
     suspend fun uploadNews(

@@ -112,7 +112,7 @@ fun NewsMediaItem(
                                 text = displayContent,
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Justify,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Start,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }

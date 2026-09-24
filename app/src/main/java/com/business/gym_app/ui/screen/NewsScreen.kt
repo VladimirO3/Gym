@@ -210,7 +210,7 @@ fun NewsScreen(
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = Color.White,
                                     lineHeight = 22.sp,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Justify
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Start
                                 )
                             }
                             
@@ -315,7 +315,7 @@ fun NewsScreen(
                         label = { Text(stringResource(R.string.news_content_label), color = Color.White) },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3,
-                        textStyle = LocalTextStyle.current.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Justify),
+                        textStyle = LocalTextStyle.current.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Start),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
@@ -460,7 +460,7 @@ fun NewsScreen(
                         label = { Text(stringResource(R.string.news_content_label), color = Color.White) },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3,
-                        textStyle = LocalTextStyle.current.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Justify),
+                        textStyle = LocalTextStyle.current.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Start),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
