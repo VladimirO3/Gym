@@ -317,10 +317,10 @@ fun AuthScreen(
                     )
                     
                     val annotatedString = buildAnnotatedString {
-                        append("Я принимаю ")
+                        append(stringResource(R.string.privacy_accept_prefix))
                         pushStringAnnotation(tag = "agreement", annotation = "agreement")
                         withStyle(style = SpanStyle(color = Color.Red, fontWeight = FontWeight.Bold)) {
-                            append("условия соглашения об электронном взаимодействии и сервисах")
+                            append(stringResource(R.string.privacy_accept_link))
                         }
                         pop()
                     }
@@ -339,9 +339,15 @@ fun AuthScreen(
             }
 
             if (error != null) {
+                // Сообщения об успехе приходят через тот же канал, что и ошибки,
+                // поэтому сравниваем с локализованными строками успеха.
+                val successMessages = listOf(
+                    stringResource(R.string.auth_otp_sent),
+                    stringResource(R.string.application_sent)
+                )
                 Text(
                     text = error!!,
-                    color = if (error!!.contains("отправлен") || error!!.contains("успешно")) Color.Green else MaterialTheme.colorScheme.error,
+                    color = if (error in successMessages) Color.Green else MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 16.dp),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -387,8 +393,6 @@ fun AuthScreen(
                                 if (activity != null) {
                                     BiometricHelper.showBiometricPrompt(
                                         activity = activity,
-                                        title = "Вход в Gym",
-                                        subtitle = "Подтвердите личность отпечатком пальца или лицом",
                                         onSuccess = {
                                             viewModel.signInWithBiometrics { onAuthSuccess(it) }
                                         },
@@ -406,13 +410,13 @@ fun AuthScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Fingerprint,
-                                contentDescription = "Отпечаток / Лицо",
+                                contentDescription = stringResource(R.string.fingerprint_face),
                                 tint = Color.Red,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "Вход по отпечатку / лицу",
+                                text = stringResource(R.string.biometric_login_button),
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold
                             )
@@ -473,14 +477,14 @@ fun AgreementDialog(onDismiss: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Соглашение об электронном взаимодействии",
+                        stringResource(R.string.e_agreement_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.Red,
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Clear, contentDescription = "Close", tint = Color.Gray)
+                        Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.close), tint = Color.Gray)
                     }
                 }
                 
@@ -492,25 +496,7 @@ fun AgreementDialog(onDismiss: () -> Unit) {
                         .verticalScroll(rememberScrollState())
                 ) {
                     Text(
-                        text = """
-                            1. ПРЕДМЕТ СОГЛАШЕНИЯ
-                            Настоящее Соглашение определяет условия использования электронных сервисов приложения GYM ABS.
-                            
-                            2. ЭЛЕКТРОННОЕ ВЗАИМОДЕЙСТВИЕ
-                            Пользователь соглашается на получение уведомлений, сообщений и информации в электронном виде через приложение или по указанным при регистрации контактным данным.
-                            
-                            3. ПЕРСОНАЛЬНЫЕ ДАННЫЕ
-                            Регистрируясь в приложении, Пользователь дает согласие на обработку своих персональных данных для обеспечения функционирования сервисов.
-                            
-                            4. ОБЯЗАННОСТИ ПОЛЬЗОВАТЕЛЯ
-                            Пользователь обязуется предоставлять достоверную информацию и не использовать сервисы в противоправных целях.
-                            
-                            5. ОТВЕТСТВЕННОСТЬ
-                            Администрация приложения не несет ответственности за временные технические сбои, вызванные внешними факторами или действиями третьих лиц.
-                            
-                            6. ИЗМЕНЕНИЕ УСЛОВИЙ
-                            Администрация оставляет за собой право изменять условия настоящего Соглашения с уведомлением пользователей.
-                        """.trimIndent(),
+                        text = stringResource(R.string.agreement_dialog_text),
                         style = MaterialTheme.typography.bodyMedium,
                         lineHeight = 20.sp,
                         color = MaterialTheme.colorScheme.onBackground

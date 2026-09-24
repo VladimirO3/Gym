@@ -18,6 +18,11 @@
 }
 -keep class com.business.gym_app.service.ChatCheckWorker { *; }
 
+# Уведомления: вызываются из фоновых компонентов (сервис/receiver/воркер),
+# их имена должны оставаться читаемыми в stacktrace собранной сборки.
+-keep class com.business.gym_app.util.NotificationHelper { *; }
+-keep class com.business.gym_app.util.ChatUnreadNotifier { *; }
+
 # 3. Room Database & DAOs & Entities (instantiated via reflection)
 -keep class * extends androidx.room.RoomDatabase { *; }
 -keep class com.business.gym_app.data.local.** { *; }

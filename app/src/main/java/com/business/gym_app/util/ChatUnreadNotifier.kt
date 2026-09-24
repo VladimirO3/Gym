@@ -2,7 +2,7 @@ package com.business.gym_app.util
 
 import android.content.Context
 import android.util.Log
-import com.business.gym_app.GymApplication
+import com.business.gym_app.R
 import com.business.gym_app.data.api.NewsApiService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -23,6 +23,20 @@ object ChatUnreadNotifier {
     private const val PREFS = "chat_unread_notifier"
     private val mutex = Mutex()
 
+    /**
+     * Идентификаторы (uid и email) собеседника, чей диалог сейчас открыт на экране.
+     * Уведомление не показывается только для открытого диалога — остальные
+     * показываются всегда, в том числе когда приложение открыто на другой вкладке.
+     *
+     * Раньше проверки молчали, пока приложение было на переднем плане
+     * (GymApplication.isInForeground), но счетчики все равно записывались как
+     * «уже уведомленные». Если ChatViewModel в этот момент уведомление не показывал
+     * (splash, другая вкладка, пересоздание Activity, гость без токена),
+     * сообщение навсегда оставалось без уведомления.
+     */
+    @Volatile
+    var activeChatKeys: Set<String> = emptySet()
+
     fun sessionToken(context: Context): String? =
         context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
             .getString("user_session_token", null)
@@ -30,8 +44,7 @@ object ChatUnreadNotifier {
 
     /**
      * Запрашивает счетчики и показывает уведомления по отправителям, у которых
-     * число непрочитанных выросло. Пока приложение на экране, уведомления показывает
-     * ChatViewModel, здесь только синхронизируются сохраненные счетчики.
+     * число непрочитанных выросло.
      */
     suspend fun check(context: Context) = mutex.withLock {
         val appContext = context.applicationContext
@@ -51,17 +64,25 @@ object ChatUnreadNotifier {
 
         val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val editor = prefs.edit()
-        val silent = GymApplication.isInForeground
+        val openChat = activeChatKeys
+        // Текст уведомления берется из ресурсов в локали приложения: опрос может
+        // выполняться сервисом/воркером, чей контекст не обновляется вместе с Activity.
+        val res = AppLanguage.localized(appContext).resources
 
         unread.forEach { (senderId, count) ->
             val notified = prefs.getInt(senderId, 0)
-            if (count > notified && !silent) {
-                NotificationHelper.showNotification(
-                    appContext,
-                    senderName(senderId),
-                    "У вас $count новых сообщений",
-                    senderId
-                )
+            if (count > notified) {
+                if (senderId in openChat) {
+                    Log.d(TAG, "Notification suppressed: chat with $senderId is open on screen")
+                } else {
+                    NotificationHelper.showNotification(
+                        appContext,
+                        senderName(res, senderId),
+                        res.getString(R.string.new_messages_count, count),
+                        senderId
+                    )
+                    NotificationHelper.setBadge(appContext, unread.values.sum())
+                }
             }
             if (count != notified) editor.putInt(senderId, count)
         }
@@ -71,11 +92,38 @@ object ChatUnreadNotifier {
             editor.remove(senderId)
             NotificationHelper.cancelNotification(appContext, senderId)
         }
+        if (unread.isEmpty()) NotificationHelper.setBadge(appContext, 0)
         editor.apply()
     }
 
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+    }
+
+    /**
+     * Сохраненные счетчики «о ком уже уведомил». Общая точка правды для фонового
+     * опроса (сервис/alarm/воркер) и для ChatViewModel: без нее при каждом запуске
+     * приложения уведомления о старых непрочитанных показывались заново.
+     */
+    fun savedCounts(context: Context): Map<String, Int> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).all
+            .mapNotNull { (key, value) -> (value as? Int)?.let { key to it } }
+            .toMap()
+
+    /** Помечает отправителя уведомленным (счетчик [count] уже показан пользователю). */
+    fun markNotified(context: Context, senderId: String, count: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(senderId, count)
+            .apply()
+    }
+
+    /** Снимает отметку «уведомлен» (диалог прочитан). */
+    fun forgetNotified(context: Context, senderId: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .remove(senderId)
+            .apply()
     }
 
     /**
@@ -105,9 +153,9 @@ object ChatUnreadNotifier {
         }
     }
 
-    private fun senderName(senderId: String): String = when {
-        AuthUtils.isRootAdmin(senderId) -> "root-администратор"
-        senderId == "SYSTEM" -> "СИСТЕМА БЕЗОПАСНОСТИ"
+    private fun senderName(res: android.content.res.Resources, senderId: String): String = when {
+        AuthUtils.isRootAdmin(senderId) -> res.getString(R.string.root_administrator)
+        senderId == "SYSTEM" -> res.getString(R.string.system_security)
         else -> senderId.substringBefore("@")
     }
 }

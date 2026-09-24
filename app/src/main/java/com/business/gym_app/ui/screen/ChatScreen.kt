@@ -69,6 +69,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -99,6 +100,7 @@ import com.business.gym_app.ui.viewmodel.ChatViewModel
 import com.business.gym_app.ui.viewmodel.DailyWorkout
 import com.business.gym_app.ui.viewmodel.SettingsViewModel
 import com.business.gym_app.util.AuthUtils
+import com.business.gym_app.util.ChatUnreadNotifier
 import com.business.gym_app.util.NotificationHelper
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -117,6 +119,16 @@ fun ChatScreen(
     
     val selectedUser by viewModel.selectedUser
     val notifiedCounts by viewModel.notifiedCounts
+
+    // Отмечаем открытый диалог: фоновые проверки (сервис/alarm/воркер) не показывают
+    // уведомление только для этого собеседника. Остальные сообщения уведомляются всегда,
+    // даже когда приложение открыто на другой вкладке.
+    DisposableEffect(selectedUser) {
+        ChatUnreadNotifier.activeChatKeys = selectedUser?.let { user ->
+            setOfNotNull(user.uid, user.email.takeIf { it.isNotBlank() })
+        } ?: emptySet()
+        onDispose { ChatUnreadNotifier.activeChatKeys = emptySet() }
+    }
     val chatError by viewModel.error
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -309,10 +321,10 @@ fun AdminUserProfileDialog(
     val isTargetAdmin = isTargetRoot || user.isAdmin || user.role == "admin"
     
     val displayTitle = if (isTargetAdmin) {
-        if (isTargetRoot) "root-администратор" 
+        if (isTargetRoot) stringResource(R.string.root_administrator) 
         else user.name
     } else {
-        "Профиль пользователя"
+        stringResource(R.string.user_profile_title)
     }
 
     AlertDialog(
@@ -328,7 +340,7 @@ fun AdminUserProfileDialog(
                     if (!user.avatarUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = NewsApiService.getFullUrl(LocalContext.current, user.avatarUrl),
-                            contentDescription = "Avatar",
+                            contentDescription = stringResource(R.string.cd_avatar),
                             modifier = Modifier.fillMaxSize(),
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop
                         )
@@ -472,7 +484,7 @@ private fun AssignProgramsButton(
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    text = "Добавить программу",
+                    text = stringResource(R.string.add_program),
                     color = Color.White,
                     fontWeight = FontWeight.Medium
                 )
@@ -497,7 +509,7 @@ private fun AssignProgramsButton(
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "Удалить программу",
+                        text = stringResource(R.string.delete_program),
                         color = Color.White,
                         fontWeight = FontWeight.Medium
                     )
@@ -509,7 +521,7 @@ private fun AssignProgramsButton(
                         .background(Color.DarkGray, RoundedCornerShape(8.dp))
                         .size(40.dp)
                 ) {
-                    Icon(Icons.Default.Edit, contentDescription = "Изменить программы", tint = Color.White)
+                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_programs), tint = Color.White)
                 }
             }
         }
@@ -521,7 +533,7 @@ private fun AssignProgramsButton(
         ) {
             if (programs.isEmpty()) {
                 DropdownMenuItem(
-                    text = { Text("Нет доступных программ", color = Color.Gray) },
+                    text = { Text(stringResource(R.string.no_programs_available), color = Color.Gray) },
                     onClick = { expanded = false }
                 )
             } else {
@@ -545,7 +557,7 @@ private fun AssignProgramsButton(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            if (selectedIds.isEmpty()) "Снять назначения / Автоплан" else "Назначить выбранные",
+                            if (selectedIds.isEmpty()) stringResource(R.string.clear_assignments_autoplan) else stringResource(R.string.assign_selected),
                             color = Color.Red,
                             fontWeight = FontWeight.Bold
                         )
@@ -628,12 +640,12 @@ fun UserListScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                placeholder = { Text("Поиск пользователя...", color = Color.Gray) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Поиск", tint = Color.Gray) },
+                placeholder = { Text(stringResource(R.string.search_user_hint), color = Color.Gray) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search_action), tint = Color.Gray) },
                 trailingIcon = if (searchQuery.isNotEmpty()) {
                     {
                         IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Очистить", tint = Color.Gray)
+                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear_action), tint = Color.Gray)
                         }
                     }
                 } else null,
@@ -650,7 +662,7 @@ fun UserListScreen(
         if (filteredUsers.isEmpty()) {
             Log.d("ChatScreen", "User list is empty in UI")
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Text(text = if (searchQuery.isNotBlank()) "Пользователь не найден" else "Тут скоро будет чат", color = Color.Gray)
+                Text(text = if (searchQuery.isNotBlank()) stringResource(R.string.user_not_found) else stringResource(R.string.chat_coming_soon), color = Color.Gray)
             }
         } else {
             Log.d("ChatScreen", "Displaying ${filteredUsers.size} users")
@@ -717,7 +729,7 @@ fun UserListScreen(
                                             .diskCachePolicy(coil.request.CachePolicy.ENABLED)
                                             .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
                                             .build(),
-                                        contentDescription = "Avatar",
+                                        contentDescription = stringResource(R.string.cd_avatar),
                                         modifier = Modifier.size(40.dp).clip(CircleShape),
                                         contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                                         error = rememberVectorPainter(Icons.Default.Person),
@@ -750,8 +762,11 @@ fun UserListScreen(
                                     )
                                     if (!isTargetAdmin) {
                                         val lastSeenText = if (user.lastSeen != null && user.lastSeen > 0) {
-                                            val sdf = SimpleDateFormat("dd.MM HH:mm", LocalConfiguration.current.locales[0])
-                                            "был(а) в сети ${sdf.format(Date(user.lastSeen))}"
+                                            val sdf = SimpleDateFormat(
+                                                "dd.MM HH:mm",
+                                                LocalContext.current.resources.configuration.locales[0]
+                                            )
+                                            stringResource(R.string.last_seen_at, sdf.format(Date(user.lastSeen)))
                                         } else {
                                             user.email
                                         }
@@ -775,7 +790,7 @@ fun UserListScreen(
                                         Text(if (unreadCount > 99) "99+" else "$unreadCount")
                                     }
                                     Text(
-                                        "НОВОЕ", 
+                                        stringResource(R.string.new_badge), 
                                         color = Color.Yellow, 
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.ExtraBold,
@@ -789,7 +804,7 @@ fun UserListScreen(
                                     IconButton(onClick = { onEditUser(user) }) {
                                         Icon(
                                             imageVector = Icons.Default.Settings, 
-                                            contentDescription = "Edit Profile", 
+                                            contentDescription = stringResource(R.string.cd_edit_profile), 
                                             tint = Color.Gray, 
                                             modifier = Modifier.size(24.dp)
                                         )
@@ -797,7 +812,7 @@ fun UserListScreen(
                                     IconButton(onClick = { userToDelete = user }) {
                                         Icon(
                                             imageVector = Icons.Default.Delete, 
-                                            contentDescription = "Delete User", 
+                                            contentDescription = stringResource(R.string.cd_delete_user), 
                                             tint = Color.Red.copy(alpha = 0.7f), 
                                             modifier = Modifier.size(24.dp)
                                         )
@@ -885,7 +900,7 @@ fun ConversationScreen(
         ) {
             if (showBackButton) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back), tint = Color.White)
                 }
             }
             
@@ -912,7 +927,7 @@ fun ConversationScreen(
 
             // Кнопка удаления чата справа
             IconButton(onClick = { showDeleteConfirm = true }) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete Chat", tint = Color.Red.copy(alpha = 0.8f))
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_delete_chat), tint = Color.Red.copy(alpha = 0.8f))
             }
         }
         
@@ -942,7 +957,7 @@ fun ConversationScreen(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 IconButton(onClick = { mediaPickerLauncher.launch("*/*") }) {
-                    Icon(Icons.Default.AttachFile, "Attach Media", tint = Color.Gray)
+                    Icon(Icons.Default.AttachFile, stringResource(R.string.cd_attach_media), tint = Color.Gray)
                 }
 
                 TextField(
@@ -974,7 +989,7 @@ fun ConversationScreen(
                         disabledContentColor = Color.Gray
                     )
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.cd_send))
                 }
             }
         }

@@ -14,9 +14,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.business.gym_app.data.api.LocalUser
+import com.business.gym_app.R
 import com.business.gym_app.data.api.NewsApiService
 import com.business.gym_app.receiver.ChatAlarmReceiver
 import com.business.gym_app.service.ChatForegroundService
+import com.business.gym_app.util.AppLanguage
 import com.business.gym_app.util.AuthUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -83,6 +85,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     val isSessionLoaded: State<Boolean> = _isSessionLoaded
 
     private val localApiService get() = NewsApiService.create(getApplication())
+
+    /**
+     * Ресурсы в выбранной локали приложения. ViewModel получает Application-контекст,
+     * который не пересоздается при смене языка, поэтому локаль берем через AppLanguage.
+     */
+    private val res: android.content.res.Resources
+        get() = AppLanguage.localized(getApplication()).resources
 
     companion object {
         const val ADMIN_EMAIL = AuthUtils.ADMIN_EMAIL
@@ -204,7 +213,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val passToUse = _password.value
         
         if (emailToUse.isBlank() || passToUse.isBlank()) {
-            _error.value = "Нет сохраненных данных для входа по биометрии. Войдите по паролю."
+            _error.value = res.getString(R.string.biometric_no_saved_data)
             return
         }
         signInWithEmail(onSuccess)
@@ -281,6 +290,17 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         if (uid != null) _currentUid.value = uid
         
         Log.d("AuthViewModel", "Session updated in memory: email=$email, role=$role")
+
+        // После входа сразу планируем фоновую проверку сообщений: иначе уведомления
+        // придут только после следующего запуска приложения.
+        if (token != "guest_token") {
+            try {
+                ChatAlarmReceiver.schedule(context)
+                com.business.gym_app.service.ChatCheckWorker.schedule(context)
+            } catch (e: Exception) {
+                Log.w("AuthViewModel", "Failed to schedule chat checks: ${e.message}")
+            }
+        }
     }
 
     fun clearSession(context: Context) {
@@ -369,7 +389,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val passwordValue = _password.value
 
         if (identifier.isBlank() || passwordValue.isBlank()) {
-            _error.value = "Заполните все поля"
+            _error.value = res.getString(R.string.fill_all_fields)
             return
         }
         _isLoading.value = true
@@ -395,7 +415,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     
                     if (profileUid.isBlank()) {
                         _isLoading.value = false
-                        _error.value = "Ошибка: ID пользователя не получен с сервера."
+                        _error.value = res.getString(R.string.user_id_not_received)
                         return@launch
                     }
                     
@@ -473,12 +493,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 
                 if (e is retrofit2.HttpException) {
                     when (e.code()) {
-                        401, 404 -> _error.value = "Неверный логин или пароль"
-                        403 -> _error.value = "Доступ заблокирован"
-                        else -> _error.value = "Ошибка сервера: ${e.code()}"
+                        401, 404 -> _error.value = res.getString(R.string.invalid_login_or_password)
+                        403 -> _error.value = res.getString(R.string.access_blocked)
+                        else -> _error.value = res.getString(R.string.server_error_code, e.code())
                     }
                 } else {
-                    _error.value = "Ошибка входа: проверьте интернет"
+                    _error.value = res.getString(R.string.login_error_check_internet)
                 }
             }
         }
@@ -493,7 +513,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val isEmail = _authMode.value == "email"
         val target = if (isEmail) _otpEmail.value.trim().lowercase() else _otpPhone.value.trim()
         if (target.isBlank()) {
-            _error.value = "Введите данные"
+            _error.value = res.getString(R.string.enter_data)
             return
         }
         _isLoading.value = true
@@ -502,18 +522,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 if (isEmail) localApiService.requestOtp(email = target)
                 else localApiService.requestOtp(phone = target)
                 _isLoading.value = false
-                _error.value = "Код отправлен!"
+                _error.value = res.getString(R.string.auth_otp_sent)
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "OTP request failed", e)
                 _isLoading.value = false
-                _error.value = "Ошибка отправки кода."
+                _error.value = res.getString(R.string.send_code_error)
             }
         }
     }
 
     fun verifyOtp(context: Context, onSuccess: (String) -> Unit) {
         if (_otpCode.value.isBlank()) {
-            _error.value = "Введите код"
+            _error.value = res.getString(R.string.auth_enter_code)
             return
         }
         _isLoading.value = true
@@ -541,7 +561,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
                     if (profileUid.isBlank()) {
                         _isLoading.value = false
-                        _error.value = "Ошибка: ID пользователя не получен с сервера."
+                        _error.value = res.getString(R.string.user_id_not_received)
                         return@launch
                     }
 
@@ -590,7 +610,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         onSuccess(target ?: "")
                     } else {
                         _isLoading.value = false
-                        _error.value = "Ошибка проверки профиля. Возможно, аккаунт удален или не подтвержден."
+                        _error.value = res.getString(R.string.profile_check_error)
                     }
                 }
             } catch (e: Exception) {
@@ -599,12 +619,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 
                 if (e is retrofit2.HttpException) {
                     when (e.code()) {
-                        401, 404 -> _error.value = "Такого пользователя не существует или он был удален"
-                        403 -> _error.value = "Ошибка кода или пользователь заблокирован"
-                        else -> _error.value = "Ошибка сервера: ${e.code()}"
+                        401, 404 -> _error.value = res.getString(R.string.user_not_exists_or_deleted)
+                        403 -> _error.value = res.getString(R.string.code_error_or_user_blocked)
+                        else -> _error.value = res.getString(R.string.server_error_code, e.code())
                     }
                 } else {
-                    _error.value = "Неверный код или ошибка связи"
+                    _error.value = res.getString(R.string.invalid_code_or_network_error)
                 }
             }
         }
@@ -618,24 +638,24 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         
         // 1. Базовая валидация пустых полей
         if (emailValue.isBlank() || phoneValue.isBlank() || passwordValue.isBlank()) {
-            _error.value = "Заполните все поля"
+            _error.value = res.getString(R.string.fill_all_fields)
             return
         }
         
         // 2. Валидация формата Email
         if (!android.util.Patterns.EMAIL_ADDRESS.matcher(emailValue).matches()) {
-            _error.value = "Неверный формат Email"
+            _error.value = res.getString(R.string.invalid_email_format)
             return
         }
 
         // 3. Валидация длины пароля (например, минимум 6 символов)
         if (passwordValue.length < 6) {
-            _error.value = "Пароль должен быть не менее 6 символов"
+            _error.value = res.getString(R.string.password_min_length)
             return
         }
 
         if (passwordValue != confirmValue) {
-            _error.value = "Пароли не совпадают"
+            _error.value = res.getString(R.string.passwords_do_not_match)
             return
         }
 
@@ -646,19 +666,19 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 saveCredentials(emailValue, passwordValue, "email")
                 _isLoading.value = false
                 _isLogin.value = true
-                _error.value = "Заявка отправлена!"
+                _error.value = res.getString(R.string.application_sent)
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Reg error", e)
                 _isLoading.value = false
                 
                 if (e is retrofit2.HttpException) {
                     when (e.code()) {
-                        409 -> _error.value = "Пользователь с таким Email уже зарегистрирован"
-                        400 -> _error.value = "Ошибка в данных. Проверьте правильность заполнения"
-                        else -> _error.value = "Ошибка сервера: ${e.code()}"
+                        409 -> _error.value = res.getString(R.string.email_already_registered)
+                        400 -> _error.value = res.getString(R.string.registration_data_error)
+                        else -> _error.value = res.getString(R.string.server_error_code, e.code())
                     }
                 } else {
-                    _error.value = "Ошибка регистрации. Проверьте соединение"
+                    _error.value = res.getString(R.string.registration_connection_error)
                 }
             }
         }
@@ -831,7 +851,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 fetchPendingUsers()
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Make admin critical failure", e)
-                val errorMessage = e.message ?: "неизвестная ошибка"
+                val errorMessage = e.message ?: res.getString(R.string.unknown_error)
                 withContext(Dispatchers.Main) {
                     Toast.makeText(getApplication<Application>(), getApplication<Application>().getString(com.business.gym_app.R.string.server_error, errorMessage), Toast.LENGTH_LONG).show()
                 }

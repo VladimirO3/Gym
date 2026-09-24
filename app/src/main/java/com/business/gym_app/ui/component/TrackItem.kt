@@ -14,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.business.gym_app.R
 import com.business.gym_app.data.model.Track
 
 /**
@@ -50,7 +52,7 @@ fun TrackItem(
             IconButton(onClick = onPlayPause) {
                 Icon(
                     imageVector = if (isSelected && isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    contentDescription = stringResource(if (isPlaying) R.string.cd_pause else R.string.cd_play),
                     // Адаптивный цвет иконки: красный для выбора, иначе системный
                     tint = if (isSelected) Color.Red else MaterialTheme.colorScheme.onBackground
                 )
@@ -60,7 +62,7 @@ fun TrackItem(
                 IconButton(onClick = onStop) {
                     Icon(
                         imageVector = Icons.Default.Stop,
-                        contentDescription = "Stop",
+                        contentDescription = stringResource(R.string.cd_stop),
                         tint = Color.Red
                     )
                 }
@@ -83,7 +85,7 @@ fun TrackItem(
                 IconButton(onClick = onDelete) {
                     Icon(
                         imageVector = Icons.Default.Delete, 
-                        contentDescription = "Delete Track", 
+                        contentDescription = stringResource(R.string.cd_delete_track), 
                         tint = MaterialTheme.colorScheme.error
                     )
                 }

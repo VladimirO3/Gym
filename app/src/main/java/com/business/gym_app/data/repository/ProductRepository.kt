@@ -29,12 +29,13 @@ class ProductRepository(
                 Log.d("ProductRepository", "Received ${response.size} products from server")
             }
 
+            val untitled = AppLanguage.localized(context).getString(com.business.gym_app.R.string.untitled)
             val entities = response.mapNotNull { product ->
                 Log.d("ProductRepository", "Mapping product: ID=${product.id}, Name=${product.name}, Price=${product.price}, Image=${product.imageUrl}")
                 val safeId = product.id?.toString() ?: return@mapNotNull null
                 ProductEntity(
                     safeId,
-                    product.name ?: "Без названия",
+                    product.name ?: untitled,
                     product.price ?: "0 ₽",
                     product.description ?: "",
                     product.imageUrl ?: ""

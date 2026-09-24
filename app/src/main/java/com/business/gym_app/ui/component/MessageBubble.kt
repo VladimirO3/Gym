@@ -20,6 +20,8 @@ import com.business.gym_app.util.AuthUtils
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import com.business.gym_app.R
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
@@ -55,8 +57,8 @@ fun MessageBubble(message: ChatMessage, currentUid: String, currentUserEmail: St
 
     val label = when {
         message.senderName.isNotBlank() -> message.senderName
-        isSenderAdmin -> "Администратор"
-        else -> "Пользователь"
+        isSenderAdmin -> stringResource(R.string.chat_administrator)
+        else -> stringResource(R.string.chat_user_role)
     }
     // Подсветка имени: красный для админа, голубой для пользователя
     val labelColor = if (isSenderAdmin) Color.Red else Color.Cyan
@@ -69,7 +71,7 @@ fun MessageBubble(message: ChatMessage, currentUid: String, currentUserEmail: St
     ) {
         // Подпись роли отправителя
         Text(
-            text = if (isMe) "$label (Вы)" else label,
+            text = if (isMe) stringResource(R.string.sender_you_suffix, label) else label,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = if (isMe) Color.White.copy(alpha = 0.7f) else labelColor,
@@ -117,9 +119,10 @@ fun MessageBubble(message: ChatMessage, currentUid: String, currentUserEmail: St
                                     .diskCachePolicy(coil.request.CachePolicy.ENABLED)
                                     .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
                                     .build(),
-                                contentDescription = "Image",
+                                contentDescription = stringResource(R.string.cd_image),
                                 modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
+                                // Fit: фото из сообщения показывается целиком, без обрезки краёв
+                                contentScale = ContentScale.Fit
                             )
                         }
                     }
@@ -143,7 +146,7 @@ fun MessageBubble(message: ChatMessage, currentUid: String, currentUserEmail: St
                                             .diskCachePolicy(coil.request.CachePolicy.ENABLED)
                                             .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
                                             .build(),
-                                        contentDescription = "Full Image",
+                                        contentDescription = stringResource(R.string.cd_full_image),
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Fit
                                     )

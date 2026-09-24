@@ -45,7 +45,7 @@ fun VideoPlayer(
             modifier = modifier.background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
-            Text(if (fullUrl.isBlank()) "No Video URL" else "Video Player Placeholder", color = Color.White)
+            Text(if (fullUrl.isBlank()) stringResource(R.string.video_no_url) else stringResource(R.string.video_player_placeholder), color = Color.White)
         }
         return
     }
@@ -159,7 +159,7 @@ fun VideoPlayer(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = "Enable Sound",
+                    contentDescription = stringResource(R.string.cd_enable_sound),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -195,7 +195,7 @@ fun VideoPlayer(
                         contentColor = Color.White
                     )
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close Full Screen")
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_close_fullscreen))
                 }
             }
         }
@@ -290,7 +290,7 @@ private fun VideoPlayerContent(
                     contentColor = Color.White
                 )
             ) {
-                Icon(Icons.Default.Fullscreen, contentDescription = "Full Screen")
+                Icon(Icons.Default.Fullscreen, contentDescription = stringResource(R.string.cd_fullscreen))
             }
         }
     }

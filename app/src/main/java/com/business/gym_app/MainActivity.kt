@@ -132,6 +132,10 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (!isGranted) {
                 Toast.makeText(this, getString(R.string.notifications_disabled), Toast.LENGTH_SHORT).show()
+                // После отказа системный диалог больше не показывается — уведомления о
+                // сообщениях не придут. Открываем настройки приложения, чтобы пользователь
+                // мог включить их вручную.
+                com.business.gym_app.util.NotificationHelper.openNotificationSettings(this)
             }
         }
     // 1. Объявляем клиент как свойство класса
@@ -213,6 +217,14 @@ class MainActivity : AppCompatActivity() {
                 // AndroidComposeView.onAttachedToWindow -> IllegalStateException.
                 LaunchedEffect(jwtToken) {
                     if (jwtToken != null && jwtToken != "guest_token") {
+                        // Периодический воркер — запасной канал проверки сообщений:
+                        // планируем его ДО старта сервиса, потому что старт FGS из фона
+                        // запрещен на Android 12+, а именно сервис и планировал воркер.
+                        try {
+                            com.business.gym_app.service.ChatCheckWorker.schedule(context)
+                        } catch (e: Exception) {
+                            android.util.Log.w("MainActivity", "ChatCheckWorker schedule failed", e)
+                        }
                         try {
                             ChatAlarmReceiver.schedule(context)
                             val serviceIntent = Intent(context, ChatForegroundService::class.java)
@@ -284,6 +296,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val navigationRequest = mutableStateOf<Pair<String, String?>?>(null)
+
+    /**
+     * Повторный запрос POST_NOTIFICATIONS при возврате в приложение.
+     *
+     * Разрешение запрашивалось один раз на splash: если пользователь его отклонил
+     * или системный диалог не успел показаться, уведомления о сообщениях не приходят
+     * до переустановки приложения. Здесь повторяем запрос, пока система это разрешает
+     * (после двух отказов Android блокирует диалог — тогда остаются настройки).
+     */
+    override fun onResume() {
+        super.onResume()
+        com.business.gym_app.util.NotificationHelper.ensureChannels(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !com.business.gym_app.util.NotificationHelper.areNotificationsEnabled(this) &&
+            shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)
+        ) {
+            try {
+                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Notification permission re-request skipped", e)
+            }
+        }
+    }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
@@ -796,7 +831,7 @@ fun GymAppContent(
                                 IconButton(onClick = { showAuthOverlay = false }, modifier = Modifier
                                     .align(Alignment.TopEnd)
                                     .padding(16.dp)) {
-                                    Icon(Icons.Default.Clear, "Закрыть", tint = Color.Red)
+                                    Icon(Icons.Default.Clear, stringResource(R.string.close), tint = Color.Red)
                                 }
                             }
                         }

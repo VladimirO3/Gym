@@ -161,6 +161,9 @@ fun PlaylistScreen(
     }
 
     // Synchronize currentTrack and isPlaying with player state
+    // Название для трека без метаданных поднимаем в composable-область:
+    // stringResource нельзя вызывать внутри LaunchedEffect/слушателя плеера.
+    val unknownTrackName = stringResource(R.string.playlist_unknown_track)
     LaunchedEffect(player, localTracks) {
         isPlaying = player.isPlaying
         currentTrackIndex = player.currentMediaItemIndex
@@ -172,7 +175,7 @@ fun PlaylistScreen(
                 Track(id = it.id.toString(), url = fullUrl, name = it.name.orEmpty())
             }
             currentTrack = allTracks.find { it.url == url } 
-                ?: Track(id = "remote", url = url, name = mediaItem.mediaMetadata.title?.toString() ?: "Неизвестный трек")
+                ?: Track(id = "remote", url = url, name = mediaItem.mediaMetadata.title?.toString() ?: unknownTrackName)
         }
     }
 
@@ -192,7 +195,7 @@ fun PlaylistScreen(
                     }
                     // Синхронизируем currentTrack с тем, что реально играет в плеере для подсветки
                     currentTrack = allTracksList.find { it.url == url }
-                        ?: Track(id = "sync", url = url, name = mediaItem.mediaMetadata.title?.toString() ?: "Неизвестный трек")
+                        ?: Track(id = "sync", url = url, name = mediaItem.mediaMetadata.title?.toString() ?: unknownTrackName)
                 } else {
                     currentTrack = null
                 }
@@ -238,7 +241,7 @@ fun PlaylistScreen(
                         colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF8B0000))
                     ) {
                         if (isUploading) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
-                        else Icon(Icons.Default.CloudUpload, contentDescription = "Загрузить на сервер", tint = Color.White)
+                        else Icon(Icons.Default.CloudUpload, contentDescription = stringResource(R.string.upload_to_server), tint = Color.White)
                     }
                 }
             }
@@ -368,7 +371,7 @@ fun PlaylistScreen(
                                 }, modifier = Modifier.size(36.dp)) {
                                     Icon(
                                         Icons.Default.Shuffle, 
-                                        contentDescription = "Shuffle", 
+                                        contentDescription = stringResource(R.string.cd_shuffle), 
                                         tint = if (isShuffleMode) Color.Red else Color.Gray,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -449,7 +452,7 @@ fun PlaylistScreen(
                             }) {
                                 Icon(
                                     Icons.Default.Shuffle, 
-                                    contentDescription = "Shuffle", 
+                                    contentDescription = stringResource(R.string.cd_shuffle), 
                                     tint = if (isShuffleMode) Color.Red else Color.Gray
                                 )
                             }

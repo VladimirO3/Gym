@@ -15,12 +15,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.business.gym_app.R
 import com.business.gym_app.data.model.NewsItem
+import com.business.gym_app.util.AppLanguage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -43,9 +46,10 @@ fun NewsMediaItem(
     // Считаем текстовой новостью, если URL пустой ИЛИ содержит заглушку /uploads/
     val isTextOnly = item.url.isNullOrBlank() || item.url.endsWith("/uploads/") || item.url == "/uploads"
     
-    val dateText = remember(item.timestamp) {
+    val dateLocale = AppLanguage.locale(LocalContext.current)
+    val dateText = remember(item.timestamp, dateLocale) {
         if (item.timestamp > 0) {
-            val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("ru"))
+            val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", dateLocale)
             sdf.format(Date(item.timestamp))
         } else ""
     }
@@ -133,7 +137,7 @@ fun NewsMediaItem(
                                     .diskCachePolicy(coil.request.CachePolicy.ENABLED)
                                     .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
                                     .build(),
-                                contentDescription = "News Image",
+                                contentDescription = stringResource(R.string.cd_news_image),
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit
                             )
@@ -249,7 +253,7 @@ fun NewsMediaItem(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit, 
-                            contentDescription = "Edit Content",
+                            contentDescription = stringResource(R.string.cd_edit_content),
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
@@ -266,7 +270,7 @@ fun NewsMediaItem(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete, 
-                            contentDescription = "Delete Content",
+                            contentDescription = stringResource(R.string.cd_delete_content),
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )

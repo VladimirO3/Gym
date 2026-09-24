@@ -20,8 +20,16 @@ class ChatCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
     override suspend fun doWork(): Result {
         if (ChatUnreadNotifier.sessionToken(applicationContext) == null) return Result.success()
-        ChatUnreadNotifier.check(applicationContext)
-        return Result.success()
+        // Планируем следующую проверку и из воркера: цепочка alarm могла оборваться
+        // (процесс убит, разрешение на точные будильники отозвано).
+        com.business.gym_app.receiver.ChatAlarmReceiver.schedule(applicationContext)
+        return try {
+            ChatUnreadNotifier.check(applicationContext)
+            Result.success()
+        } catch (e: Exception) {
+            android.util.Log.w("ChatCheckWorker", "Unread check failed, will retry: ${e.message}")
+            if (runAttemptCount < 3) Result.retry() else Result.success()
+        }
     }
 
     companion object {

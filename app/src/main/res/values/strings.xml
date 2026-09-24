@@ -272,4 +272,175 @@
     <string name="program_assignments_cleared">Assignments removed; the automatic program will be restored</string>
     <string name="program_assigned_count">Programs assigned: %1$d</string>
     <string name="program_delete_server_error">Failed to delete the program on the server</string>
+
+    <!-- ============================================================ -->
+    <!-- Strings moved out of Kotlin code (full app localization)     -->
+    <!-- ============================================================ -->
+
+    <!-- Biometric login -->
+    <string name="fingerprint_face">Fingerprint / Face</string>
+    <string name="biometric_login_enabled">Biometric login enabled</string>
+    <string name="biometric_login_disabled">Biometric login disabled</string>
+    <string name="biometric_prompt_title">Sign in to Gym</string>
+    <string name="biometric_prompt_subtitle">Confirm your identity with a fingerprint or face</string>
+    <string name="biometric_not_recognized">Biometrics did not match</string>
+    <string name="biometric_login_button">Sign in with fingerprint / face</string>
+    <string name="biometric_no_saved_data">No saved data for biometric login. Please sign in with your password.</string>
+
+    <!-- Notifications & background mode -->
+    <string name="notifications_background_title">Notifications and background mode</string>
+    <string name="notifications_allowed">Notifications allowed</string>
+    <string name="notifications_blocked_hint">Notifications are off — messages will not arrive until the permission is granted</string>
+    <string name="notifications_autostart_hint">For uninterrupted message delivery while the app is closed (especially on Xiaomi, Samsung and Huawei devices) we recommend enabling «Autostart» and disabling «Battery saving» in your phone settings.</string>
+    <string name="notifications_turned_on">Notifications enabled</string>
+    <string name="notifications_still_off">Notifications are still disabled</string>
+    <string name="enable_notifications">Enable notifications</string>
+    <string name="configure_autostart">Configure autostart</string>
+    <string name="notifications_settings_hint">If notifications do not arrive: open the system notification settings for the app and make sure they are enabled.</string>
+    <string name="chat_connection_channel">Chat connection</string>
+    <string name="chat_connection_channel_desc">Background connection for instant message delivery</string>
+    <string name="notifications_channel_name">Gym App Notifications</string>
+    <string name="notifications_channel_desc">Notifications for chat messages and errors</string>
+    <string name="chat_connected">Chat connected</string>
+    <string name="new_messages_count">You have %1$d new messages</string>
+    <string name="system_security">SECURITY SYSTEM</string>
+    <string name="chat_connection_error">Chat connection error</string>
+    <string name="new_message">New message</string>
+    <!-- Admin workout programs -->
+    <string name="workout_limit_reached">Limit exceeded: you can create no more than 20 workout programs</string>
+    <string name="workout_title_required">Enter the workout title</string>
+    <string name="workout_exercise_required">Add at least one exercise</string>
+    <string name="workout_exercise_limit">Limit exceeded: no more than 20 exercises in one workout</string>
+    <string name="workout_saved_offline">No server connection: the program is saved on the device and will be sent later</string>
+    <string name="workout_delete_dialog_title">Delete program</string>
+    <string name="workout_delete_dialog_message">Delete the workout program \"%1$s\"?</string>
+    <string name="workout_programs_admin">Workout programs (Admin)</string>
+    <string name="workout_created_count">Created: %1$d / 20</string>
+    <string name="create_program">Create program</string>
+    <string name="no_workouts_created">No workout programs created yet</string>
+    <string name="exercises_count">Exercises: %1$d / 20</string>
+    <string name="edit_action">Edit</string>
+    <string name="create_workout_program">Create workout program</string>
+    <string name="edit_workout_program">Edit program</string>
+    <string name="workout_step_title">1. Workout type title</string>
+    <string name="workout_name_label">Workout name (e.g. Strength: Legs)</string>
+    <string name="workout_step_cover">2. Workout cover (photo)</string>
+    <string name="upload_cover">Upload cover</string>
+    <string name="change_cover">Change cover</string>
+    <string name="workout_step_exercises">3. Exercises (%1$d / 20)</string>
+    <string name="new_exercise">New exercise</string>
+    <string name="new_exercise_desc">3 sets of 10 reps</string>
+    <string name="add_exercise_hint">Tap «+» above to add an exercise</string>
+    <string name="exercise_number">Exercise #%1$d</string>
+    <string name="exercise_name_label">Exercise title / name</string>
+    <string name="exercise_desc_label">Description (e.g. 4 sets of 10 reps)</string>
+    <string name="upload_photo_optional">Upload photo (optional)</string>
+    <string name="change_photo_action">Change photo</string>
+    <string name="workout_title_empty_error">Enter a title for the workout type</string>
+    <string name="workout_max_exercises_error">Maximum 20 exercises</string>
+    <string name="save_program">Save program</string>
+    <string name="workout_cover">Workout cover</string>
+    <string name="exercise_photo">Exercise photo</string>
+
+    <!-- Password -->
+    <string name="fill_all_fields">Fill in all fields</string>
+    <string name="new_password_min_length">The new password must be at least 6 characters</string>
+    <string name="passwords_do_not_match">Passwords do not match</string>
+    <string name="password_min_length">Password must be at least 6 characters</string>
+    <string name="password_change_error">Password change error. Check that the current password is correct.</string>
+    <string name="password_change_server_error">Server error while changing the password</string>
+    <!-- Auth messages -->
+    <string name="enter_data">Enter your details</string>
+    <string name="invalid_login_or_password">Invalid login or password</string>
+    <string name="access_blocked">Access blocked</string>
+    <string name="login_error_check_internet">Login error: check your internet connection</string>
+    <string name="user_id_not_received">Error: the user ID was not received from the server.</string>
+    <string name="send_code_error">Error sending the code.</string>
+    <string name="profile_check_error">Profile check error. The account may have been deleted or not approved.</string>
+    <string name="user_not_exists_or_deleted">This user does not exist or has been deleted</string>
+    <string name="code_error_or_user_blocked">Code error or the user is blocked</string>
+    <string name="invalid_code_or_network_error">Invalid code or connection error</string>
+    <string name="invalid_email_format">Invalid email format</string>
+    <string name="request_sent">Request sent!</string>
+    <string name="email_already_registered">A user with this email is already registered</string>
+    <string name="registration_data_error">Error in the data. Check that the fields are filled in correctly</string>
+    <string name="registration_connection_error">Registration error. Check your connection</string>
+    <string name="unknown_error">unknown error</string>
+    <string name="server_error_code">Server error: %1$d</string>
+    <string name="application_sent">Application sent!</string>
+    <string name="privacy_accepted">You have accepted the terms of use</string>
+
+    <!-- Auth screen -->
+    <string name="privacy_accept_prefix">I accept the </string>
+    <string name="privacy_accept_link">terms of the agreement on electronic interaction and services</string>
+    <string name="e_agreement_title">Agreement on electronic interaction</string>
+
+    <!-- Chat -->
+    <string name="user_profile_title">User profile</string>
+    <string name="add_program">Add program</string>
+    <string name="delete_program">Delete program</string>
+    <string name="edit_programs">Edit programs</string>
+    <string name="no_programs_available">No programs available</string>
+    <string name="clear_assignments_autoplan">Clear assignments / Auto plan</string>
+    <string name="assign_selected">Assign selected</string>
+    <string name="search_user_hint">Search user…</string>
+    <string name="search_action">Search</string>
+    <string name="clear_action">Clear</string>
+    <string name="user_not_found">User not found</string>
+    <string name="chat_coming_soon">The chat will appear here soon</string>
+    <string name="last_seen_at">last seen %1$s</string>
+    <string name="new_badge">NEW</string>
+    <string name="sender_you_suffix">%1$s (You)</string>
+
+    <!-- Electronic services agreement -->
+    <string name="agreement_dialog_text" translatable="false">1. SUBJECT OF THE AGREEMENT\nThis Agreement defines the terms of use of the electronic services of the GYM ABS application.\n\n2. ELECTRONIC INTERACTION\nThe User agrees to receive notifications, messages and information electronically through the application or via the contact details provided at registration.\n\n3. PERSONAL DATA\nBy registering in the application, the User consents to the processing of their personal data required for the operation of the services.\n\n4. USER OBLIGATIONS\nThe User undertakes to provide accurate information and not to use the services for unlawful purposes.\n\n5. LIABILITY\nThe administration of the application is not liable for temporary technical failures caused by external factors or actions of third parties.\n\n6. CHANGES TO THE TERMS\nThe administration reserves the right to change the terms of this Agreement, notifying users accordingly.</string>
+    <string name="chat_administrator">Administrator</string>
+    <string name="chat_user_role">User</string>
+    <!-- Playlist / misc -->
+    <string name="upload_to_server">Upload to server</string>
+    <string name="permission_denied">Permission denied</string>
+    <string name="untitled">Untitled</string>
+    <string name="video_no_url">No video URL</string>
+    <string name="video_player_placeholder">Video player placeholder</string>
+    <string name="server_not_available">Server not available</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_toggle_editor">Toggle editor</string>
+    <string name="cd_price_list_1">Price list 1</string>
+    <string name="cd_price_list_2">Price list 2</string>
+    <string name="cd_refresh_coaches">Refresh coaches</string>
+    <string name="cd_add_coach">Add coach</string>
+    <string name="cd_avatar">Avatar</string>
+    <string name="cd_close">Close</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_delete_chat">Delete chat</string>
+    <string name="cd_attach_media">Attach media</string>
+    <string name="cd_send">Send</string>
+    <string name="cd_edit_profile">Edit profile</string>
+    <string name="cd_delete_user">Delete user</string>
+    <string name="cd_shuffle">Shuffle</string>
+    <string name="cd_stop">Stop</string>
+    <string name="cd_delete_track">Delete track</string>
+    <string name="cd_add_content">Add content</string>
+    <string name="cd_edit_content">Edit content</string>
+    <string name="cd_delete_content">Delete content</string>
+    <string name="cd_news_image">News image</string>
+    <string name="cd_image">Image</string>
+    <string name="cd_full_image">Full image</string>
+    <string name="cd_enable_sound">Enable sound</string>
+    <string name="cd_close_fullscreen">Close full screen</string>
+    <string name="cd_fullscreen">Full screen</string>
+    <string name="cd_logo">Logo</string>
+    <string name="cd_server_settings">Server settings</string>
+    <string name="cd_add_product">Add product</string>
+    <string name="cd_cover">Cover</string>
+    <string name="cd_preview">Preview</string>
+    <string name="cd_play">Play</string>
+    <string name="cd_pause">Pause</string>
+    <string name="cd_message_image">Message image</string>
+    <string name="cd_tutorial">Tutorial</string>
+    <string name="cd_workout_cover">Workout cover</string>
+    <string name="cd_exercise_photo">Exercise photo</string>
+
+    <string name="cd_cart">Cart</string>
 </resources>

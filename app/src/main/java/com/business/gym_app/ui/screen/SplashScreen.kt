@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,7 +61,7 @@ fun SplashScreen(onFinished: () -> Unit) {
             // Логотип с анимацией масштаба
             AsyncImage(
                 model = R.mipmap.ic_launcher_background,
-                contentDescription = "Logo",
+                contentDescription = stringResource(R.string.cd_logo),
                 modifier = Modifier
                     .size(180.dp)
                     .scale(scaleAnim)

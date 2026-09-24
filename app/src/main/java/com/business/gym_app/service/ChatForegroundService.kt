@@ -11,7 +11,9 @@ import androidx.core.app.NotificationCompat
 import com.business.gym_app.R
 import com.business.gym_app.data.api.NewsApiService
 import com.business.gym_app.receiver.ChatAlarmReceiver
+import com.business.gym_app.util.AppLanguage
 import com.business.gym_app.util.ChatUnreadNotifier
+import com.business.gym_app.util.NotificationHelper
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.websocket.WebSockets
@@ -135,26 +137,27 @@ class ChatForegroundService : Service() {
         checkRequests.trySend(Unit)
     }
 
-    private fun foregroundNotification(): Notification =
-        NotificationCompat.Builder(this, SERVICE_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_background)
+    private fun foregroundNotification(): Notification {
+        val res = AppLanguage.localized(this).resources
+        return NotificationCompat.Builder(this, SERVICE_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_gym_logo_white)
+            .apply {
+                runCatching {
+                    android.graphics.BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher_background)
+                }.getOrNull()?.let { setLargeIcon(it) }
+            }
             .setContentTitle("Gym")
-            .setContentText("Чат подключен")
+            .setContentText(res.getString(R.string.chat_connected))
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
+    }
 
     private fun createChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Отдельный тихий канал для постоянного уведомления сервиса.
-            // Сами сообщения показываются через NotificationHelper (канал с высоким приоритетом).
-            getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(
-                    SERVICE_CHANNEL_ID, "Подключение чата", NotificationManager.IMPORTANCE_LOW
-                )
-            )
-        }
+        // Оба канала (тихий канал сервиса и канал сообщений с высоким приоритетом)
+        // создаются в NotificationHelper: сервис может поднять процесс без Activity.
+        NotificationHelper.ensureChannels(this)
     }
 
     private fun sessionToken(): String? = ChatUnreadNotifier.sessionToken(this)
@@ -176,6 +179,12 @@ class ChatForegroundService : Service() {
      */
     override fun onTimeout(startId: Int, fgsType: Int) {
         android.util.Log.w(TAG, "Foreground service time limit reached, stopping")
+        // Останавливаемся, но оставляем запасные каналы проверки сообщений,
+        // иначе после лимита уведомления перестанут приходить совсем.
+        if (hasToken()) {
+            ChatAlarmReceiver.schedule(applicationContext)
+            ChatCheckWorker.schedule(applicationContext)
+        }
         stopSelf()
     }
 

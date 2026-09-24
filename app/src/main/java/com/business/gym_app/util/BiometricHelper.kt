@@ -5,6 +5,7 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import com.business.gym_app.R
 
 object BiometricHelper {
     private const val PREFS_NAME = "biometric_prefs"
@@ -37,15 +38,23 @@ object BiometricHelper {
 
     /**
      * Показывает системный диалог аутентификации по биометрии (отпечаток пальца / лицо).
+     *
+     * Тексты диалога берутся из ресурсов в выбранной локали приложения, поэтому
+     * системный prompt переключается вместе с остальным интерфейсом.
      */
     fun showBiometricPrompt(
         activity: FragmentActivity,
-        title: String = "Вход в Gym",
-        subtitle: String = "Подтвердите личность отпечатком пальца или лицом",
-        negativeButtonText: String = "Отмена",
+        title: String? = null,
+        subtitle: String? = null,
+        negativeButtonText: String? = null,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
+        val res = AppLanguage.localized(activity).resources
+        val promptTitle = title ?: res.getString(R.string.biometric_prompt_title)
+        val promptSubtitle = subtitle ?: res.getString(R.string.biometric_prompt_subtitle)
+        val promptNegative = negativeButtonText ?: res.getString(R.string.cancel)
+
         val executor = ContextCompat.getMainExecutor(activity)
         val biometricPrompt = BiometricPrompt(
             activity,
@@ -65,15 +74,15 @@ object BiometricHelper {
 
                 override fun onAuthenticationFailed() {
                     super.onAuthenticationFailed()
-                    onError("Биометрия не совпадает")
+                    onError(res.getString(R.string.biometric_not_recognized))
                 }
             }
         )
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(title)
-            .setSubtitle(subtitle)
-            .setNegativeButtonText(negativeButtonText)
+            .setTitle(promptTitle)
+            .setSubtitle(promptSubtitle)
+            .setNegativeButtonText(promptNegative)
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK)
             .build()
 

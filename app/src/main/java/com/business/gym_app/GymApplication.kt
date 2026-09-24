@@ -1,12 +1,14 @@
 package com.business.gym_app
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.business.gym_app.data.api.NewsApiService
 import com.business.gym_app.receiver.ChatAlarmReceiver
 import com.business.gym_app.service.ChatCheckWorker
+import com.business.gym_app.util.AppLanguage
 import com.business.gym_app.util.ChatUnreadNotifier
 
 /**
@@ -25,10 +27,21 @@ class GymApplication : Application(), ImageLoaderFactory {
             get() = startedActivities > 0
     }
 
+    override fun attachBaseContext(base: Context) {
+        // Применяем выбранный язык ко всему процессу. AppCompatDelegate.setApplicationLocales()
+        // локализует только Activity, а уведомления чата создаются из сервиса/воркера,
+        // которые работают с applicationContext.
+        super.attachBaseContext(AppLanguage.wrap(base))
+    }
+
     override fun onCreate() {
         super.onCreate()
         _instance = this
         Log.d("GymApplication", "onCreate started")
+
+        // Каналы уведомлений создаем первыми: процесс может быть поднят воркером или
+        // receiver'ом без Activity, и уведомление в несуществующий канал отбрасывается.
+        com.business.gym_app.util.NotificationHelper.ensureChannels(this)
 
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityStarted(activity: android.app.Activity) { startedActivities++ }

@@ -87,7 +87,7 @@ fun PrivacyScreen(
                 }) {
                     Icon(
                         imageVector = if (isEditing) Icons.Default.Save else Icons.Default.Edit,
-                        contentDescription = "Edit",
+                        contentDescription = if (isEditing) stringResource(R.string.save) else stringResource(R.string.edit_action),
                         tint = Color.Red
                     )
                 }
@@ -157,7 +157,7 @@ fun PrivacyScreen(
         } else {
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "Вы приняли условия использования",
+                text = stringResource(R.string.privacy_accepted),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                 style = MaterialTheme.typography.labelMedium
             )

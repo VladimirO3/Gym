@@ -11,6 +11,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.business.gym_app.R
 import com.business.gym_app.data.api.NewsApiService
 import com.business.gym_app.data.api.OrderResponse
 import com.business.gym_app.data.local.GymDatabase
@@ -19,6 +20,7 @@ import com.business.gym_app.data.local.entity.DailyNoteEntity
 import com.business.gym_app.data.model.AssignedPrograms
 import com.business.gym_app.data.repository.ProfileRepository
 import com.business.gym_app.data.repository.TrainingProgramRepository
+import com.business.gym_app.util.AppLanguage
 import com.business.gym_app.util.AuthUtils
 import com.business.gym_app.util.AppEventBus
 import com.google.gson.Gson
@@ -54,6 +56,13 @@ class SettingsViewModel(
         private const val ADMIN_EMAIL = AuthUtils.ADMIN_EMAIL
         private const val GUEST_EMAIL = AuthUtils.GUEST_EMAIL
     }
+
+    /**
+     * Ресурсы в выбранной локали приложения. ViewModel получает Application-контекст,
+     * который не пересоздается при смене языка, поэтому локаль берем через AppLanguage.
+     */
+    private val res: android.content.res.Resources
+        get() = AppLanguage.localized(getApplication()).resources
 
     private val _privacyAgreed = mutableStateOf(false)
     val privacyAgreed: State<Boolean> = _privacyAgreed
@@ -136,22 +145,22 @@ class SettingsViewModel(
         val existingIndex = currentList.indexOfFirst { it.id == workout.id || it.title.trim().equals(workout.title.trim(), ignoreCase = true) }
 
         if (existingIndex == -1 && currentList.size >= 20) {
-            onError("Превышен лимит: можно создать не более 20 программ тренировок")
+            onError(res.getString(R.string.workout_limit_reached))
             return
         }
 
         if (workout.title.isBlank()) {
-            onError("Введите заголовок названия тренировки")
+            onError(res.getString(R.string.workout_title_required))
             return
         }
 
         if (workout.exercises.isEmpty()) {
-            onError("Добавьте хотя бы одно упражнение")
+            onError(res.getString(R.string.workout_exercise_required))
             return
         }
 
         if (workout.exercises.size > 20) {
-            onError("Превышен лимит: не более 20 упражнений в одной тренировке")
+            onError(res.getString(R.string.workout_exercise_limit))
             return
         }
 
@@ -163,7 +172,7 @@ class SettingsViewModel(
             if (result == TrainingProgramRepository.SaveResult.LOCAL_ONLY) {
                 android.widget.Toast.makeText(
                     context,
-                    "Нет связи с сервером: программа сохранена на устройстве и будет отправлена позже",
+                    res.getString(R.string.workout_saved_offline),
                     android.widget.Toast.LENGTH_LONG
                 ).show()
             }
@@ -604,11 +613,11 @@ class SettingsViewModel(
 
     fun changePassword(context: Context, oldPass: String, newPass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         if (oldPass.isBlank() || newPass.isBlank()) {
-            onError("Заполните все поля")
+            onError(res.getString(R.string.fill_all_fields))
             return
         }
         if (newPass.length < 6) {
-            onError("Новый пароль должен быть не менее 6 символов")
+            onError(res.getString(R.string.new_password_min_length))
             return
         }
         _isChangingPassword.value = true
@@ -624,11 +633,11 @@ class SettingsViewModel(
                     }
                     onSuccess()
                 } else {
-                    onError("Ошибка смены пароля. Проверьте правильность текущего пароля.")
+                    onError(res.getString(R.string.password_change_error))
                 }
             } catch (e: Exception) {
                 _isChangingPassword.value = false
-                onError(e.message ?: "Ошибка сервера при смене пароля")
+                onError(e.message ?: res.getString(R.string.password_change_server_error))
             }
         }
     }

@@ -291,7 +291,7 @@ fun SettingsScreen(
                                     .setHeader("Authorization", "Bearer $jwtToken")
                                     .crossfade(true)
                                     .build(),
-                                contentDescription = "Avatar",
+                                contentDescription = stringResource(R.string.cd_avatar),
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
                                 error = rememberVectorPainter(Icons.Default.Person),
@@ -501,14 +501,18 @@ fun SettingsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Fingerprint, contentDescription = null, tint = Color.Red, modifier = Modifier.size(24.dp))
                         Spacer(Modifier.width(12.dp))
-                        Text("Вход по отпечатку / лицу", style = MaterialTheme.typography.bodyLarge, color = Color.White)
+                        Text(stringResource(R.string.biometric_login_button), style = MaterialTheme.typography.bodyLarge, color = Color.White)
                     }
+                    // Тексты тоста поднимаем в composable-область: stringResource
+                    // нельзя вызывать внутри лямбды onCheckedChange.
+                    val biometricEnabledText = stringResource(R.string.biometric_login_enabled)
+                    val biometricDisabledText = stringResource(R.string.biometric_login_disabled)
                     Switch(
                         checked = biometricEnabled,
                         onCheckedChange = {
                             biometricEnabled = it
                             BiometricHelper.setBiometricEnabled(context, it)
-                            val msg = if (it) "Вход по биометрии включен" else "Вход по биометрии выключен"
+                            val msg = if (it) biometricEnabledText else biometricDisabledText
                             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                         },
                         colors = SwitchDefaults.colors(checkedThumbColor = Color.Red, checkedTrackColor = Color.Red.copy(alpha = 0.5f))
@@ -528,19 +532,86 @@ fun SettingsScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Notifications, contentDescription = null, tint = Color.Red, modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(12.dp))
-                    Text("Уведомления и фоновый режим", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.notifications_background_title), style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(8.dp))
+                // Статус разрешения: без POST_NOTIFICATIONS (Android 13+) уведомления
+                // о сообщениях не показываются, и пользователь должен это видеть.
+                var notificationsAllowed by remember {
+                    mutableStateOf(NotificationHelper.areNotificationsEnabled(context))
+                }
+                // Пользователь может выдать разрешение в системных настройках и вернуться —
+                // статус должен обновиться, поэтому перечитываем его при показе экрана.
+                val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+                androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+                    val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                        if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                            notificationsAllowed = NotificationHelper.areNotificationsEnabled(context)
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (notificationsAllowed) Icons.Default.CheckCircle else Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = if (notificationsAllowed) Color.Green else Color.Red,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (notificationsAllowed) {
+                            stringResource(R.string.notifications_allowed)
+                        } else {
+                            stringResource(R.string.notifications_blocked_hint)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (notificationsAllowed) Color.Green else Color.Red
+                    )
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Для бесперебойной доставки сообщений при закрытом приложении (особенно на устройствах Xiaomi, Samsung, Huawei) рекомендуем включить «Автозапуск» и отключить «Экономию батареи» в настройках телефона.",
+                    text = stringResource(R.string.notifications_autostart_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.LightGray
                 )
                 Spacer(Modifier.height(12.dp))
+                // Тексты тоста поднимаем в composable-область: stringResource
+                // нельзя вызывать внутри колбэка rememberLauncherForActivityResult.
+                val notificationsOnText = stringResource(R.string.notifications_turned_on)
+                val notificationsOffText = stringResource(R.string.notifications_still_off)
+                val permissionLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission()
+                ) { granted ->
+                    notificationsAllowed = NotificationHelper.areNotificationsEnabled(context)
+                    Toast.makeText(
+                        context,
+                        if (granted) notificationsOnText else notificationsOffText,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                 ) {
+                    if (!notificationsAllowed) {
+                        Button(
+                            onClick = {
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                    permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    NotificationHelper.openNotificationSettings(context)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.enable_notifications), fontSize = 12.sp, color = Color.White)
+                        }
+                    }
                     Button(
                         onClick = { NotificationHelper.openAutostartAndBatterySettings(context) },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
@@ -548,9 +619,16 @@ fun SettingsScreen(
                     ) {
                         Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Настроить автозапуск", fontSize = 12.sp, color = Color.White)
+                        Text(stringResource(R.string.configure_autostart), fontSize = 12.sp, color = Color.White)
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.notifications_settings_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.LightGray,
+                    modifier = Modifier.clickable { NotificationHelper.openNotificationSettings(context) }
+                )
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
@@ -591,7 +669,7 @@ fun SettingsScreen(
                 )
                 Spacer(Modifier.width(8.dp))
                 IconButton(onClick = { showIpDialog = true }) {
-                    Icon(Icons.Default.Settings, contentDescription = "Server Settings", tint = Color.Gray)
+                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_server_settings), tint = Color.Gray)
                 }
             }
             
@@ -875,7 +953,8 @@ private fun localizedWorkout(workout: com.business.gym_app.ui.viewmodel.DailyWor
     val descriptions = mapOf(
         "до отказа" to "to failure", "минут" to "minutes", "интенсивно" to "intense",
         "пульс" to "heart rate", "раз" to "reps", "подх." to "sets", "сек" to "sec",
-        "по 1 мин" to "for 1 min"
+        "по 1 мин" to "for 1 min",
+        " по " to " of "
     )
     return workout.copy(
         title = titles[workout.title] ?: workout.title,
@@ -903,12 +982,13 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     ExerciseImage(
                         url = selectedTutorialImage,
-                        contentDescription = "Tutorial",
+                        contentDescription = stringResource(R.string.cd_tutorial),
+                        // Fit + диапазон высоты: фото показывается целиком, ничего не обрезается
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(250.dp)
+                            .heightIn(min = 200.dp, max = 420.dp)
                             .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Fit
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
@@ -966,11 +1046,13 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
             if (workout?.coverUrl != null) {
                 ExerciseImage(
                     url = workout.coverUrl,
-                    contentDescription = "Workout Cover",
+                    contentDescription = stringResource(R.string.cd_workout_cover),
+                    // Загруженная обложка показывается полностью: Fit вписывает фото в блок,
+                    // а heightIn не даёт высокому фото сжаться в узкую полоску (Crop его обрезал).
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(150.dp),
-                    contentScale = ContentScale.Crop
+                        .heightIn(min = 150.dp, max = 340.dp),
+                    contentScale = ContentScale.Fit
                 )
             }
             
@@ -1022,7 +1104,7 @@ fun TrainingPlanSection(plan: String?, modifier: Modifier) {
                                         url = exercise.iconUrl,
                                         contentDescription = exercise.name,
                                         modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
+                                        contentScale = ContentScale.Fit
                                     )
                                 }
                                 
@@ -1075,7 +1157,8 @@ fun ExerciseImage(
     url: String?,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Crop
+    // По умолчанию фото не обрезаем: Fit показывает изображение целиком
+    contentScale: ContentScale = ContentScale.Fit
 ) {
     val context = LocalContext.current
     if (url.isNullOrBlank()) {
@@ -1239,18 +1322,21 @@ fun ChangePasswordDialog(
             }
         },
         confirmButton = {
+            val fillAllFieldsError = stringResource(R.string.fill_all_fields)
+            val passwordMinLengthError = stringResource(R.string.new_password_min_length)
+            val passwordsDoNotMatchError = stringResource(id = R.string.passwords_do_not_match)
             Button(
                 onClick = {
                     if (oldPassword.isBlank() || newPassword.isBlank()) {
-                        errorMessage = "Заполните все поля"
+                        errorMessage = fillAllFieldsError
                         return@Button
                     }
                     if (newPassword.length < 6) {
-                        errorMessage = "Новый пароль должен быть не менее 6 символов"
+                        errorMessage = passwordMinLengthError
                         return@Button
                     }
                     if (newPassword != confirmPassword) {
-                        errorMessage = "Пароли не совпадают"
+                        errorMessage = passwordsDoNotMatchError
                         return@Button
                     }
                     onChangePassword(oldPassword, newPassword) { err ->
@@ -1333,8 +1419,8 @@ fun AdminWorkoutSection(
     if (workoutToDelete != null) {
         AlertDialog(
             onDismissRequest = { workoutToDelete = null },
-            title = { Text("Удаление программы", color = Color.Red, fontWeight = FontWeight.Bold) },
-            text = { Text("Удалить программу тренировок \"${workoutToDelete?.title}\"?") },
+            title = { Text(stringResource(R.string.workout_delete_dialog_title), color = Color.Red, fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.workout_delete_dialog_message, workoutToDelete?.title ?: "")) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -1344,12 +1430,12 @@ fun AdminWorkoutSection(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                 ) {
-                    Text("Удалить", color = Color.White)
+                    Text(stringResource(R.string.delete), color = Color.White)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { workoutToDelete = null }) {
-                    Text("Отмена", color = Color.Gray)
+                    Text(stringResource(R.string.cancel), color = Color.Gray)
                 }
             }
         )
@@ -1363,13 +1449,13 @@ fun AdminWorkoutSection(
         ) {
             Column {
                 Text(
-                    text = "Программы тренировок (Админ)",
+                    text = stringResource(R.string.workout_programs_admin),
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.Red,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Создано: ${customWorkouts.size} / 20",
+                    text = stringResource(R.string.workout_created_count, customWorkouts.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )
@@ -1382,14 +1468,14 @@ fun AdminWorkoutSection(
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Создать программу", tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.create_program), tint = Color.White, modifier = Modifier.size(20.dp))
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
         if (customWorkouts.isEmpty()) {
-            Text("Нет созданных программ тренировок", color = Color.Gray, fontSize = 13.sp)
+            Text(stringResource(R.string.no_workouts_created), color = Color.Gray, fontSize = 13.sp)
         } else {
             customWorkouts.forEach { workout ->
                 Card(
@@ -1406,9 +1492,9 @@ fun AdminWorkoutSection(
                             if (!workout.coverUrl.isNullOrBlank()) {
                                 AsyncImage(
                                     model = workout.coverUrl,
-                                    contentDescription = "Cover",
+                                    contentDescription = stringResource(R.string.cd_cover),
                                     modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
-                                    contentScale = ContentScale.Crop
+                                    contentScale = ContentScale.Fit
                                 )
                                 Spacer(Modifier.width(12.dp))
                             }
@@ -1420,7 +1506,7 @@ fun AdminWorkoutSection(
                                     fontSize = 14.sp
                                 )
                                 Text(
-                                    text = "Упражнений: ${workout.exercises.size} / 20",
+                                    text = stringResource(R.string.exercises_count, workout.exercises.size),
                                     fontSize = 12.sp,
                                     color = Color.Gray
                                 )
@@ -1429,10 +1515,10 @@ fun AdminWorkoutSection(
 
                         Row {
                             IconButton(onClick = { workoutToEdit = workout }) {
-                                Icon(Icons.Default.Edit, contentDescription = "Редактировать", tint = Color.Yellow)
+                                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_action), tint = Color.Yellow)
                             }
                             IconButton(onClick = { workoutToDelete = workout }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Удалить", tint = Color.Red)
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = Color.Red)
                             }
                         }
                     }
@@ -1486,7 +1572,7 @@ fun WorkoutEditDialog(
         modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.90f),
         title = {
             Text(
-                text = if (workoutToEdit == null) "Создать программу тренировки" else "Редактировать программу",
+                text = if (workoutToEdit == null) stringResource(R.string.create_workout_program) else stringResource(R.string.edit_workout_program),
                 color = Color.Red,
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp
@@ -1503,17 +1589,17 @@ fun WorkoutEditDialog(
                     Text(errorMessage!!, color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
-                Text("1. Заголовок вида тренировки", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                Text(stringResource(R.string.workout_step_title), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
                 OutlinedTextField(
                     value = titleInput,
                     onValueChange = { titleInput = it; errorMessage = null },
-                    label = { Text("Название тренировки (например: Силовая: Ноги)") },
+                    label = { Text(stringResource(R.string.workout_name_label)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Red)
                 )
 
-                Text("2. Обложка тренировки (фото)", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                Text(stringResource(R.string.workout_step_cover), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1521,9 +1607,9 @@ fun WorkoutEditDialog(
                     if (coverUrlInput.isNotBlank()) {
                         AsyncImage(
                             model = coverUrlInput,
-                            contentDescription = "Cover",
+                            contentDescription = stringResource(R.string.cd_cover),
                             modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)),
-                            contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Fit
                         )
                     }
                     Button(
@@ -1532,11 +1618,11 @@ fun WorkoutEditDialog(
                     ) {
                         Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, tint = Color.White)
                         Spacer(Modifier.width(6.dp))
-                        Text(if (coverUrlInput.isBlank()) "Загрузить обложку" else "Изменить обложку", fontSize = 12.sp)
+                        Text(if (coverUrlInput.isBlank()) stringResource(R.string.upload_cover) else stringResource(R.string.change_cover), fontSize = 12.sp)
                     }
                     if (coverUrlInput.isNotBlank()) {
                         IconButton(onClick = { coverUrlInput = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Удалить", tint = Color.Red)
+                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.delete), tint = Color.Red)
                         }
                     }
                 }
@@ -1548,12 +1634,16 @@ fun WorkoutEditDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("3. Упражнения (${exercises.size} / 20)", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                    Text(stringResource(R.string.workout_step_exercises, exercises.size), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
                     
+                    // Названия нового упражнения поднимаем в composable-область:
+                    // stringResource нельзя вызывать внутри лямбды onClick.
+                    val newExerciseName = stringResource(R.string.new_exercise)
+                    val newExerciseDesc = stringResource(R.string.new_exercise_desc)
                     Button(
                         onClick = {
                             if (exercises.size < 20) {
-                                exercises.add(Exercise("Новое упражнение", "", "3 подх. по 10 раз", null))
+                                exercises.add(Exercise(newExerciseName, "", newExerciseDesc, null))
                             }
                         },
                         enabled = exercises.size < 20,
@@ -1566,7 +1656,7 @@ fun WorkoutEditDialog(
                 }
 
                 if (exercises.isEmpty()) {
-                    Text("Нажмите «+» выше, чтобы добавить упражнение", color = Color.Gray, fontSize = 12.sp)
+                    Text(stringResource(R.string.add_exercise_hint), color = Color.Gray, fontSize = 12.sp)
                 } else {
                     exercises.forEachIndexed { index, ex ->
                         Card(
@@ -1580,12 +1670,12 @@ fun WorkoutEditDialog(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Упражнение #${index + 1}", fontWeight = FontWeight.Bold, color = Color.Red, fontSize = 12.sp)
+                                    Text(stringResource(R.string.exercise_number, index + 1), fontWeight = FontWeight.Bold, color = Color.Red, fontSize = 12.sp)
                                     IconButton(
                                         onClick = { exercises.removeAt(index) },
                                         modifier = Modifier.size(24.dp)
                                     ) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Удалить", tint = Color.Red)
+                                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = Color.Red)
                                     }
                                 }
 
@@ -1594,7 +1684,7 @@ fun WorkoutEditDialog(
                                     onValueChange = { newName ->
                                         exercises[index] = ex.copy(name = newName)
                                     },
-                                    label = { Text("Заголовок / Название упражнения") },
+                                    label = { Text(stringResource(R.string.exercise_name_label)) },
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true
                                 )
@@ -1604,7 +1694,7 @@ fun WorkoutEditDialog(
                                     onValueChange = { newDesc ->
                                         exercises[index] = ex.copy(desc = newDesc)
                                     },
-                                    label = { Text("Текст описания (например: 4 подх. по 10 раз)") },
+                                    label = { Text(stringResource(R.string.exercise_desc_label)) },
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true
                                 )
@@ -1617,9 +1707,9 @@ fun WorkoutEditDialog(
                                     if (photoUrl.isNotBlank()) {
                                         AsyncImage(
                                             model = photoUrl,
-                                            contentDescription = "Exercise photo",
+                                            contentDescription = stringResource(R.string.cd_exercise_photo),
                                             modifier = Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)),
-                                            contentScale = ContentScale.Crop
+                                            contentScale = ContentScale.Fit
                                         )
                                     }
                                     OutlinedButton(
@@ -1633,7 +1723,7 @@ fun WorkoutEditDialog(
                                         Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                                         Spacer(Modifier.width(4.dp))
                                         Text(
-                                            if (photoUrl.isBlank()) "Загрузить фото (необязательно)" else "Изменить фото",
+                                            if (photoUrl.isBlank()) stringResource(R.string.upload_photo_optional) else stringResource(R.string.change_photo_action),
                                             fontSize = 11.sp,
                                             color = Color.White
                                         )
@@ -1645,7 +1735,7 @@ fun WorkoutEditDialog(
                                             },
                                             modifier = Modifier.size(24.dp)
                                         ) {
-                                            Icon(Icons.Default.Clear, contentDescription = "Удалить фото", tint = Color.Gray)
+                                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.delete), tint = Color.Gray)
                                         }
                                     }
                                 }
@@ -1656,18 +1746,21 @@ fun WorkoutEditDialog(
             }
         },
         confirmButton = {
+            val workoutTitleEmptyError = stringResource(R.string.workout_title_empty_error)
+            val workoutExerciseRequiredError = stringResource(R.string.workout_exercise_required)
+            val workoutMaxExercisesError = stringResource(R.string.workout_max_exercises_error)
             Button(
                 onClick = {
                     if (titleInput.isBlank()) {
-                        errorMessage = "Введите заголовок для названия вида тренировки"
+                        errorMessage = workoutTitleEmptyError
                         return@Button
                     }
                     if (exercises.isEmpty()) {
-                        errorMessage = "Добавьте хотя бы одно упражнение"
+                        errorMessage = workoutExerciseRequiredError
                         return@Button
                     }
                     if (exercises.size > 20) {
-                        errorMessage = "Максимум 20 упражнений"
+                        errorMessage = workoutMaxExercisesError
                         return@Button
                     }
                     val resultWorkout = DailyWorkout(
@@ -1680,12 +1773,12 @@ fun WorkoutEditDialog(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
             ) {
-                Text("Сохранить программу", color = Color.White)
+                Text(stringResource(R.string.save_program), color = Color.White)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Отмена", color = Color.Gray)
+                Text(stringResource(R.string.cancel), color = Color.Gray)
             }
         }
     )

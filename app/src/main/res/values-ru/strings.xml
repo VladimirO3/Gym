@@ -272,4 +272,175 @@
     <string name="program_assignments_cleared">Назначения сняты, пользователю вернется автоматическая программа</string>
     <string name="program_assigned_count">Назначено программ: %1$d</string>
     <string name="program_delete_server_error">Не удалось удалить программу на сервере</string>
+
+    <!-- ============================================================ -->
+    <!-- Строки, вынесенные из кода Kotlin (полная локализация)       -->
+    <!-- ============================================================ -->
+
+    <!-- Биометрия -->
+    <string name="fingerprint_face">Отпечаток пальца / Лицо</string>
+    <string name="biometric_login_enabled">Вход по биометрии включен</string>
+    <string name="biometric_login_disabled">Вход по биометрии выключен</string>
+    <string name="biometric_prompt_title">Вход в Gym</string>
+    <string name="biometric_prompt_subtitle">Подтвердите личность отпечатком пальца или лицом</string>
+    <string name="biometric_not_recognized">Биометрия не совпадает</string>
+    <string name="biometric_login_button">Вход по отпечатку / лицу</string>
+    <string name="biometric_no_saved_data">Нет сохраненных данных для входа по биометрии. Пожалуйста, войдите по паролю.</string>
+
+    <!-- Уведомления и фоновый режим -->
+    <string name="notifications_background_title">Уведомления и фоновый режим</string>
+    <string name="notifications_allowed">Уведомления разрешены</string>
+    <string name="notifications_blocked_hint">Уведомления отключены — сообщения не будут приходить, пока вы не выдадите разрешение</string>
+    <string name="notifications_autostart_hint">Для бесперебойной доставки сообщений при закрытом приложении (особенно на устройствах Xiaomi, Samsung и Huawei) рекомендуем включить «Автозапуск» и отключить «Экономию энергии» в настройках телефона.</string>
+    <string name="notifications_turned_on">Уведомления включены</string>
+    <string name="notifications_still_off">Уведомления все еще отключены</string>
+    <string name="enable_notifications">Включить уведомления</string>
+    <string name="configure_autostart">Настроить автозапуск</string>
+    <string name="notifications_settings_hint">Если уведомления не приходят: откройте системные настройки уведомлений для приложения и убедитесь, что они включены.</string>
+    <string name="chat_connection_channel">Подключение чата</string>
+    <string name="chat_connection_channel_desc">Фоновое подключение для мгновенной доставки сообщений</string>
+    <string name="notifications_channel_name">Уведомления Gym App</string>
+    <string name="notifications_channel_desc">Уведомления о сообщениях чата и ошибках</string>
+    <string name="chat_connected">Чат подключен</string>
+    <string name="new_messages_count">У вас %1$d новых сообщений</string>
+    <string name="system_security">СИСТЕМА БЕЗОПАСНОСТИ</string>
+    <string name="chat_connection_error">Ошибка подключения чата</string>
+    <string name="new_message">Новое сообщение</string>
+    <!-- Программы тренировок (админ) -->
+    <string name="workout_limit_reached">Превышен лимит: можно создать не более 20 программ тренировок</string>
+    <string name="workout_title_required">Введите заголовок тренировки</string>
+    <string name="workout_exercise_required">Добавьте хотя бы одно упражнение</string>
+    <string name="workout_exercise_limit">Превышен лимит: не более 20 упражнений в одной тренировке</string>
+    <string name="workout_saved_offline">Нет связи с сервером: программа сохранена на устройстве и будет отправлена позже</string>
+    <string name="workout_delete_dialog_title">Удаление программы</string>
+    <string name="workout_delete_dialog_message">Удалить программу тренировок \"%1$s\"?</string>
+    <string name="workout_programs_admin">Программы тренировок (Админ)</string>
+    <string name="workout_created_count">Создано: %1$d / 20</string>
+    <string name="create_program">Создать программу</string>
+    <string name="no_workouts_created">Нет созданных программ тренировок</string>
+    <string name="exercises_count">Упражнений: %1$d / 20</string>
+    <string name="edit_action">Редактировать</string>
+    <string name="create_workout_program">Создать программу тренировки</string>
+    <string name="edit_workout_program">Редактировать программу</string>
+    <string name="workout_step_title">1. Заголовок вида тренировки</string>
+    <string name="workout_name_label">Название тренировки (например: Силовая: Ноги)</string>
+    <string name="workout_step_cover">2. Обложка тренировки (фото)</string>
+    <string name="upload_cover">Загрузить обложку</string>
+    <string name="change_cover">Изменить обложку</string>
+    <string name="workout_step_exercises">3. Упражнения (%1$d / 20)</string>
+    <string name="new_exercise">Новое упражнение</string>
+    <string name="new_exercise_desc">3 подх. по 10 раз</string>
+    <string name="add_exercise_hint">Нажмите «+» выше, чтобы добавить упражнение</string>
+    <string name="exercise_number">Упражнение #%1$d</string>
+    <string name="exercise_name_label">Заголовок / Название упражнения</string>
+    <string name="exercise_desc_label">Текст описания (например: 4 подх. по 10 раз)</string>
+    <string name="upload_photo_optional">Загрузить фото (опционально)</string>
+    <string name="change_photo_action">Изменить фото</string>
+    <string name="workout_title_empty_error">Введите заголовок вида тренировки</string>
+    <string name="workout_max_exercises_error">Максимум 20 упражнений</string>
+    <string name="save_program">Сохранить программу</string>
+    <string name="workout_cover">Обложка тренировки</string>
+    <string name="exercise_photo">Фото упражнения</string>
+
+    <!-- Пароль -->
+    <string name="fill_all_fields">Заполните все поля</string>
+    <string name="new_password_min_length">Новый пароль должен быть не менее 6 символов</string>
+    <string name="passwords_do_not_match">Пароли не совпадают</string>
+    <string name="password_min_length">Пароль должен быть не менее 6 символов</string>
+    <string name="password_change_error">Ошибка смены пароля. Проверьте правильность текущего пароля.</string>
+    <string name="password_change_server_error">Ошибка сервера при смене пароля</string>
+    <!-- Сообщения авторизации -->
+    <string name="enter_data">Введите данные</string>
+    <string name="invalid_login_or_password">Неверный логин или пароль</string>
+    <string name="access_blocked">Доступ заблокирован</string>
+    <string name="login_error_check_internet">Ошибка входа: проверьте интернет-соединение</string>
+    <string name="user_id_not_received">Ошибка: ID пользователя не получен от сервера.</string>
+    <string name="send_code_error">Ошибка отправки кода.</string>
+    <string name="profile_check_error">Ошибка проверки профиля. Возможно, аккаунт удален или не подтвержден.</string>
+    <string name="user_not_exists_or_deleted">Пользователь не существует или удален</string>
+    <string name="code_error_or_user_blocked">Ошибка кода или пользователь заблокирован</string>
+    <string name="invalid_code_or_network_error">Неверный код или ошибка соединения</string>
+    <string name="invalid_email_format">Некорректный формат email</string>
+    <string name="request_sent">Запрос отправлен!</string>
+    <string name="email_already_registered">Пользователь с таким email уже зарегистрирован</string>
+    <string name="registration_data_error">Ошибка в данных. Проверьте правильность заполнения</string>
+    <string name="registration_connection_error">Ошибка регистрации. Проверьте соединение</string>
+    <string name="unknown_error">неизвестная ошибка</string>
+    <string name="server_error_code">Ошибка сервера: %1$d</string>
+    <string name="application_sent">Заявка отправлена!</string>
+    <string name="privacy_accepted">Вы приняли условия использования</string>
+
+    <!-- Экран авторизации -->
+    <string name="privacy_accept_prefix">Я принимаю </string>
+    <string name="privacy_accept_link">условия соглашения об электронном взаимодействии и услугах</string>
+    <string name="e_agreement_title">Соглашение об электронном взаимодействии</string>
+
+    <!-- Чат -->
+    <string name="user_profile_title">Профиль пользователя</string>
+    <string name="add_program">Добавить программу</string>
+    <string name="delete_program">Удалить программу</string>
+    <string name="edit_programs">Редактировать программы</string>
+    <string name="no_programs_available">Нет доступных программ</string>
+    <string name="clear_assignments_autoplan">Очистить назначения / Автоплан</string>
+    <string name="assign_selected">Назначить выбранное</string>
+    <string name="search_user_hint">Поиск пользователя…</string>
+    <string name="search_action">Поиск</string>
+    <string name="clear_action">Очистить</string>
+    <string name="user_not_found">Пользователь не найден</string>
+    <string name="chat_coming_soon">Чат скоро появится здесь</string>
+    <string name="last_seen_at">был(а) в сети %1$s</string>
+    <string name="new_badge">NEW</string>
+    <string name="sender_you_suffix">%1$s (Вы)</string>
+
+    <!-- Соглашение об электронном взаимодействии -->
+    <string name="agreement_dialog_text" translatable="false">1. ПРЕДМЕТ СОГЛАШЕНИЯ\nНастоящее Соглашение определяет условия использования электронных сервисов приложения GYM ABS.\n\n2. ЭЛЕКТРОННОЕ ВЗАИМОДЕЙСТВИЕ\nПользователь соглашается на получение уведомлений, сообщений и информации в электронном виде через приложение или по указанным при регистрации контактным данным.\n\n3. ПЕРСОНАЛЬНЫЕ ДАННЫЕ\nРегистрируясь в приложении, Пользователь дает согласие на обработку своих персональных данных для обеспечения функционирования сервисов.\n\n4. ОБЯЗАННОСТИ ПОЛЬЗОВАТЕЛЯ\nПользователь обязуется предоставлять достоверную информацию и не использовать сервисы в противоправных целях.\n\n5. ОТВЕТСТВЕННОСТЬ\nАдминистрация приложения не несет ответственности за временные технические сбои, вызванные внешними факторами или действиями третьих лиц.\n\n6. ИЗМЕНЕНИЕ УСЛОВИЙ\nАдминистрация оставляет за собой право изменять условия настоящего Соглашения с уведомлением пользователей.</string>
+    <string name="chat_administrator">Администратор</string>
+    <string name="chat_user_role">Пользователь</string>
+    <!-- Плейлист / прочее -->
+    <string name="upload_to_server">Загрузить на сервер</string>
+    <string name="permission_denied">Разрешение отклонено</string>
+    <string name="untitled">Без названия</string>
+    <string name="video_no_url">Нет URL видео</string>
+    <string name="video_player_placeholder">Заглушка видеоплеера</string>
+    <string name="server_not_available">Сервер недоступен</string>
+
+    <!-- Описания содержимого (специальные возможности) -->
+    <string name="cd_toggle_editor">Переключить редактор</string>
+    <string name="cd_price_list_1">Прайс-лист 1</string>
+    <string name="cd_price_list_2">Прайс-лист 2</string>
+    <string name="cd_refresh_coaches">Обновить тренеров</string>
+    <string name="cd_add_coach">Добавить тренера</string>
+    <string name="cd_avatar">Аватар</string>
+    <string name="cd_close">Закрыть</string>
+    <string name="cd_back">Назад</string>
+    <string name="cd_delete_chat">Удалить чат</string>
+    <string name="cd_attach_media">Прикрепить медиа</string>
+    <string name="cd_send">Отправить</string>
+    <string name="cd_edit_profile">Редактировать профиль</string>
+    <string name="cd_delete_user">Удалить пользователя</string>
+    <string name="cd_shuffle">Перемешать</string>
+    <string name="cd_stop">Остановить</string>
+    <string name="cd_delete_track">Удалить трек</string>
+    <string name="cd_add_content">Добавить контент</string>
+    <string name="cd_edit_content">Редактировать контент</string>
+    <string name="cd_delete_content">Удалить контент</string>
+    <string name="cd_news_image">Изображение новости</string>
+    <string name="cd_image">Изображение</string>
+    <string name="cd_full_image">Изображение полностью</string>
+    <string name="cd_enable_sound">Включить звук</string>
+    <string name="cd_close_fullscreen">Закрыть полноэкранный режим</string>
+    <string name="cd_fullscreen">Полноэкранный режим</string>
+    <string name="cd_logo">Логотип</string>
+    <string name="cd_server_settings">Настройки сервера</string>
+    <string name="cd_add_product">Добавить товар</string>
+    <string name="cd_cover">Обложка</string>
+    <string name="cd_preview">Предпросмотр</string>
+    <string name="cd_play">Воспроизвести</string>
+    <string name="cd_pause">Пауза</string>
+    <string name="cd_message_image">Изображение сообщения</string>
+    <string name="cd_tutorial">Учебное видео</string>
+    <string name="cd_workout_cover">Обложка тренировки</string>
+    <string name="cd_exercise_photo">Фото упражнения</string>
+
+    <string name="cd_cart">Корзина</string>
 </resources>

@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import com.business.gym_app.util.AppLanguage
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -185,7 +186,7 @@ fun NewsScreen(
                                     .padding(8.dp)
                                     .background(Color.Black.copy(alpha = 0.6f), androidx.compose.foundation.shape.CircleShape)
                             ) {
-                                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_close), tint = Color.White)
                             }
                         }
 
@@ -209,9 +210,10 @@ fun NewsScreen(
                                 )
                             }
                             
-                            val dateText = remember(news.timestamp) {
+                            val dateLocale = AppLanguage.locale(LocalContext.current)
+                            val dateText = remember(news.timestamp, dateLocale) {
                                 if (news.timestamp > 0) {
-                                    val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("ru"))
+                                    val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", dateLocale)
                                     sdf.format(Date(news.timestamp))
                                 } else ""
                             }
@@ -633,7 +635,7 @@ fun NewsScreen(
                             ),
                             modifier = Modifier.size(32.dp)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Add Content", modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_content), modifier = Modifier.size(20.dp))
                         }
                         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             DropdownMenuItem(

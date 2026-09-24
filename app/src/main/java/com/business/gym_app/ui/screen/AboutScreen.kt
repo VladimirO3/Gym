@@ -163,7 +163,7 @@ fun AboutScreen(
                 }) {
                     Icon(
                         imageVector = if (showEditor) Icons.Default.Visibility else Icons.Default.Edit,
-                        contentDescription = "Toggle Editor",
+                        contentDescription = stringResource(R.string.cd_toggle_editor),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
@@ -274,7 +274,7 @@ fun AboutScreen(
                         .data(R.drawable.price)
                         .crossfade(true)
                         .build(),
-                    contentDescription = "Price List 1",
+                    contentDescription = stringResource(R.string.cd_price_list_1),
                     modifier = Modifier.fillMaxWidth(),
                     contentScale = ContentScale.FillWidth
                 )
@@ -284,7 +284,7 @@ fun AboutScreen(
                         .data(R.drawable.price2)
                         .crossfade(true)
                         .build(),
-                    contentDescription = "Price List 2",
+                    contentDescription = stringResource(R.string.cd_price_list_2),
                     modifier = Modifier.fillMaxWidth(),
                     contentScale = ContentScale.FillWidth
                 )
@@ -375,12 +375,12 @@ fun AboutScreen(
                     IconButton(onClick = { viewModel.refreshCoaches() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh Coaches",
+                            contentDescription = stringResource(R.string.cd_refresh_coaches),
                             tint = Color.Gray
                         )
                     }
                     IconButton(onClick = { showCoachDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Coach", tint = Color.Red)
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_coach), tint = Color.Red)
                     }
                 }
             }
@@ -556,10 +556,10 @@ fun CoachCard(
             if (isAdmin) {
                 Column {
                     IconButton(onClick = onEdit) {
-                        Icon(Icons.Default.Edit, "Edit", tint = Color.Gray)
+                        Icon(Icons.Default.Edit, stringResource(R.string.edit_action), tint = Color.Gray)
                     }
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, "Delete", tint = Color.Red.copy(alpha = 0.7f))
+                        Icon(Icons.Default.Delete, stringResource(R.string.delete), tint = Color.Red.copy(alpha = 0.7f))
                     }
                 }
             }

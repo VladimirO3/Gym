@@ -13,7 +13,10 @@ import com.business.gym_app.data.local.GymDatabase
 import com.business.gym_app.data.model.ChatMessage
 import com.business.gym_app.data.model.UserProfile
 import com.business.gym_app.data.repository.ChatRepository
+import com.business.gym_app.R
+import com.business.gym_app.util.AppLanguage
 import com.business.gym_app.util.AuthUtils
+import com.business.gym_app.util.ChatUnreadNotifier
 import com.business.gym_app.util.NotificationHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -37,6 +40,13 @@ class ChatViewModel(
     private fun decodeMessageForUi(raw: String): String {
         return raw
     }
+
+    /**
+     * Ресурсы в выбранной локали приложения. ViewModel живет дольше Activity и
+     * получает Application-контекст, поэтому локаль берем через AppLanguage.
+     */
+    private val appRes: android.content.res.Resources
+        get() = AppLanguage.localized(getApplication()).resources
 
     // --- Состояния UI ---
     
@@ -150,7 +160,7 @@ class ChatViewModel(
                         profiles.add(0, UserProfile(
                             uid = "1",
                             email = AuthUtils.ADMIN_EMAIL,
-                            name = "Администратор", // Дефолтное имя для ручного добавления
+                            name = appRes.getString(R.string.chat_administrator), // Дефолтное имя для ручного добавления
                             isAdmin = true,
                             role = "admin"
                         ))
@@ -187,6 +197,11 @@ class ChatViewModel(
         
         globalPollingJob?.cancel()
         globalPollingJob = viewModelScope.launch {
+            // Берем сохраненные счетчики, общие с фоновыми проверками (сервис/alarm/воркер):
+            // иначе при каждом запуске приложения уведомления о старых непрочитанных
+            // показывались заново, а фоновые проверки дублировали уже показанные.
+            val appContext = getApplication<Application>().applicationContext
+            _notifiedCounts.value = ChatUnreadNotifier.savedCounts(appContext)
             while (isActive) {
                 try {
                     val unreadMap = repository.getUnreadCount()
@@ -204,20 +219,23 @@ class ChatViewModel(
                                     it.uid == senderId || it.email == senderId
                                 }
                                 
-                                if (count > 0 && senderId != _selectedUser.value?.uid && count > lastNotifiedCount) {
-                                    val senderName = userInList?.name ?: "Новое сообщение"
+                                if (count > 0 && !isChatWithSender(senderId) && count > lastNotifiedCount) {
+                                    val senderName = userInList?.name
+                                        ?: appRes.getString(R.string.new_message)
                                     NotificationHelper.showNotification(
                                         getApplication(),
                                         senderName,
-                                        "У вас $count новых сообщений",
+                                        appRes.getString(R.string.new_messages_count, count),
                                         senderId
                                     )
                                     // Сохраняем в notifiedCounts именно тот ID, который прислал сервер
                                     currentNotified[senderId] = count
+                                    ChatUnreadNotifier.markNotified(appContext, senderId, count)
                                     changed = true
                                 } else if (count == 0 && currentNotified.containsKey(senderId)) {
                                     NotificationHelper.cancelNotification(getApplication(), senderId)
                                     currentNotified.remove(senderId)
+                                    ChatUnreadNotifier.forgetNotified(appContext, senderId)
                                     changed = true
                                 }
                             }
@@ -237,6 +255,16 @@ class ChatViewModel(
     }
 
     /**
+     * Открыт ли сейчас диалог с этим отправителем. Сервер в счетчиках возвращает
+     * то uid, то email, поэтому сравниваем оба поля — иначе уведомление приходило
+     * прямо поверх открытого чата.
+     */
+    private fun isChatWithSender(senderId: String): Boolean {
+        val selected = _selectedUser.value ?: return false
+        return senderId == selected.uid || senderId == selected.email
+    }
+
+    /**
      * Сброс счетчика уведомлений для конкретного пользователя (например, при открытии чата).
      */
     fun clearNotificationFlag(senderId: String) {
@@ -245,6 +273,7 @@ class ChatViewModel(
             current.remove(senderId)
             _notifiedCounts.value = current
         }
+        ChatUnreadNotifier.forgetNotified(getApplication<Application>().applicationContext, senderId)
     }
 
     /**
@@ -340,7 +369,7 @@ class ChatViewModel(
             if (success) {
                 hasFetchedUsers = true
             } else {
-                _error.value = "Ошибка подключения к чату"
+                _error.value = appRes.getString(R.string.chat_connection_error)
                 Log.e("ChatViewModel", "Failed to refresh users list from VPS")
             }
         }

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import com.business.gym_app.service.ChatCheckWorker
 import com.business.gym_app.service.ChatForegroundService
 
 class BootReceiver : BroadcastReceiver() {
@@ -18,6 +19,9 @@ class BootReceiver : BroadcastReceiver() {
             val token = prefs.getString("user_session_token", null)
             if (!token.isNullOrBlank() && token != "guest_token") {
                 ChatAlarmReceiver.schedule(context)
+                // Резервная проверка: на Android 12+ старт foreground-сервиса из
+                // BOOT_COMPLETED запрещен, и без воркера уведомления не придут вовсе.
+                ChatCheckWorker.schedule(context)
                 val serviceIntent = Intent(context, ChatForegroundService::class.java)
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

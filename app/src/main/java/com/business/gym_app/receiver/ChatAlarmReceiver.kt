@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 import com.business.gym_app.util.ChatUnreadNotifier
 import kotlinx.coroutines.CoroutineScope
@@ -41,6 +42,7 @@ class ChatAlarmReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "ChatAlarmReceiver"
         private const val REQUEST_CODE = 1002
+        private const val INTERVAL_MS = 60_000L
 
         fun schedule(context: Context) {
             if (ChatUnreadNotifier.sessionToken(context) == null) return
@@ -53,13 +55,32 @@ class ChatAlarmReceiver : BroadcastReceiver() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            val triggerAtMs = System.currentTimeMillis() + 60_000L // Каждую 1 минуту
+            val triggerAtMs = System.currentTimeMillis() + INTERVAL_MS // Каждую 1 минуту
             try {
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pendingIntent)
+                if (canScheduleExact(alarmManager)) {
+                    // Точный будильник не откладывается на минуты (Doze, экономия заряда),
+                    // поэтому сообщения приходят вовремя даже при закрытом приложении.
+                    // setAlarmClock не используется: он показывает значок будильника в шторке.
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pendingIntent)
+                } else {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pendingIntent)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to schedule alarm", e)
+                try {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pendingIntent)
+                } catch (e2: Exception) {
+                    Log.e(TAG, "Fallback alarm scheduling failed", e2)
+                }
             }
         }
+
+        private fun canScheduleExact(alarmManager: AlarmManager): Boolean =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                alarmManager.canScheduleExactAlarms()
+            } else {
+                true
+            }
 
         fun cancel(context: Context) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return

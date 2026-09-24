@@ -172,7 +172,7 @@ fun ShopScreen(
                         onClick = { isAddingProduct = true },
                         modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp)
                     ) {
-                        Icon(Icons.Default.Add, "Add Product", tint = Color.Red)
+                        Icon(Icons.Default.Add, stringResource(R.string.cd_add_product), tint = Color.Red)
                     }
                 }
 
@@ -198,7 +198,7 @@ fun ShopScreen(
                                 }
                             }
                         ) {
-                            Icon(Icons.Default.ShoppingCart, "Cart", tint = Color.White)
+                            Icon(Icons.Default.ShoppingCart, stringResource(R.string.cd_cart), tint = Color.White)
                         }
                     }
                 }
@@ -283,7 +283,7 @@ fun CartScreenInternal(
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.cd_back), tint = Color.White)
             }
             Text(
                 text = stringResource(R.string.tab_shop).uppercase(),
