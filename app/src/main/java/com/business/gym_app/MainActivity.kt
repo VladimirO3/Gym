@@ -101,6 +101,7 @@ import com.business.gym_app.ui.screen.PlaylistScreen
 import com.business.gym_app.ui.screen.SettingsScreen
 import com.business.gym_app.ui.screen.ShopScreen
 import com.business.gym_app.ui.screen.SplashScreen
+import com.business.gym_app.ui.screen.WorkoutDetailScreen
 import com.business.gym_app.ui.theme.GymTheme
 import com.business.gym_app.ui.viewmodel.AboutViewModel
 import com.business.gym_app.ui.viewmodel.AuthViewModel
@@ -547,6 +548,10 @@ fun GymAppContent(
     }
     
     var showAuthOverlay by rememberSaveable { mutableStateOf(false) }
+
+    // id программы тренировок, открытой на экране просмотра (вкладка «Настройки»).
+    // null — показывается обычный экран настроек.
+    var openedWorkoutId by rememberSaveable { mutableStateOf<String?>(null) }
     
     val configuration = LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp > 600
@@ -795,16 +800,34 @@ fun GymAppContent(
                                             )
                                         }
                                     }
-                                    "settings" -> SettingsScreen(
-                                        currentUserEmail = currentUserEmail, 
-                                        onLogout = { onSignOut { pagerState.scrollToPage(0) } },
-                                        viewModel = settingsViewModel,
-                                        authViewModel = authViewModel,
-                                        onGoToCart = {
-                                            val shopIndex = tabs.indexOfFirst { it.key == "shop" }
-                                            if (shopIndex != -1) coroutineScope.launch { pagerState.animateScrollToPage(shopIndex) }
+                                    "settings" -> {
+                                        if (openedWorkoutId != null) {
+                                            val openedWorkout = settingsViewModel.customWorkouts.value
+                                                .find { it.id == openedWorkoutId }
+                                            LaunchedEffect(openedWorkoutId, openedWorkout) {
+                                                // Программу не нашли (удалили / восстановление после убийства
+                                                // процесса) — подгружаем список заново, состояние обновится
+                                                // через Room-flow.
+                                                if (openedWorkout == null) settingsViewModel.loadCustomWorkouts()
+                                            }
+                                            WorkoutDetailScreen(
+                                                workout = openedWorkout,
+                                                onBack = { openedWorkoutId = null }
+                                            )
+                                        } else {
+                                            SettingsScreen(
+                                                currentUserEmail = currentUserEmail, 
+                                                onLogout = { onSignOut { pagerState.scrollToPage(0) } },
+                                                viewModel = settingsViewModel,
+                                                authViewModel = authViewModel,
+                                                onGoToCart = {
+                                                    val shopIndex = tabs.indexOfFirst { it.key == "shop" }
+                                                    if (shopIndex != -1) coroutineScope.launch { pagerState.animateScrollToPage(shopIndex) }
+                                                },
+                                                onOpenWorkout = { openedWorkoutId = it }
+                                            )
                                         }
-                                    )
+                                    }
                                     "shop" -> ShopScreen(
                                         isAdmin = authViewModel.isAdmin(), 
                                         cartViewModel = cartViewModel,
