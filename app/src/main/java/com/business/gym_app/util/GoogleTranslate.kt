@@ -81,6 +81,18 @@ object GoogleTranslate {
         Log.w(TAG, "GOOGLE_TRANSLATE_API_KEY is empty — задайте ключ в .env (шаблон: .env.example)")
     }
 
+    /**
+     * Строка на языке приложения для использования вне Compose (заголовки push-уведомлений):
+     * сначала кэш, затем Google Translate. Любая ошибка возвращает исходный текст —
+     * уведомление показывается на исходном языке, но не ломается.
+     */
+    suspend fun localizedText(context: Context, text: String): String {
+        val target = AppLanguage.current(context)
+        if (!needsTranslation(text, target)) return text
+        val trimmed = text.trim()
+        return translate(context, listOf(trimmed), target)[trimmed] ?: text
+    }
+
     /** Нормализует код языка: «ru-RU»/«RU» -> «ru». */
     fun normalize(target: String): String = target.lowercase().substringBefore('-')
 

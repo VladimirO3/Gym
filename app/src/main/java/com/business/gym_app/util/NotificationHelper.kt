@@ -164,8 +164,13 @@ object NotificationHelper {
 
     /**
      * Показывает уведомление.
+     *
+     * `suspend`: заголовок (обычно имя отправителя, которое хранится на одном языке)
+     * переводится на язык приложения через [GoogleTranslate], если ещё не переведён.
+     * Оба вызова идут из coroutine-контекстов (ChatViewModel, ChatUnreadNotifier.check),
+     * сеть выполняется на Dispatchers.IO — главный поток не блокируется.
      */
-    fun showNotification(context: Context, title: String, message: String, senderId: String? = null) {
+    suspend fun showNotification(context: Context, title: String, message: String, senderId: String? = null) {
         val appContext = context.applicationContext
         ensureChannels(appContext)
 
@@ -181,6 +186,10 @@ object NotificationHelper {
             Log.d(TAG, "Duplicate notification skipped: sender=$senderId")
             return
         }
+
+        // Имя отправителя переводим на язык приложения только после проверок
+        // разрешений и дублей — чтобы не тратить запрос к API впустую.
+        val notificationTitle = GoogleTranslate.localizedText(appContext, title)
 
         // Создаем Intent для открытия MainActivity при нажатии
         val intent = Intent(appContext, MainActivity::class.java).apply {
@@ -206,7 +215,7 @@ object NotificationHelper {
                     BitmapFactory.decodeResource(appContext.resources, R.mipmap.ic_launcher_background)
                 }.getOrNull()?.let { setLargeIcon(it) }
             }
-            .setContentTitle(title)
+            .setContentTitle(notificationTitle)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
