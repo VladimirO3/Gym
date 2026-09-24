@@ -204,6 +204,7 @@
     <string name="execution_technique">Техника выполнения: внимательно следите за положением спины и дыханием.</string>
     <string name="daily_exercise">Ежедневное упражнение</string>
     <string name="training_plan">ПЛАН ТРЕНИРОВОК</string>
+    <string name="workout_not_found">Программа не найдена</string>
     <string name="personal_plan">Ваш персональный план на %1$s</string>
     <string name="tap_for_instruction">Нажмите для инструкции 📸</string>
     <string name="tap_exercise_hint">💡 Нажмите на упражнение, чтобы увидеть фото-инструкцию.</string>

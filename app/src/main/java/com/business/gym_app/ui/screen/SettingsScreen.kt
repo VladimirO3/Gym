@@ -28,6 +28,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.draw.clip
@@ -57,6 +58,7 @@ fun SettingsScreen(
     currentUserEmail: String?,
     onLogout: () -> Unit,
     onGoToCart: () -> Unit,
+    onOpenWorkout: (String) -> Unit = {},
     viewModel: SettingsViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel(),
     modifier: Modifier = Modifier
@@ -654,7 +656,11 @@ fun SettingsScreen(
         }
 
         if (isAdmin) {
-            AdminWorkoutSection(viewModel = viewModel, contentModifier = contentModifier)
+            AdminWorkoutSection(
+                viewModel = viewModel,
+                contentModifier = contentModifier,
+                onOpenWorkout = { onOpenWorkout(it.id) }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -1319,7 +1325,8 @@ fun ChangePasswordDialog(
 @Composable
 fun AdminWorkoutSection(
     viewModel: SettingsViewModel,
-    contentModifier: Modifier
+    contentModifier: Modifier,
+    onOpenWorkout: (DailyWorkout) -> Unit = {}
 ) {
     val context = LocalContext.current
     val customWorkouts by viewModel.customWorkouts
@@ -1434,7 +1441,10 @@ fun AdminWorkoutSection(
         } else {
             customWorkouts.forEach { workout ->
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clickable { onOpenWorkout(workout) },
                     colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(alpha = 0.3f)),
                     border = BorderStroke(0.5.dp, Color.Gray.copy(alpha = 0.3f))
                 ) {
@@ -1479,6 +1489,69 @@ fun AdminWorkoutSection(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Экран просмотра программы тренировок с кнопкой назад.
+ * Открывается из списка программ администратора (профиль) и показывает программу
+ * так же, как пользователь видит её в своём профиле ([TrainingPlanSection]).
+ */
+@Composable
+fun WorkoutDetailScreen(
+    workout: DailyWorkout?,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isWideScreen = configuration.screenWidthDp > 600
+    val contentModifier = if (isWideScreen) Modifier.fillMaxWidth().widthIn(max = 800.dp) else Modifier.fillMaxWidth()
+
+    val fallbackTitle = stringResource(R.string.training_plan)
+    val title = if (workout != null) rememberTranslatedTitle(workout.title) else fallbackTitle
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = if (isWideScreen) 32.dp else 16.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Шапка: кнопка назад + название программы на языке приложения
+        Row(
+            modifier = contentModifier,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.cd_back),
+                    tint = Color.Red
+                )
+            }
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.Red,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (workout != null) {
+            // Тот же вид, что и у пользователя: обложка, название, список упражнений
+            TrainingPlanSection(plan = com.google.gson.Gson().toJson(workout), modifier = contentModifier)
+        } else {
+            // Программу не нашли (например, удалили) — пробуем подгрузить список заново
+            Text(
+                text = stringResource(R.string.workout_not_found),
+                color = Color.Gray,
+                modifier = Modifier.padding(top = 24.dp)
+            )
         }
     }
 }

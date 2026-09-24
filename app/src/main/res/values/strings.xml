@@ -204,6 +204,7 @@
     <string name="execution_technique">Technique: pay close attention to your back position and breathing.</string>
     <string name="daily_exercise">Daily exercise</string>
     <string name="training_plan">TRAINING PLAN</string>
+    <string name="workout_not_found">Program not found</string>
     <string name="personal_plan">Your personal plan for %1$s</string>
     <string name="tap_for_instruction">Tap for instructions 📸</string>
     <string name="tap_exercise_hint">💡 Tap an exercise to see photo instructions.</string>
