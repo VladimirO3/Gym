@@ -19,6 +19,10 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import com.business.gym_app.MainActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Помощник для отображения системных уведомлений в шторке.
@@ -31,6 +35,12 @@ object NotificationHelper {
 
     /** ID постоянного уведомления ChatForegroundService — его нельзя перекрывать. */
     const val SERVICE_NOTIFICATION_ID = 7001
+
+    /**
+     * Фоновое уточнение переведённого заголовка. Отдельный скоуп: показ уведомления
+     * не должен ждать сеть (см. [showNotification]).
+     */
+    private val translateScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * Создает каналы уведомлений. Вызывается при старте процесса (GymApplication),
@@ -163,14 +173,15 @@ object NotificationHelper {
     }
 
     /**
-     * Показывает уведомление.
+     * Показывает уведомление о сообщении.
      *
-     * `suspend`: заголовок (обычно имя отправителя, которое хранится на одном языке)
-     * переводится на язык приложения через [GoogleTranslate], если ещё не переведён.
-     * Оба вызова идут из coroutine-контекстов (ChatViewModel, ChatUnreadNotifier.check),
-     * сеть выполняется на Dispatchers.IO — главный поток не блокируется.
+     * Заголовок (имя отправителя) берётся из кэша перевода мгновенно; сетевой перевод
+     * выполняется асинхронно и молча обновляет уже показанное уведомление. Синхронный
+     * сетевой вызов здесь недопустим: ChatAlarmReceiver работает через goAsync()
+     * с бюджетом ~10 секунд — долгий запрос к translation.googleapis.com удерживал
+     * проверку дольше, и фоновые уведомления при закрытом приложении терялись.
      */
-    suspend fun showNotification(context: Context, title: String, message: String, senderId: String? = null) {
+    fun showNotification(context: Context, title: String, message: String, senderId: String? = null) {
         val appContext = context.applicationContext
         ensureChannels(appContext)
 
@@ -187,10 +198,14 @@ object NotificationHelper {
             return
         }
 
-        // Имя отправителя переводим на язык приложения только после проверок
-        // разрешений и дублей — чтобы не тратить запрос к API впустую.
-        val notificationTitle = GoogleTranslate.localizedText(appContext, title)
+        // Мгновенный перевод из кэша (его заполняет показ имени в UI); без кэша —
+        // исходный заголовок, точный перевод придёт асинхронно после показа.
+        val target = AppLanguage.current(appContext)
+        val cachedTitle = GoogleTranslate.cached(appContext, title, target) ?: title
 
+        // Сборка уведомления — локальная функция: её переиспользует и асинхронное
+        // обновление переведённого заголовка ниже.
+        fun buildNotification(titleText: String): Notification {
         // Создаем Intent для открытия MainActivity при нажатии
         val intent = Intent(appContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -208,14 +223,14 @@ object NotificationHelper {
         // Сборка уведомления. Маленькая иконка — монохромный вектор: полноцветный растр
         // из mipmap система рисует сплошным квадратом, а часть оболочек такие
         // уведомления не показывает вовсе.
-        val notification = NotificationCompat.Builder(appContext, CHANNEL_ID)
+        return NotificationCompat.Builder(appContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_gym_logo_white)
             .apply {
                 runCatching {
                     BitmapFactory.decodeResource(appContext.resources, R.mipmap.ic_launcher_background)
                 }.getOrNull()?.let { setLargeIcon(it) }
             }
-            .setContentTitle(notificationTitle)
+            .setContentTitle(titleText)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -226,6 +241,9 @@ object NotificationHelper {
             .setGroup(GROUP_KEY_CHATS)
             .setContentIntent(pendingIntent)
             .build()
+        }
+
+        val notification = buildNotification(cachedTitle)
 
         // Отображение. Исключение здесь не должно обрывать фоновый опрос сообщений,
         // иначе уведомления пропадут до следующего перезапуска приложения.
@@ -235,6 +253,51 @@ object NotificationHelper {
             Log.d(TAG, "Notification shown: sender=$senderId id=$notificationId")
         } catch (e: Exception) {
             Log.e(TAG, "notify() failed for sender=$senderId", e)
+            return
+        }
+
+        // Сетевой перевод — вне критического пути показа (см. KDoc к showNotification):
+        // уведомление уже показано, после ответа заголовок молча уточняется.
+        if (GoogleTranslate.needsTranslation(title, target)) {
+            translateScope.launch {
+                updateTranslatedTitle(appContext, senderId, notificationId, title) {
+                    buildNotification(it)
+                }
+            }
+        }
+    }
+
+    /**
+     * Тихое обновление заголовка уже показанного уведомления после прихода перевода.
+     * [build] — локальная сборка из [showNotification]; выполняется в [translateScope],
+     * поэтому сеть не задерживает показ (BroadcastReceiver с goAsync ограничен ~10 сек).
+     */
+    private suspend fun updateTranslatedTitle(
+        appContext: Context,
+        senderId: String?,
+        notificationId: Int,
+        sourceTitle: String,
+        build: (String) -> Notification
+    ) {
+        val translated = try {
+            GoogleTranslate.localizedText(appContext, sourceTitle)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Async title translation failed: ${e.message}")
+            return
+        }
+        if (translated == sourceTitle) return
+        // Обновляем только если уведомление ещё в шторке — после тапа оно снято,
+        // и повторный notify вернул бы его пользователю.
+        val manager = appContext.getSystemService(NotificationManager::class.java) ?: return
+        val stillShown = manager.activeNotifications?.any { it.id == notificationId } == true
+        if (!stillShown || !areNotificationsEnabled(appContext)) return
+        try {
+            manager.notify(notificationId, build(translated))
+            Log.d(TAG, "Notification title translated: sender=$senderId")
+        } catch (e: Exception) {
+            Log.w(TAG, "Notification title update failed: ${e.message}")
         }
     }
 
