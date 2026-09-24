@@ -17,6 +17,8 @@ import com.business.gym_app.data.api.NewsApiService
 import com.business.gym_app.data.local.GymDatabase
 import com.business.gym_app.data.model.NewsItem
 import com.business.gym_app.data.repository.NewsRepository
+import com.business.gym_app.util.formatNewsText
+import com.business.gym_app.util.formatNewsTitle
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -124,8 +126,8 @@ class NewsViewModel(
                 // Запрос к репозиторию для отправки на сервер
                 repository.uploadNews(
                     token = token,
-                    title = title,
-                    content = content,
+                    title = formatNewsTitle(title),
+                    content = formatNewsText(content),
                     type = typeValue,
                     filePart = filePart
                 )
@@ -188,8 +190,8 @@ class NewsViewModel(
                 repository.updateNews(
                     token = token,
                     id = id,
-                    title = title,
-                    content = content,
+                    title = formatNewsTitle(title),
+                    content = formatNewsText(content),
                     type = typeValue,
                     url = if (uri == null) existingUrl else null, // Передаем старый URL, если новый файл не выбран
                     filePart = filePart

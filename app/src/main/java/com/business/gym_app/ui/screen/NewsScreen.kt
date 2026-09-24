@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.business.gym_app.util.AppLanguage
+import com.business.gym_app.util.formatNewsText
+import com.business.gym_app.util.formatNewsTitle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -191,18 +193,20 @@ fun NewsScreen(
                         }
 
                         Column(modifier = Modifier.padding(20.dp)) {
-                            if (!news.title.isNullOrBlank()) {
+                            val displayTitle = remember(news.title) { news.title?.let { formatNewsTitle(it) } }
+                            val displayContent = remember(news.content) { news.content?.let { formatNewsText(it) } }
+                            if (!displayTitle.isNullOrBlank()) {
                                 Text(
-                                    text = news.title,
+                                    text = displayTitle,
                                     style = MaterialTheme.typography.titleLarge,
                                     color = Color.Red,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
-                            if (!news.content.isNullOrBlank()) {
+                            if (!displayContent.isNullOrBlank()) {
                                 Text(
-                                    text = news.content,
+                                    text = displayContent,
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = Color.White,
                                     lineHeight = 22.sp,
@@ -689,8 +693,8 @@ fun NewsScreen(
                         onDelete = { viewModel.deleteLocalNewsItem(localItem.id, jwtToken) },
                         onEdit = { 
                             editingNewsItem = localItem
-                            editTitle = localItem.title
-                            editContent = localItem.content
+                            editTitle = formatNewsTitle(localItem.title)
+                            editContent = formatNewsText(localItem.content)
                             editMediaUri = null // Reset new media selection
                             showLocalEditDialog = true
                         },

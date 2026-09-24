@@ -24,6 +24,8 @@ import coil.request.ImageRequest
 import com.business.gym_app.R
 import com.business.gym_app.data.model.NewsItem
 import com.business.gym_app.util.AppLanguage
+import com.business.gym_app.util.formatNewsText
+import com.business.gym_app.util.formatNewsTitle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -54,6 +56,11 @@ fun NewsMediaItem(
         } else ""
     }
 
+    // Показываем текст в отформатированном виде: убирает лишние пробелы
+    // (в т.ч. у новостей, опубликованных до внедрения форматирования)
+    val displayTitle = remember(item.title) { item.title?.let { formatNewsTitle(it) } }
+    val displayContent = remember(item.content) { item.content?.let { formatNewsText(it) } }
+
     // Список доступных реакций (Emoji -> Ключ для сервера)
     val reactionList = listOf(
         "🔥" to "fire", 
@@ -82,16 +89,16 @@ fun NewsMediaItem(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // 1. Блок текста (СВЕРХУ) - ВСЕГДА ОТОБРАЖАЕМ
-                if (!item.title.isNullOrBlank() || !item.content.isNullOrBlank()) {
+                if (!displayTitle.isNullOrBlank() || !displayContent.isNullOrBlank()) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = if (isTextOnly) 0.dp else 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        if (!item.title.isNullOrBlank()) {
+                        if (!displayTitle.isNullOrBlank()) {
                             Text(
-                                text = item.title,
+                                text = displayTitle,
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = Color.Red,
                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
@@ -99,10 +106,10 @@ fun NewsMediaItem(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
-                        if (!item.content.isNullOrBlank()) {
-                            if (!item.title.isNullOrBlank()) Spacer(modifier = Modifier.height(8.dp))
+                        if (!displayContent.isNullOrBlank()) {
+                            if (!displayTitle.isNullOrBlank()) Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = item.content,
+                                text = displayContent,
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Justify,
