@@ -20,6 +20,7 @@ import com.business.gym_app.receiver.ChatAlarmReceiver
 import com.business.gym_app.service.ChatForegroundService
 import com.business.gym_app.util.AppLanguage
 import com.business.gym_app.util.AuthUtils
+import com.business.gym_app.util.PinHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -83,6 +84,182 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isSessionLoaded = mutableStateOf(false)
     val isSessionLoaded: State<Boolean> = _isSessionLoaded
+
+    // --- Быстрый вход по PIN-коду из 4 цифр ---
+    private val _pinMode = mutableStateOf(false)
+    val pinMode: State<Boolean> = _pinMode
+
+    private val _pinValue = mutableStateOf("")
+    val pinValue: State<String> = _pinValue
+
+    private val _pinConfirm = mutableStateOf("")
+    val pinConfirm: State<String> = _pinConfirm
+
+    /** Экран только что зарегистрировался и должен предложить создать PIN. */
+    private val _pendingPinSetup = mutableStateOf(false)
+    val pendingPinSetup: State<Boolean> = _pendingPinSetup
+
+    /** PIN просрочен (7 дней) — вход по нему запрещён, требуем задать новый. */
+    private val _pinExpired = mutableStateOf(false)
+    val pinExpired: State<Boolean> = _pinExpired
+
+    /** Причина открытия диалога смены PIN: истёк срок / скоро истечёт / ручная смена. */
+    private val _pinChangeReason = mutableStateOf(PinChangeReason.MANUAL)
+    val pinChangeReason: State<PinChangeReason> = _pinChangeReason
+
+    enum class PinChangeReason { MANUAL, EXPIRED, EXPIRING_SOON }
+
+    private val _pinAccount = mutableStateOf("")
+    val pinAccount: State<String> = _pinAccount
+
+    fun onPinChange(value: String) {
+        _pinValue.value = value.filter { it.isDigit() }.take(PinHelper.PIN_LENGTH)
+    }
+
+    fun onPinConfirmChange(value: String) {
+        _pinConfirm.value = value.filter { it.isDigit() }.take(PinHelper.PIN_LENGTH)
+    }
+
+    fun setPinMode(enabled: Boolean) {
+        _pinMode.value = enabled
+        if (enabled) {
+            _pinValue.value = ""
+            _pinConfirm.value = ""
+        } else {
+            _error.value = null
+        }
+    }
+
+    /** К какому логину привязан сохранённый PIN (email или телефон). */
+    fun pinLoginAccount(context: Context): String {
+        val mode = _authMode.value.ifBlank { _registeredMethod.value.orEmpty() }
+        val current = when {
+            mode == "phone" -> _otpPhone.value
+            _email.value.isNotBlank() -> _email.value
+            else -> _otpEmail.value
+        }
+        if (current.isNotBlank()) return current
+        return PinHelper.pinAccount(context).orEmpty()
+    }
+
+    fun hasPinForCurrentAccount(context: Context): Boolean {
+        val account = pinLoginAccount(context)
+        if (account.isBlank()) return false
+        return PinHelper.isPinForAccount(context, account)
+    }
+
+    fun requestPinSetup(account: String, reason: PinChangeReason = PinChangeReason.MANUAL) {
+        _pinAccount.value = account
+        _pinValue.value = ""
+        _pinConfirm.value = ""
+        _pinChangeReason.value = reason
+        _pendingPinSetup.value = true
+    }
+
+    fun dismissPinSetup() {
+        _pendingPinSetup.value = false
+        _pinValue.value = ""
+        _pinConfirm.value = ""
+    }
+
+    fun savePinCode(account: String, onDone: () -> Unit) {
+        val pin = _pinValue.value
+        val confirm = _pinConfirm.value
+        when {
+            !PinHelper.isValidPinFormat(pin) || !PinHelper.isValidPinFormat(confirm) -> {
+                _error.value = res.getString(R.string.pin_enter_4_digits)
+                return
+            }
+            pin != confirm -> {
+                _error.value = res.getString(R.string.pin_mismatch)
+                return
+            }
+            account.isBlank() -> {
+                _error.value = res.getString(R.string.unknown_error)
+                return
+            }
+            else -> {
+                val ok = PinHelper.setPin(getApplication(), account, pin)
+                if (!ok) {
+                    _error.value = res.getString(R.string.unknown_error)
+                    return
+                }
+                _pinAccount.value = account
+                _pendingPinSetup.value = false
+                _pinExpired.value = false
+                _pinValue.value = ""
+                _pinConfirm.value = ""
+                _error.value = null
+                onDone()
+            }
+        }
+    }
+
+    /**
+     * Вход по PIN: проверяем PIN для сохранённого логина и дальше
+     * логинимся сохранёнными email/паролем (серверный вход как обычно).
+     * Если с создания PIN прошло 7+ дней — вход запрещаем и требуем смену.
+     *
+     * @return true если PIN принят и идёт серверный вход, false если нужна смена/пароль.
+     */
+    fun signInWithPin(
+        context: Context,
+        onSuccess: (String) -> Unit,
+        onNeedPassword: () -> Unit = {},
+        onPinExpired: () -> Unit = {}
+    ): Boolean {
+        val account = pinLoginAccount(context)
+        val pin = _pinValue.value
+        if (account.isBlank() || !hasSavedCredentials()) {
+            _error.value = res.getString(R.string.biometric_no_saved_data)
+            onNeedPassword()
+            return false
+        }
+        if (PinHelper.isPinExpired(context)) {
+            _pinExpired.value = true
+            _error.value = res.getString(R.string.pin_expired)
+            requestPinSetup(account, PinChangeReason.EXPIRED)
+            onPinExpired()
+            return false
+        }
+        if (!PinHelper.isValidPinFormat(pin)) {
+            _error.value = res.getString(R.string.pin_enter_4_digits)
+            return false
+        }
+        if (!PinHelper.verifyPin(context, account, pin)) {
+            _error.value = res.getString(R.string.pin_wrong)
+            _pinValue.value = ""
+            return false
+        }
+        _pinValue.value = ""
+        _error.value = null
+        if (PinHelper.isPinExpiringSoon(context)) {
+            requestPinSetup(account, PinChangeReason.EXPIRING_SOON)
+        }
+        signInWithEmail(onSuccess)
+        return true
+    }
+
+    /** Сбросить PIN (например, ссылка "Забыли PIN?" → вход по паролю). */
+    fun clearPinCode() {
+        PinHelper.clearPin(getApplication())
+        _pinValue.value = ""
+        _pinConfirm.value = ""
+        _pinMode.value = false
+        _pinExpired.value = false
+    }
+
+    /** Закрыть диалог смены PIN без сохранения (только если срок не истёк). */
+    fun dismissPinChange(onDismissed: () -> Unit = {}) {
+        if (_pinChangeReason.value == PinChangeReason.EXPIRED || _pinExpired.value) {
+            // Просроченный PIN закрыть нельзя — сначала задайте новый.
+            _error.value = res.getString(R.string.pin_expired)
+            return
+        }
+        dismissPinSetup()
+        _error.value = null
+        onDismissed()
+    }
 
     private val localApiService get() = NewsApiService.create(getApplication())
 
@@ -951,6 +1128,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _currentUserEmail.value = null
         _jwtToken.value = null
         _refreshToken.value = null
+        _pinMode.value = false
+        _pinValue.value = ""
+        _pinConfirm.value = ""
+        _pinExpired.value = false
+        _pinChangeReason.value = PinChangeReason.MANUAL
+        _pendingPinSetup.value = false
         _currentUid.value = ""
         _isGuest.value = false
         _isSessionLoaded.value = true // После выхода сессия "загружена" (её нет)

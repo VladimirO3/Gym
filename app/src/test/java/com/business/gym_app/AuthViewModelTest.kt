@@ -34,6 +34,10 @@ class AuthViewModelTest {
         `when`(mockApplication.getSharedPreferences(anyString(), anyInt())).thenAnswer { invocation ->
             prefs.getOrPut(invocation.getArgument(0)) { InMemorySharedPreferences() }
         }
+        // Строки из ресурсов: у мок-Application нет resources, поэтому отдаём заглушку.
+        val mockResources = mock(android.content.res.Resources::class.java)
+        `when`(mockResources.getString(anyInt())).thenReturn("test_string")
+        `when`(mockApplication.resources).thenReturn(mockResources)
         viewModel = AuthViewModel(mockApplication)
     }
 
@@ -75,5 +79,58 @@ class AuthViewModelTest {
         // Без сохраненного токена сессия считается загруженной, пользователь не авторизован
         assertTrue(viewModel.isSessionLoaded.value)
         assertNull(viewModel.jwtToken.value)
+    }
+
+    @Test
+    fun testPinInput_OnlyDigitsMax4() {
+        // PIN принимает только цифры и не длиннее 4 символов
+        viewModel.onPinChange("12ab345")
+        assertEquals("1234", viewModel.pinValue.value)
+        viewModel.onPinConfirmChange(" 9x8y7z6 ")
+        assertEquals("9876", viewModel.pinConfirm.value)
+    }
+
+    @Test
+    fun testPinSetup_MismatchSetsError() {
+        // Несовпадение PIN и подтверждения — ошибка, диалог не закрывается
+        viewModel.requestPinSetup("user@test.com")
+        assertTrue(viewModel.pendingPinSetup.value)
+        viewModel.onPinChange("1234")
+        viewModel.onPinConfirmChange("4321")
+        var done = false
+        viewModel.savePinCode("user@test.com") { done = true }
+        assertFalse(done)
+        assertTrue(viewModel.pendingPinSetup.value)
+        assertTrue(!viewModel.error.value.isNullOrBlank())
+    }
+
+    @Test
+    fun testRequestAndDismissPinSetup() {
+        viewModel.requestPinSetup("user@test.com")
+        assertTrue(viewModel.pendingPinSetup.value)
+        assertEquals("user@test.com", viewModel.pinAccount.value)
+        viewModel.dismissPinSetup()
+        assertFalse(viewModel.pendingPinSetup.value)
+    }
+
+    @Test
+    fun testDismissPinChange_BlockedWhenExpired() {
+        // Просроченный PIN (7 дней) нельзя отменить — сначала задайте новый.
+        viewModel.requestPinSetup("user@test.com", AuthViewModel.PinChangeReason.EXPIRED)
+        var dismissed = false
+        viewModel.dismissPinChange { dismissed = true }
+        assertFalse(dismissed)
+        assertTrue(viewModel.pendingPinSetup.value)
+        assertTrue(!viewModel.error.value.isNullOrBlank())
+    }
+
+    @Test
+    fun testDismissPinChange_AllowedWhenManual() {
+        // Ручная смена / напоминание — можно отложить.
+        viewModel.requestPinSetup("user@test.com", AuthViewModel.PinChangeReason.EXPIRING_SOON)
+        var dismissed = false
+        viewModel.dismissPinChange { dismissed = true }
+        assertTrue(dismissed)
+        assertFalse(viewModel.pendingPinSetup.value)
     }
 }

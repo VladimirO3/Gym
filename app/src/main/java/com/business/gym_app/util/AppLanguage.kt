@@ -53,10 +53,10 @@ object AppLanguage {
      * applicationContext и не обновляются вместе с Activity.
      */
     fun localized(context: Context): Context {
-        val locale = locale(context)
-        if (context.resources.configuration.locales[0] == locale) return context
         return try {
-            context.createConfigurationContext(buildConfig(context, locale))
+            val locale = locale(context)
+            if (context.resources.configuration.locales[0] == locale) context
+            else context.createConfigurationContext(buildConfig(context, locale))
         } catch (e: Exception) {
             context
         }

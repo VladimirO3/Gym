@@ -489,7 +489,7 @@ fun SettingsScreen(
         }
 
         val canUseBiometrics = remember(context) { BiometricHelper.canAuthenticate(context) }
-        if (canUseBiometrics && !isGuest) {
+        if (!isGuest) {
             var biometricEnabled by remember { mutableStateOf(BiometricHelper.isBiometricEnabled(context)) }
             
             Card(
@@ -513,6 +513,7 @@ fun SettingsScreen(
                     val biometricDisabledText = stringResource(R.string.biometric_login_disabled)
                     Switch(
                         checked = biometricEnabled,
+                        enabled = canUseBiometrics,
                         onCheckedChange = {
                             biometricEnabled = it
                             BiometricHelper.setBiometricEnabled(context, it)
@@ -523,6 +524,12 @@ fun SettingsScreen(
                     )
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            QuickPinSection(
+                contentModifier = contentModifier,
+                authViewModel = authViewModel
+            )
             Spacer(modifier = Modifier.height(24.dp))
         }
 
