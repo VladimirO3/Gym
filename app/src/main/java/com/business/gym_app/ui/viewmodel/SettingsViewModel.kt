@@ -23,6 +23,7 @@ import com.business.gym_app.data.repository.TrainingProgramRepository
 import com.business.gym_app.util.AppLanguage
 import com.business.gym_app.util.AuthUtils
 import com.business.gym_app.util.AppEventBus
+import com.business.gym_app.util.PasswordHelper
 import com.google.gson.Gson
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -631,6 +632,9 @@ class SettingsViewModel(
                     if (savedEmail.isNotBlank()) {
                         sharedPref.edit().putString("saved_password", newPass).apply()
                     }
+                    // 21-дневный срок отсчитывается заново от успешной смены.
+                    // Логин должен совпадать с тем, что проверяет isPasswordExpired (email).
+                    PasswordHelper.markPasswordChanged(context, savedEmail.ifBlank { null })
                     onSuccess()
                 } else {
                     onError(res.getString(R.string.password_change_error))

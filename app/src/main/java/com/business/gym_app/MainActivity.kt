@@ -96,6 +96,7 @@ import com.business.gym_app.ui.screen.AboutScreen
 import com.business.gym_app.ui.screen.AuthScreen
 import com.business.gym_app.ui.screen.ChatScreen
 import com.business.gym_app.ui.screen.ExitScreen
+import com.business.gym_app.ui.screen.ForcePasswordChangeScreen
 import com.business.gym_app.ui.screen.NewsScreen
 import com.business.gym_app.ui.screen.PlaylistScreen
 import com.business.gym_app.ui.screen.SettingsScreen
@@ -107,6 +108,7 @@ import com.business.gym_app.ui.viewmodel.AboutViewModel
 import com.business.gym_app.ui.viewmodel.AuthViewModel
 import com.business.gym_app.ui.viewmodel.CartViewModel
 import com.business.gym_app.ui.viewmodel.SettingsViewModel
+import com.business.gym_app.util.PasswordHelper
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -549,6 +551,19 @@ fun GymAppContent(
     
     var showAuthOverlay by rememberSaveable { mutableStateOf(false) }
 
+    // Обязательная смена пароля каждые 21 день (см. PasswordHelper).
+    // Пока срок не истёк, вместо контента приложения показываем блокирующий экран:
+    // сменить пароль обязан сам пользователь, закрыть экран нельзя.
+    var passwordResetDone by remember { mutableStateOf(false) }
+    val isPasswordChangeRequired = !passwordResetDone &&
+        !isGuest &&
+        currentUserEmail != null &&
+        PasswordHelper.isPasswordExpired(context, currentUserEmail)
+    val passwordDaysSinceChange = remember(isPasswordChangeRequired) {
+        PasswordHelper.daysSinceChange(context)
+    }
+    val isChangingPassword by settingsViewModel.isChangingPassword
+
     // id программы тренировок, открытой на экране просмотра (вкладка «Настройки»).
     // null — показывается обычный экран настроек.
     var openedWorkoutId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -567,6 +582,22 @@ fun GymAppContent(
                     settingsViewModel = settingsViewModel,
                     onAuthSuccess = { email -> 
                         authViewModel.loadSession(context)
+                    }
+                )
+            } else if (isPasswordChangeRequired) {
+                // Обязательная смена пароля каждые 21 день: блокируем контент приложения,
+                // пока пользователь не сменит пароль (закрыть/пропустить нельзя).
+                ForcePasswordChangeScreen(
+                    isLoading = isChangingPassword,
+                    daysSinceChange = passwordDaysSinceChange,
+                    onChangePassword = { oldPass, newPass, onError ->
+                        settingsViewModel.changePassword(
+                            context = context,
+                            oldPass = oldPass,
+                            newPass = newPass,
+                            onSuccess = { passwordResetDone = true },
+                            onError = onError
+                        )
                     }
                 )
             } else {

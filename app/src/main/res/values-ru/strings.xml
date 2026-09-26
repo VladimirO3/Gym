@@ -319,6 +319,13 @@
     <string name="biometric_login_button">Вход по отпечатку / лицу</string>
     <string name="biometric_no_saved_data">Нет сохраненных данных для входа по биометрии. Пожалуйста, войдите по паролю.</string>
 
+    <!-- Обязательная смена пароля каждые 21 день -->
+    <string name="password_change_required_title">Требуется смена пароля</string>
+    <string name="password_change_required_subtitle">С последней смены пароля прошло %1$d дн. В целях безопасности задайте новый пароль, чтобы продолжить работу.</string>
+    <string name="password_change_save_button">Сменить пароль</string>
+    <string name="password_age_days">Пароль действует ещё %1$d дн. (менять каждые 21 день)</string>
+    <string name="password_expired_status">Срок истёк — смените пароль</string>
+
     <!-- Уведомления и фоновый режим -->
     <string name="notifications_background_title">Уведомления и фоновый режим</string>
     <string name="notifications_allowed">Уведомления разрешены</string>

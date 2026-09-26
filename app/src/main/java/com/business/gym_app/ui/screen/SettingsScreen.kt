@@ -47,6 +47,7 @@ import com.business.gym_app.ui.component.rememberTranslatedTitle
 import com.business.gym_app.ui.component.rememberTranslatedText
 import com.business.gym_app.util.BiometricHelper
 import com.business.gym_app.util.NotificationHelper
+import com.business.gym_app.util.PasswordHelper
 import androidx.compose.ui.window.DialogProperties
 import java.time.LocalDate
 import java.time.YearMonth
@@ -374,7 +375,30 @@ fun SettingsScreen(
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
+                        // Статус обязательной смены пароля (каждые 21 день).
+                        if (canEditProfile) {
+                            val passwordExpired = remember(currentUserEmail) {
+                                PasswordHelper.isPasswordExpired(context, currentUserEmail)
+                            }
+                            val passwordDaysLeft = remember(currentUserEmail) {
+                                PasswordHelper.passwordDaysLeft(context)
+                            }
+                            Text(
+                                text = if (passwordExpired) {
+                                    stringResource(R.string.password_expired_status)
+                                } else {
+                                    stringResource(R.string.password_age_days, passwordDaysLeft.toInt())
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (passwordExpired) Color.Red else Color.Gray,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
                         Button(
                             onClick = onGoToCart,
                             modifier = Modifier.widthIn(max = 300.dp).fillMaxWidth().height(40.dp),

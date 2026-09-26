@@ -21,6 +21,7 @@ import com.business.gym_app.service.ChatForegroundService
 import com.business.gym_app.util.AppLanguage
 import com.business.gym_app.util.AuthUtils
 import com.business.gym_app.util.PinHelper
+import com.business.gym_app.util.PasswordHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -868,6 +869,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 localApiService.register(emailValue, passwordValue, phoneValue, emailValue.substringBefore("@"), _privacyAgreed.value)
                 saveCredentials(emailValue, passwordValue, "email")
+                // Только что установленный пароль: 21-дневный срок отсчитывается с него.
+                PasswordHelper.markPasswordChanged(getApplication(), emailValue)
                 _isLoading.value = false
                 _isLogin.value = true
                 _error.value = res.getString(R.string.application_sent)

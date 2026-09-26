@@ -319,6 +319,13 @@
     <string name="biometric_login_button">Sign in with fingerprint / face</string>
     <string name="biometric_no_saved_data">No saved data for biometric login. Please sign in with your password.</string>
 
+    <!-- Обязательная смена пароля каждые 21 день -->
+    <string name="password_change_required_title">Password change required</string>
+    <string name="password_change_required_subtitle">It has been %1$d days since your last password change. For security, please set a new password to continue.</string>
+    <string name="password_change_save_button">Change password</string>
+    <string name="password_age_days">Password expires in %1$d d. (change every 21 days)</string>
+    <string name="password_expired_status">Expired — please change your password</string>
+
     <!-- Notifications & background mode -->
     <string name="notifications_background_title">Notifications and background mode</string>
     <string name="notifications_allowed">Notifications allowed</string>
