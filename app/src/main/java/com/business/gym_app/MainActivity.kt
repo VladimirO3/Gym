@@ -109,6 +109,8 @@ import com.business.gym_app.ui.viewmodel.AuthViewModel
 import com.business.gym_app.ui.viewmodel.CartViewModel
 import com.business.gym_app.ui.viewmodel.SettingsViewModel
 import com.business.gym_app.util.PasswordHelper
+import com.business.gym_app.util.FeedbackHelper
+import com.business.gym_app.ui.screen.FeedbackDialog
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -570,6 +572,24 @@ fun GymAppContent(
     // id программы тренировок, открытой на экране просмотра (вкладка «Настройки»).
     // null — показывается обычный экран настроек.
     var openedWorkoutId by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // Отзыв просим раз в 10 дней (см. FeedbackHelper). Показываем только
+    // авторизованному пользователю, у которого ещё не было этого окна.
+    var showFeedback by remember { mutableStateOf(false) }
+    LaunchedEffect(currentUserEmail, isGuest) {
+        if (currentUserEmail != null && !isGuest && !isPasswordChangeRequired &&
+            FeedbackHelper.shouldAskForFeedback(context, currentUserEmail)
+        ) {
+            showFeedback = true
+        }
+    }
+    val appVersion = remember {
+        try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
+        } catch (e: Exception) {
+            "1.0"
+        }
+    }
     
     val configuration = LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp > 600
@@ -900,7 +920,34 @@ fun GymAppContent(
             }
         }
     }
-}
+    }
+
+    // Окно отзыва: раз в 10 дней. Крестик закрывает без отправки,
+    // «Отправить» открывает почтовое приложение с письмом разработчику.
+    if (showFeedback && currentUserEmail != null) {
+        FeedbackDialog(
+            account = currentUserEmail,
+            onDismiss = {
+                showFeedback = false
+                // Закрытие тоже обнуляет счётчик, чтобы окно не всплывало
+                // на каждом запуске приложения.
+                FeedbackHelper.markShown(context, currentUserEmail)
+            },
+            onSend = { rating, comment ->
+                val sent = try {
+                    context.startActivity(
+                        FeedbackHelper.buildEmailIntent(rating, comment, currentUserEmail, appVersion)
+                    )
+                    true
+                } catch (e: Exception) {
+                    android.util.Log.w("MainActivity", "Feedback: no mail app", e)
+                    false
+                }
+                if (sent) FeedbackHelper.markShown(context, currentUserEmail)
+                sent
+            }
+        )
+    }
 }
 
 @Preview(showBackground = true)

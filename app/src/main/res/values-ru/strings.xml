@@ -301,6 +301,14 @@
     <string name="pin_create_required">Для входа нужен PIN — создайте его, чтобы продолжить</string>
     <string name="pin_create_required_title">Создайте PIN для входа</string>
     <string name="pin_create_required_subtitle">Для входа нужен PIN из 4 цифр или биометрия. Создайте PIN сейчас</string>
+    <string name="feedback_title">Оставьте отзыв</string>
+    <string name="feedback_subtitle">Ваш отзыв поможет нам сделать приложение лучше. Он будет отправлен разработчику на почту.</string>
+    <string name="feedback_rate">Ваша оценка</string>
+    <string name="feedback_comment_hint">Отзыв, пожелания и предложения</string>
+    <string name="feedback_send">Отправить</string>
+    <string name="feedback_select_rate">Пожалуйста, оцените приложение звёздами</string>
+    <string name="feedback_no_mail_app">Почтовое приложение не найдено — установите его, чтобы отправить отзыв</string>
+    <string name="feedback_star">из 5</string>
     <string name="pin_delete_digit">Удалить последнюю цифру</string>
     <string name="pin_enter_4_digits">Введите 4 цифры</string>
     <string name="pin_mismatch">PIN-коды не совпадают, попробуйте ещё раз</string>
