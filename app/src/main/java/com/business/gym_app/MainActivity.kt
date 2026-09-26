@@ -176,7 +176,9 @@ class MainActivity : AppCompatActivity() {
                 val aboutViewModel: AboutViewModel = viewModel(factory = AboutViewModel.Factory(application))
 
                 LaunchedEffect(Unit) {
-                    authViewModel.loadSession(context)
+                    // Сессию НЕ восстанавливаем: холодный старт уже разобран в
+                    // AuthViewModel.startColdStart — зарегистрированный пользователь
+                    // после выгрузки обязан подтвердить вход PIN/биометрией/паролем.
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         // Запрос POST_NOTIFICATIONS из LaunchedEffect первой композиции
                         // роняет новое устройство IllegalStateException в
@@ -506,6 +508,7 @@ fun GymAppContent(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val isGuest by authViewModel.isGuest // Используем делегат для реактивности
+    val reauthRequired by authViewModel.reauthRequired
     val privacyAgreed by settingsViewModel.privacyAgreed
     
     val newsTitle = stringResource(R.string.tab_news)
@@ -576,12 +579,15 @@ fun GymAppContent(
             color = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onBackground
         ) {
-            if (currentUserEmail == null && !isGuest) {
+            if (currentUserEmail == null && !isGuest || reauthRequired) {
+                // После выгрузки приложения зарегистрированный пользователь обязан
+                // подтвердить вход: PIN-кодом, отпечатком/лицом или паролем.
                 AuthScreen(
                     viewModel = authViewModel,
                     settingsViewModel = settingsViewModel,
-                    onAuthSuccess = { email -> 
-                        authViewModel.loadSession(context)
+                    onAuthSuccess = { email ->
+                        // Вход подтверждён — снимаем блокировку и открываем контент.
+                        authViewModel.completeReauth()
                     }
                 )
             } else if (isPasswordChangeRequired) {

@@ -26,19 +26,43 @@ class AuthViewModelTest {
     private lateinit var viewModel: AuthViewModel
     private val mockApplication = mock(Application::class.java)
 
+    /** Хранилища, раздаваемые мок-контекстом: ключ — имя SharedPreferences. */
+    private val prefs = mutableMapOf<String, InMemorySharedPreferences>()
+
     @Before
     fun setup() {
-        // AuthViewModel при создании читает сохраненные данные входа и сессию из SharedPreferences.
-        // Пустое хранилище = пользователь не авторизован, сетевых запросов не будет.
-        val prefs = mutableMapOf<String, InMemorySharedPreferences>()
-        `when`(mockApplication.getSharedPreferences(anyString(), anyInt())).thenAnswer { invocation ->
-            prefs.getOrPut(invocation.getArgument(0)) { InMemorySharedPreferences() }
-        }
         // Строки из ресурсов: у мок-Application нет resources, поэтому отдаём заглушку.
         val mockResources = mock(android.content.res.Resources::class.java)
         `when`(mockResources.getString(anyInt())).thenReturn("test_string")
         `when`(mockApplication.resources).thenReturn(mockResources)
-        viewModel = AuthViewModel(mockApplication)
+        viewModel = createViewModel()
+    }
+
+    /**
+     * Создаёт ViewModel поверх prefs, наполненных в тесте.
+     * Нужно для cold start: состояние сессии читается в конструкторе,
+     * поэтому заполнять хранилище надо ДО создания ViewModel.
+     */
+    private fun createViewModel(): AuthViewModel {
+        `when`(mockApplication.getSharedPreferences(anyString(), anyInt())).thenAnswer { invocation ->
+            prefs.getOrPut(invocation.getArgument(0)) { InMemorySharedPreferences() }
+        }
+        return AuthViewModel(mockApplication)
+    }
+
+    /** Записывает значения в prefs так же, как это делает реальный код. */
+    private fun seed(name: String, vararg pairs: Pair<String, Any?>) {
+        val editor = prefs.getOrPut(name) { InMemorySharedPreferences() }.edit()
+        pairs.forEach { (key, value) ->
+            when (value) {
+                is String -> editor.putString(key, value)
+                is Long -> editor.putLong(key, value)
+                is Int -> editor.putInt(key, value)
+                is Boolean -> editor.putBoolean(key, value)
+                else -> editor.remove(key)
+            }
+        }
+        editor.commit()
     }
 
     @Test
@@ -142,5 +166,106 @@ class AuthViewModelTest {
         viewModel.dismissPinChange { dismissed = true }
         assertTrue(dismissed)
         assertFalse(viewModel.pendingPinSetup.value)
+    }
+
+    // --- Холодный старт: после выгрузки приложения вход подтверждается ---
+
+    @Test
+    fun testColdStart_NoSession_NoReauth() {
+        // Сессии нет (первый запуск) — обычный экран входа, блокировки нет.
+        assertFalse(viewModel.reauthRequired.value)
+        assertTrue(viewModel.isSessionLoaded.value)
+    }
+
+    @Test
+    fun testColdStart_SessionWithPin_RequiresReauth() {
+        // Есть токен и PIN — в приложение не пускаем, ждём PIN/биометрию/пароль.
+        seed(
+            "auth_prefs",
+            "user_session_token" to "jwt_token_123",
+            "user_session_email" to "user@test.com"
+        )
+        seed(
+            "pin_prefs",
+            "pin_hash" to "hash",
+            "pin_salt" to "salt",
+            "pin_account" to "user@test.com"
+        )
+        val vm = createViewModel()
+        assertTrue(vm.reauthRequired.value)
+        assertTrue(vm.isSessionLoaded.value)
+        assertNull(vm.currentUserEmail.value)
+    }
+
+    @Test
+    fun testColdStart_SessionWithPasswordOnly_RequiresReauth() {
+        // PIN нет, но есть сохранённый пароль — подтвердить вход тоже нужно.
+        seed(
+            "auth_prefs",
+            "user_session_token" to "jwt_token_123",
+            "user_session_email" to "user@test.com"
+        )
+        seed(
+            "auth_credentials",
+            "saved_email" to "user@test.com",
+            "saved_password" to "secret"
+        )
+        val vm = createViewModel()
+        assertTrue(vm.reauthRequired.value)
+    }
+
+    @Test
+    fun testColdStart_GuestKeepsSession() {
+        // Гость: подтверждать вход нечем, доступ не теряем.
+        seed("auth_prefs", "user_session_token" to "guest_token")
+        val vm = createViewModel()
+        assertFalse(vm.reauthRequired.value)
+    }
+
+    @Test
+    fun testColdStart_SessionWithoutPinAndPassword_Restores() {
+        // Вход был по коду из письма: ни PIN, ни пароля — сессию восстанавливаем.
+        seed(
+            "auth_prefs",
+            "user_session_token" to "jwt_token_123",
+            "user_session_email" to "user@test.com"
+        )
+        val vm = createViewModel()
+        assertFalse(vm.reauthRequired.value)
+    }
+
+    @Test
+    fun testCompleteReauth_OpensApp() {
+        seed(
+            "auth_prefs",
+            "user_session_token" to "jwt_token_123",
+            "user_session_email" to "user@test.com"
+        )
+        seed("pin_prefs", "pin_hash" to "hash", "pin_salt" to "salt", "pin_account" to "user@test.com")
+        val vm = createViewModel()
+        assertTrue(vm.reauthRequired.value)
+        vm.completeReauth()
+        assertFalse(vm.reauthRequired.value)
+    }
+
+    @Test
+    fun testCompleteReauth_KeepsSessionAfterPinLogin() {
+        // После подтверждения входа PIN флаг снят — приложение открыто,
+        // повторно логиниться на сервер не нужно.
+        seed(
+            "auth_prefs",
+            "user_session_token" to "jwt_token_123",
+            "user_session_email" to "user@test.com"
+        )
+        seed("pin_prefs", "pin_hash" to "hash", "pin_salt" to "salt", "pin_account" to "user@test.com")
+        val vm = createViewModel()
+        assertTrue(vm.reauthRequired.value)
+        vm.completeReauth()
+        assertFalse(vm.reauthRequired.value)
+        // Сессионный токен не тронут — при следующей выгрузке потребуется новый вход.
+        assertEquals(
+            "jwt_token_123",
+            prefs["auth_prefs"]!!.getString("user_session_token", null)
+        )
     }
 }

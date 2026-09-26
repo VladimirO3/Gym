@@ -86,6 +86,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _isSessionLoaded = mutableStateOf(false)
     val isSessionLoaded: State<Boolean> = _isSessionLoaded
 
+    /**
+     * Сессия сохранена, но после холодного старта приложения ещё не подтверждена:
+     * контент открывается только после PIN, отпечатка или пароля.
+     */
+    private val _reauthRequired = mutableStateOf(false)
+    val reauthRequired: State<Boolean> = _reauthRequired
+
     // --- Быстрый вход по PIN-коду из 4 цифр ---
     private val _pinMode = mutableStateOf(false)
     val pinMode: State<Boolean> = _pinMode
@@ -393,7 +400,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         loadCredentials()
-        loadSession(getApplication())
+        // Холодный старт: зарегистрированный пользователь входит по PIN/биометрии/паролю.
+        startColdStart(getApplication())
     }
 
     fun signInWithBiometrics(onSuccess: (String) -> Unit, onNeedPassword: () -> Unit = {}) {
@@ -433,6 +441,63 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _password.value = ""
         _confirmPassword.value = ""
         _privacyAgreed.value = false
+    }
+
+    /**
+     * Холодный старт приложения (процесс выгружен, пользователь вернулся).
+     *
+     * Зарегистрированный пользователь НЕ попадает в приложение по сохранённому
+     * токену: вход подтверждается PIN-кодом, отпечатком/лицом или паролем.
+     * Гость (у него нет ни PIN, ни пароля) и случай без возможности подтвердить
+     * вход восстанавливают сессию как раньше — иначе пользователь потерял бы доступ.
+     */
+    fun startColdStart(context: Context) {
+        val sharedPref = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+        val savedToken = sharedPref.getString("user_session_token", null)
+
+        if (savedToken.isNullOrBlank()) {
+            // Сессии нет — обычный первый вход или регистрация.
+            _isSessionLoaded.value = true
+            return
+        }
+        if (savedToken == "guest_token") {
+            // У гостя нет ни PIN, ни пароля — подтверждать вход нечем.
+            loadSession(context)
+            return
+        }
+
+        val account = savedAccount(context)
+        val canConfirmByPin = account.isNotBlank() && PinHelper.isPinForAccount(context, account)
+        if (canConfirmByPin || hasSavedCredentials()) {
+            // Токен сохранён, но контент откроется только после PIN/биометрии/пароля.
+            Log.d("AuthViewModel", "Cold start: re-auth required for $account")
+            _reauthRequired.value = true
+            _isSessionLoaded.value = true
+            return
+        }
+
+        // Подтвердить вход нечем (например, вход был по коду из письма без пароля) —
+        // восстанавливаем сессию, чтобы пользователь не потерял доступ к аккаунту.
+        Log.d("AuthViewModel", "Cold start: no PIN/password, restoring session")
+        loadSession(context)
+    }
+
+    /**
+     * Вход подтверждён (PIN / биометрия / пароль) — открываем приложение.
+     *
+     * Сессионный токен из prefs не трогаем: он уже сохранён, повторный
+     * сетевой вход не нужен, достаточно снять флаг блокировки.
+     */
+    fun completeReauth() {
+        _reauthRequired.value = false
+    }
+
+    /** Логин сохранённой сессии: из auth_prefs, иначе из pin/credentials. */
+    private fun savedAccount(context: Context): String {
+        val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+        val email = prefs.getString("user_session_email", null).orEmpty()
+        val phone = prefs.getString("user_session_phone", null).orEmpty()
+        return email.ifBlank { phone }.ifBlank { pinLoginAccount(context) }
     }
 
     fun loadSession(context: Context) {
@@ -483,6 +548,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _currentUserRole.value = role
         _currentUserEmail.value = email
         if (uid != null) _currentUid.value = uid
+        // Вход подтверждён (PIN/биометрия/пароль) — контент приложения открыт.
+        _reauthRequired.value = false
         
         Log.d("AuthViewModel", "Session updated in memory: email=$email, role=$role")
 
@@ -1144,6 +1211,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _pendingPinSetup.value = false
         _currentUid.value = ""
         _isGuest.value = false
+        _reauthRequired.value = false
         _isSessionLoaded.value = true // После выхода сессия "загружена" (её нет)
         clearSession(getApplication())
     }
