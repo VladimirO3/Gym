@@ -296,6 +296,7 @@
     <string name="pin_login_button">Войти по PIN</string>
     <string name="pin_use_password">Войти по паролю</string>
     <string name="pin_forgot">Забыли PIN? Войти по паролю</string>
+    <string name="pin_delete_digit">Удалить последнюю цифру</string>
     <string name="pin_enter_4_digits">Введите 4 цифры</string>
     <string name="pin_mismatch">PIN-коды не совпадают, попробуйте ещё раз</string>
     <string name="pin_wrong">Неверный PIN, попробуйте ещё раз</string>

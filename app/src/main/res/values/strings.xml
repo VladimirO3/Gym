@@ -296,6 +296,7 @@
     <string name="pin_login_button">Login with PIN</string>
     <string name="pin_use_password">Login with password</string>
     <string name="pin_forgot">Forgot PIN? Login with password</string>
+    <string name="pin_delete_digit">Delete last digit</string>
     <string name="pin_enter_4_digits">Enter 4 digits</string>
     <string name="pin_mismatch">PIN codes do not match, try again</string>
     <string name="pin_wrong">Wrong PIN, try again</string>

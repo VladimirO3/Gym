@@ -106,7 +106,7 @@ fun AuthScreen(
     val hasPinLogin = remember(isLogin, isRegisteredUser, otpEmail, otpPhone, pinSetupAccount, pendingPinSetup) {
         isLogin && isRegisteredUser && viewModel.hasPinForCurrentAccount(context)
     }
-    val showPinLogin = isLogin && isRegisteredUser && hasPinLogin && pinMode
+    val showPinLogin = isLogin && isRegisteredUser && hasPinLogin && pinMode && !pinExpired
     // PIN нужно менять каждые 7 дней: если срок вышел — сразу просим задать новый.
     // Из диалога можно уйти на вход по паролю, но сам просроченный PIN не сработает.
     LaunchedEffect(isLogin, isRegisteredUser, hasPinLogin) {
@@ -118,11 +118,37 @@ fun AuthScreen(
             }
         }
     }
-    // Смена пользователя/режима — снова пробуем биометрию первой,
-    // PIN-режим сбрасываем (показываем обычную форму входа).
-    LaunchedEffect(isLogin, registeredMethod) {
+    // Смена пользователя/режима: если задан действующий PIN — сразу открываем
+    // отдельный экран ввода PIN, иначе обычную форму входа.
+    LaunchedEffect(isLogin, registeredMethod, hasPinLogin) {
         biometricFailed = false
-        if (pinMode) viewModel.setPinMode(false)
+        val usePin = isLogin && isRegisteredUser && hasPinLogin && !PinHelper.isPinExpired(context)
+        if (usePin != pinMode) viewModel.setPinMode(usePin)
+    }
+    // Вход по биометрии с любого экрана: по кнопке «Вход» и по кнопке отпечатка.
+    val biometricLaunchFailedText = stringResource(R.string.biometric_launch_failed)
+    val launchBiometric: (onFallback: () -> Unit) -> Unit = { onFallback ->
+        val activity = context as? FragmentActivity
+        if (activity == null) {
+            Toast.makeText(context, biometricLaunchFailedText, Toast.LENGTH_SHORT).show()
+            onFallback()
+        } else {
+            BiometricHelper.showBiometricPrompt(
+                activity = activity,
+                onSuccess = {
+                    viewModel.signInWithBiometrics(
+                        onSuccess = { onAuthSuccess(it) },
+                        onNeedPassword = { biometricFailed = true }
+                    )
+                },
+                onError = { err ->
+                    biometricFailed = true
+                    Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                    onFallback()
+                },
+                onCancel = { /* остаёмся на том же экране */ }
+            )
+        }
     }
     
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
@@ -132,6 +158,31 @@ fun AuthScreen(
 
     if (showAgreement) {
         AgreementDialog(onDismiss = { showAgreement = false })
+    }
+
+    // Задан действующий PIN — показываем отдельный экран ввода PIN
+    // (крупные красные кнопки-цифры + кнопка отпечатка), вместо формы входа.
+    if (showPinLogin) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            PinLoginScreen(
+                pinValue = pinValue,
+                error = error,
+                isLoading = isLoading,
+                biometricAvailable = autoBiometricLogin,
+                onPinChange = { viewModel.onPinChange(it) },
+                onSubmit = {
+                    viewModel.signInWithPin(
+                        context,
+                        onSuccess = { onAuthSuccess(it) },
+                        onNeedPassword = { viewModel.setPinMode(false) },
+                        onPinExpired = { /* диалог смены PIN уже открыт в VM */ }
+                    )
+                },
+                onBiometric = { launchBiometric { viewModel.setPinMode(false) } },
+                onUsePassword = { viewModel.setPinMode(false) }
+            )
+        }
+        return
     }
 
     Box(modifier = Modifier.fillMaxSize().imePadding()) {
@@ -434,61 +485,9 @@ fun AuthScreen(
 
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(32.dp), color = Color.Red)
-            } else if (showPinLogin) {
-                // Быстрый вход по PIN из 4 цифр (PIN привязан к сохранённому логину).
-                OutlinedTextField(
-                    value = pinValue,
-                    onValueChange = { viewModel.onPinChange(it) },
-                    label = { Text(stringResource(R.string.pin_enter)) },
-                    modifier = contentModifier,
-                    singleLine = true,
-                    enabled = !isLoading,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        focusedLabelColor = Color.Red,
-                        focusedBorderColor = Color.Red
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = {
-                        viewModel.signInWithPin(
-                            context,
-                            onSuccess = { onAuthSuccess(it) },
-                            onNeedPassword = { viewModel.setPinMode(false) },
-                            onPinExpired = { /* диалог смены PIN уже открыт в VM */ }
-                        )
-                    },
-                    modifier = contentModifier.height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                ) {
-                    Text(
-                        stringResource(R.string.pin_login_button),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                TextButton(
-                    onClick = { viewModel.setPinMode(false) },
-                    modifier = contentModifier
-                ) {
-                    Text(stringResource(R.string.pin_forgot), color = Color.Gray)
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
             } else {
                 val loginButtonText = stringResource(R.string.auth_login_password)
                 val registerButtonText = stringResource(R.string.auth_register).uppercase()
-                val biometricLaunchFailedText = stringResource(R.string.biometric_launch_failed)
                 Button(
                     onClick = {
                         if (isLogin) {
@@ -496,31 +495,11 @@ fun AuthScreen(
                                 // Приоритет — автоматический отпечаток/лицо.
                                 // Не сработала — уходим в PIN (если задан) или в пароль.
                                 // Отмена диалога — остаёмся на экране входа.
-                                val activity = context as? FragmentActivity
-                                if (activity != null) {
-                                    BiometricHelper.showBiometricPrompt(
-                                        activity = activity,
-                                        onSuccess = {
-                                            viewModel.signInWithBiometrics(
-                                                onSuccess = { onAuthSuccess(it) },
-                                                onNeedPassword = { biometricFailed = true }
-                                            )
-                                        },
-                                        onError = { err ->
-                                            biometricFailed = true
-                                            if (hasPinLogin) viewModel.setPinMode(true)
-                                            Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
-                                        },
-                                        onCancel = { /* остаёмся на вводе */ }
-                                    )
-                                } else {
-                                    // Activity недоступна — PIN или обычный вход по паролю.
-                                    biometricFailed = true
+                                launchBiometric {
                                     if (hasPinLogin) viewModel.setPinMode(true)
-                                    else Toast.makeText(context, biometricLaunchFailedText, Toast.LENGTH_SHORT).show()
                                 }
-                            } else if (hasPinLogin && !pinMode) {
-                                // PIN задан, биометрия не разрешена — открываем быстрый вход по PIN.
+                            } else if (hasPinLogin) {
+                                // PIN задан, биометрия не разрешена — открываем экран ввода PIN.
                                 viewModel.setPinMode(true)
                             } else {
                                 viewModel.signInWithEmail { onAuthSuccess(it) }
@@ -548,24 +527,6 @@ fun AuthScreen(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
-                if (isLogin && isRegisteredUser && hasPinLogin && !pinMode) {
-                    // Есть сохранённый PIN — предлагаем быстрый вход вместо пароля.
-                    OutlinedButton(
-                        onClick = { viewModel.setPinMode(true) },
-                        modifier = contentModifier.height(50.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.Red)
-                    ) {
-                        Text(
-                            stringResource(R.string.pin_login_button),
-                            color = MaterialTheme.colorScheme.onBackground,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
 
                 if (isLogin) {
                     OutlinedButton(
