@@ -285,6 +285,7 @@
     <string name="biometric_prompt_title">Вход в Gym</string>
     <string name="biometric_prompt_subtitle">Подтвердите личность отпечатком пальца или лицом</string>
     <string name="biometric_not_recognized">Биометрия не совпадает</string>
+    <string name="biometric_login_hint">Нажмите «Вход» — автоматически откроется проверка отпечатка или лица</string>
     <string name="biometric_login_button">Вход по отпечатку / лицу</string>
     <string name="biometric_no_saved_data">Нет сохраненных данных для входа по биометрии. Пожалуйста, войдите по паролю.</string>
 

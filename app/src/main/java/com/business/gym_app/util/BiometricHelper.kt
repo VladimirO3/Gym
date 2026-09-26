@@ -48,7 +48,8 @@ object BiometricHelper {
         subtitle: String? = null,
         negativeButtonText: String? = null,
         onSuccess: () -> Unit,
-        onError: (String) -> Unit
+        onError: (String) -> Unit,
+        onCancel: () -> Unit = {}
     ) {
         val res = AppLanguage.localized(activity).resources
         val promptTitle = title ?: res.getString(R.string.biometric_prompt_title)
@@ -67,7 +68,12 @@ object BiometricHelper {
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
-                    if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                    if (errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
+                        errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
+                        errorCode == BiometricPrompt.ERROR_CANCELED
+                    ) {
+                        onCancel()
+                    } else {
                         onError(errString.toString())
                     }
                 }

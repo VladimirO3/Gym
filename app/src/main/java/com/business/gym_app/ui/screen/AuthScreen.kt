@@ -1,7 +1,6 @@
 package com.business.gym_app.ui.screen
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -60,9 +58,32 @@ fun AuthScreen(
     val isRegisteredUser = !registeredMethod.isNullOrBlank() || viewModel.hasSavedCredentials()
 
     val context = LocalContext.current
-    val biometricLaunchFailedText = stringResource(R.string.biometric_launch_failed)
     var passwordVisible by remember { mutableStateOf(false) }
     var showAgreement by remember { mutableStateOf(false) }
+    // Если биометрия не сработала — показываем пароль для ручного ввода.
+    var biometricFailed by remember { mutableStateOf(false) }
+    // Разрешение на вход по биометрии хранится в профиле (Settings → тумблер).
+    // Читаем флаг реактивно: после включения/выключения в профиле экран входа
+    // сразу начнёт (или перестанет) предлагать биометрию.
+    val biometricPrefs = remember(context) {
+        context.getSharedPreferences("biometric_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    var biometricAllowed by remember { mutableStateOf(biometricPrefs.getBoolean("biometric_enabled", false)) }
+    DisposableEffect(biometricPrefs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "biometric_enabled") {
+                biometricAllowed = biometricPrefs.getBoolean("biometric_enabled", false)
+            }
+        }
+        biometricPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { biometricPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    val biometricAvailable = remember(context) { BiometricHelper.canAuthenticate(context) }
+    // Автовход по биометрии: только для зарегистрированного пользователя,
+    // нажавшего «Вход», пока биометрия ещё не падала.
+    val autoBiometricLogin = isLogin && isRegisteredUser && biometricAllowed && biometricAvailable && !biometricFailed
+    // Смена пользователя/режима — снова пробуем биометрию первой.
+    LaunchedEffect(isLogin, registeredMethod) { biometricFailed = false }
     
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp > 600
@@ -94,6 +115,10 @@ fun AuthScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             if (isLogin) {
+                // Зарегистрированный пользователь: логин фиксирован (email или телефон),
+                // режим менять нельзя. Биометрия срабатывает автоматически по кнопке «Вход»,
+                // пароль просим только если биометрия не сработала.
+                val useBiometricFirst = autoBiometricLogin
                 if (registeredMethod == "email") {
                     LaunchedEffect(Unit) {
                         viewModel.setAuthMode("email")
@@ -192,8 +217,17 @@ fun AuthScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-                
+                // Пароль показываем либо новым пользователям, либо после неуспешной биометрии.
+                if (useBiometricFirst) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(R.string.biometric_login_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center,
+                        modifier = contentModifier
+                    )
+                } else {
                 OutlinedTextField(
                     value = password,
                     onValueChange = { viewModel.onPasswordChange(it) },
@@ -215,6 +249,7 @@ fun AuthScreen(
                         focusedBorderColor = Color.Red
                     )
                 )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
             } else {
@@ -359,10 +394,40 @@ fun AuthScreen(
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(32.dp), color = Color.Red)
             } else {
+                val loginButtonText = stringResource(R.string.auth_login_password)
+                val registerButtonText = stringResource(R.string.auth_register).uppercase()
+                val biometricLaunchFailedText = stringResource(R.string.biometric_launch_failed)
                 Button(
                     onClick = {
                         if (isLogin) {
-                            viewModel.signInWithEmail { onAuthSuccess(it) }
+                            if (autoBiometricLogin) {
+                                // У пользователя в профиле разрешён вход по отпечатку/лицу:
+                                // пробуем биометрию сразу. Не сработала — покажем поле пароля.
+                                // Отмена диалога — остаёмся на экране входа без входа по паролю.
+                                val activity = context as? FragmentActivity
+                                if (activity != null) {
+                                    BiometricHelper.showBiometricPrompt(
+                                        activity = activity,
+                                        onSuccess = {
+                                            viewModel.signInWithBiometrics(
+                                                onSuccess = { onAuthSuccess(it) },
+                                                onNeedPassword = { biometricFailed = true }
+                                            )
+                                        },
+                                        onError = { err ->
+                                            biometricFailed = true
+                                            Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                                        },
+                                        onCancel = { /* остаёмся на вводе, пароль пока не требуем */ }
+                                    )
+                                } else {
+                                    // Activity недоступна — падаем назад на обычный вход по паролю.
+                                    biometricFailed = true
+                                    Toast.makeText(context, biometricLaunchFailedText, Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                viewModel.signInWithEmail { onAuthSuccess(it) }
+                            }
                         } else {
                             viewModel.signUpWithEmail { onAuthSuccess(it) }
                         }
@@ -376,7 +441,7 @@ fun AuthScreen(
                     )
                 ) {
                     Text(
-                        if (isLogin) stringResource(R.string.auth_login_password) else stringResource(R.string.auth_register).uppercase(),
+                        if (isLogin) loginButtonText else registerButtonText,
                         color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
@@ -384,47 +449,7 @@ fun AuthScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (isLogin && isRegisteredUser) {
-                    val canUseBiometrics = remember(context) { BiometricHelper.canAuthenticate(context) }
-                    if (canUseBiometrics) {
-                        OutlinedButton(
-                            onClick = {
-                                val activity = context as? FragmentActivity
-                                if (activity != null) {
-                                    BiometricHelper.showBiometricPrompt(
-                                        activity = activity,
-                                        onSuccess = {
-                                            viewModel.signInWithBiometrics { onAuthSuccess(it) }
-                                        },
-                                        onError = { err ->
-                                            Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
-                                        }
-                                    )
-                                } else {
-                                    Toast.makeText(context, biometricLaunchFailedText, Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            modifier = contentModifier.height(50.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, Color.Red)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Fingerprint,
-                                contentDescription = stringResource(R.string.fingerprint_face),
-                                tint = Color.Red,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(R.string.biometric_login_button),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
-
+                if (isLogin) {
                     OutlinedButton(
                         onClick = { 
                             viewModel.loginAsGuest { onAuthSuccess(AuthViewModel.GUEST_EMAIL) }

@@ -170,12 +170,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         return emailToUse.isNotBlank() && passToUse.isNotBlank()
     }
 
-    fun saveCredentials(email: String, pass: String, method: String = "email") {
+    fun saveCredentials(email: String, pass: String, method: String = "email", phone: String = "") {
         val sharedPref = getApplication<Application>().getSharedPreferences("auth_credentials", Context.MODE_PRIVATE)
         sharedPref.edit().apply {
             putString("saved_email", email)
             putString("saved_password", pass)
             putString("registered_method", method)
+            if (phone.isNotBlank()) putString("saved_phone", phone)
             apply()
         }
         _registeredMethod.value = method
@@ -188,6 +189,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val sharedPref = getApplication<Application>().getSharedPreferences("auth_credentials", Context.MODE_PRIVATE)
         val savedEmail = sharedPref.getString("saved_email", "") ?: ""
         val savedPassword = sharedPref.getString("saved_password", "") ?: ""
+        val savedPhone = sharedPref.getString("saved_phone", "") ?: ""
         val savedMethod = sharedPref.getString("registered_method", null)
             ?: if (savedEmail.isNotBlank()) "email" else null
 
@@ -201,6 +203,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             _password.value = savedPassword
             if (isStaticAdmin(savedEmail) || savedPassword.isNotBlank()) _isPasswordMode.value = true
         }
+        if (savedPhone.isNotBlank()) {
+            _otpPhone.value = savedPhone
+        }
     }
 
     init {
@@ -208,12 +213,19 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         loadSession(getApplication())
     }
 
-    fun signInWithBiometrics(onSuccess: (String) -> Unit) {
-        val emailToUse = _email.value.ifBlank { _otpEmail.value }
+    fun signInWithBiometrics(onSuccess: (String) -> Unit, onNeedPassword: () -> Unit = {}) {
+        val mode = _authMode.value.ifBlank { _registeredMethod.value.orEmpty() }
+        val emailToUse = when {
+            mode == "phone" -> _otpPhone.value
+            _email.value.isNotBlank() -> _email.value
+            else -> _otpEmail.value
+        }
         val passToUse = _password.value
         
         if (emailToUse.isBlank() || passToUse.isBlank()) {
             _error.value = res.getString(R.string.biometric_no_saved_data)
+            // Нет сохранённого пароля — биометрия невозможна, дальше только ручной ввод.
+            onNeedPassword()
             return
         }
         signInWithEmail(onSuccess)
@@ -436,7 +448,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     ) "admin" else "user"
 
                     saveSession(getApplication(), profile.email, if (_authMode.value == "phone") identifier else null, token, refresh, profileUid, resolvedRole)
-                    saveCredentials(if (_authMode.value == "email") identifier else profile.email, passwordValue)
+                    saveCredentials(
+                        if (_authMode.value == "email") identifier else profile.email,
+                        passwordValue,
+                        _authMode.value.ifBlank { "email" },
+                        if (_authMode.value == "phone") identifier else ""
+                    )
 
                     _jwtToken.value = token
                     _refreshToken.value = refresh
@@ -454,7 +471,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         val fallbackUid = "1"
                         
                         saveSession(getApplication(), identifier, if (_authMode.value == "phone") identifier else null, token, refresh, fallbackUid, "admin")
-                        saveCredentials(identifier, passwordValue)
+                        saveCredentials(
+                            identifier,
+                            passwordValue,
+                            _authMode.value.ifBlank { "email" },
+                            if (_authMode.value == "phone") identifier else ""
+                        )
 
                         _jwtToken.value = token
                         _refreshToken.value = refresh
@@ -477,7 +499,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                             fallbackUid,
                             "user"
                         )
-                        saveCredentials(identifier, passwordValue)
+                        saveCredentials(
+                            identifier,
+                            passwordValue,
+                            _authMode.value.ifBlank { "email" },
+                            if (_authMode.value == "phone") identifier else ""
+                        )
                         _jwtToken.value = token
                         _refreshToken.value = refresh
                         _currentUserEmail.value = identifier
