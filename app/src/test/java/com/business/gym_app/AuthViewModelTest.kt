@@ -125,6 +125,16 @@ class AuthViewModelTest {
     }
 
     @Test
+    fun testDismissPinChange_BlockedWhenRequired() {
+        // Зарегистрирован без PIN — вход только по PIN/биометрии, диалог не закрыть.
+        viewModel.requestPinSetup("user@test.com", AuthViewModel.PinChangeReason.REQUIRED)
+        var dismissed = false
+        viewModel.dismissPinChange { dismissed = true }
+        assertFalse(dismissed)
+        assertTrue(viewModel.pendingPinSetup.value)
+    }
+
+    @Test
     fun testDismissPinChange_AllowedWhenManual() {
         // Ручная смена / напоминание — можно отложить.
         viewModel.requestPinSetup("user@test.com", AuthViewModel.PinChangeReason.EXPIRING_SOON)

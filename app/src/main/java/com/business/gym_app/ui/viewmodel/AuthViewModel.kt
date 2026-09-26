@@ -108,7 +108,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _pinChangeReason = mutableStateOf(PinChangeReason.MANUAL)
     val pinChangeReason: State<PinChangeReason> = _pinChangeReason
 
-    enum class PinChangeReason { MANUAL, EXPIRED, EXPIRING_SOON }
+    enum class PinChangeReason { MANUAL, EXPIRED, EXPIRING_SOON, REQUIRED }
 
     private val _pinAccount = mutableStateOf("")
     val pinAccount: State<String> = _pinAccount
@@ -252,6 +252,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Закрыть диалог смены PIN без сохранения (только если срок не истёк). */
     fun dismissPinChange(onDismissed: () -> Unit = {}) {
+        // REQUIRED — PIN обязателен для входа, закрыть диалог нельзя.
+        if (_pinChangeReason.value == PinChangeReason.REQUIRED) {
+            _error.value = res.getString(R.string.pin_create_required)
+            return
+        }
         if (_pinChangeReason.value == PinChangeReason.EXPIRED || _pinExpired.value) {
             // Просроченный PIN закрыть нельзя — сначала задайте новый.
             _error.value = res.getString(R.string.pin_expired)

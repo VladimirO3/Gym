@@ -296,6 +296,11 @@
     <string name="pin_login_button">Login with PIN</string>
     <string name="pin_use_password">Login with password</string>
     <string name="pin_forgot">Forgot PIN? Login with password</string>
+    <string name="pin_login_hint">Log in with your PIN or fingerprint. Your password is not required.</string>
+    <string name="pin_back_to_pin">Log in with PIN</string>
+    <string name="pin_create_required">A PIN is required to log in — create it to continue</string>
+    <string name="pin_create_required_title">Create a PIN to continue</string>
+    <string name="pin_create_required_subtitle">To log in you need a 4-digit PIN or biometrics. Create your PIN now</string>
     <string name="pin_delete_digit">Delete last digit</string>
     <string name="pin_enter_4_digits">Enter 4 digits</string>
     <string name="pin_mismatch">PIN codes do not match, try again</string>

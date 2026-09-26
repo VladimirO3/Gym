@@ -80,6 +80,9 @@ fun AuthScreen(
     var showAgreement by remember { mutableStateOf(false) }
     // Если биометрия не сработала — показываем пароль для ручного ввода.
     var biometricFailed by remember { mutableStateOf(false) }
+    // Зарегистрированный пользователь входит по PIN или биометрии.
+    // Поле пароля появляется только если он забыл PIN (ссылка «Забыли PIN?»).
+    var showPasswordFallback by remember { mutableStateOf(false) }
     // Разрешение на вход по биометрии хранится в профиле (Settings → тумблер).
     // Читаем флаг реактивно: после включения/выключения в профиле экран входа
     // сразу начнёт (или перестанет) предлагать биометрию.
@@ -107,6 +110,16 @@ fun AuthScreen(
         isLogin && isRegisteredUser && viewModel.hasPinForCurrentAccount(context)
     }
     val showPinLogin = isLogin && isRegisteredUser && hasPinLogin && pinMode && !pinExpired
+    // Зарегистрированный пользователь без PIN обязан его создать — вход только по PIN
+    // или по биометрии. Диалог нельзя закрыть: пока PIN не задан, пароль недоступен.
+    LaunchedEffect(isLogin, isRegisteredUser, hasPinLogin) {
+        if (isLogin && isRegisteredUser && !hasPinLogin && !pendingPinSetup) {
+            val account = viewModel.pinLoginAccount(context)
+            if (account.isNotBlank() && viewModel.hasSavedCredentials()) {
+                viewModel.requestPinSetup(account, AuthViewModel.PinChangeReason.REQUIRED)
+            }
+        }
+    }
     // PIN нужно менять каждые 7 дней: если срок вышел — сразу просим задать новый.
     // Из диалога можно уйти на вход по паролю, но сам просроченный PIN не сработает.
     LaunchedEffect(isLogin, isRegisteredUser, hasPinLogin) {
@@ -206,10 +219,10 @@ fun AuthScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             if (isLogin) {
-                // Зарегистрированный пользователь: логин фиксирован (email или телефон),
-                // режим менять нельзя. Биометрия срабатывает автоматически по кнопке «Вход»,
-                // пароль просим только если биометрия не сработала.
+                // Зарегистрированный пользователь входит по PIN или биометрии.
+                // Поле пароля нужно только если он забыл PIN.
                 val useBiometricFirst = autoBiometricLogin
+                val showPasswordField = !isRegisteredUser || showPasswordFallback
                 if (registeredMethod == "email") {
                     LaunchedEffect(Unit) {
                         viewModel.setAuthMode("email")
@@ -308,42 +321,69 @@ fun AuthScreen(
                     }
                 }
 
-                // Пароль всегда виден на экране входа; при включённой биометрии
-                // сверху показываем подсказку про автовход по отпечатку/лицу.
-                if (useBiometricFirst) {
+                // Пароль показываем новому пользователю всегда, а зарегистрированному —
+                // только если он забыл PIN. Иначе вход идёт по PIN/биометрии.
+                if (showPasswordField) {
+                    if (useBiometricFirst) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = stringResource(R.string.biometric_login_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center,
+                            modifier = contentModifier
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { viewModel.onPasswordChange(it) },
+                        label = { Text(stringResource(R.string.auth_password_hint)) },
+                        modifier = contentModifier,
+                        singleLine = true,
+                        enabled = !isLoading,
+                        visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(imageVector = image, contentDescription = null)
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            focusedLabelColor = Color.Red,
+                            focusedBorderColor = Color.Red
+                        )
+                    )
+
+                    if (isRegisteredUser) {
+                        // Пароль уже введён — можно вернуться к входу по PIN.
+                        TextButton(onClick = { showPasswordFallback = false }) {
+                            Text(stringResource(R.string.pin_back_to_pin), color = Color.Gray)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                } else {
+                    // Зарегистрированный пользователь: подсказка, как войти.
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = stringResource(R.string.biometric_login_hint),
+                        text = stringResource(
+                            if (hasPinLogin) R.string.pin_login_hint else R.string.pin_create_required
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray,
                         textAlign = TextAlign.Center,
                         modifier = contentModifier
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { viewModel.onPasswordChange(it) },
-                    label = { Text(stringResource(R.string.auth_password_hint)) },
-                    modifier = contentModifier,
-                    singleLine = true,
-                    enabled = !isLoading,
-                    visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                    trailingIcon = {
-                        val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(imageVector = image, contentDescription = null)
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        focusedLabelColor = Color.Red,
-                        focusedBorderColor = Color.Red
-                    )
-                )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    TextButton(onClick = { showPasswordFallback = true }) {
+                        Text(stringResource(R.string.pin_forgot), color = Color.Gray)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
             } else {
                 // РЕГИСТРАЦИЯ
                 Text(
@@ -496,11 +536,20 @@ fun AuthScreen(
                                 // Не сработала — уходим в PIN (если задан) или в пароль.
                                 // Отмена диалога — остаёмся на экране входа.
                                 launchBiometric {
-                                    if (hasPinLogin) viewModel.setPinMode(true)
+                                    when {
+                                        hasPinLogin -> viewModel.setPinMode(true)
+                                        !showPasswordFallback -> showPasswordFallback = true
+                                    }
                                 }
                             } else if (hasPinLogin) {
                                 // PIN задан, биометрия не разрешена — открываем экран ввода PIN.
                                 viewModel.setPinMode(true)
+                            } else if (isRegisteredUser && !showPasswordFallback) {
+                                // Зарегистрирован без PIN — обязательно его создаём.
+                                viewModel.requestPinSetup(
+                                    viewModel.pinLoginAccount(context),
+                                    AuthViewModel.PinChangeReason.REQUIRED
+                                )
                             } else {
                                 viewModel.signInWithEmail { onAuthSuccess(it) }
                             }
@@ -559,6 +608,8 @@ fun AuthScreen(
     }
 
     // Диалог создания/смены PIN: ввод + подтверждение из 4 цифр.
+    // REQUIRED — зарегистрирован без PIN: вход только по PIN/биометрии,
+    //   поэтому диалог нельзя закрыть, а после создания сразу входим.
     // MANUAL — сразу после регистрации («Пропустить» = войти, пользователь зарегистрирован).
     // EXPIRING_SOON — после успешного входа по PIN (вход уже произошёл).
     // EXPIRED — срок 7 дней вышел: вход по PIN не подтверждён, поэтому закрыть можно
@@ -566,6 +617,7 @@ fun AuthScreen(
     if (pendingPinSetup) {
         val pinSavedText = stringResource(R.string.pin_saved)
         val pinExpiredText = stringResource(R.string.pin_expired)
+        val isRequired = pinChangeReason == AuthViewModel.PinChangeReason.REQUIRED
         val isExpiredReason = pinExpired || pinChangeReason == AuthViewModel.PinChangeReason.EXPIRED
         val isManual = pinChangeReason == AuthViewModel.PinChangeReason.MANUAL
         val toastMessage = if (isExpiredReason) pinExpiredText else pinSavedText
@@ -576,7 +628,7 @@ fun AuthScreen(
             onPinChange = { viewModel.onPinChange(it) },
             onPinConfirmChange = { viewModel.onPinConfirmChange(it) },
             onDismiss = {
-                viewModel.dismissPinSetup()
+                viewModel.dismissPinChange()
                 when {
                     isExpiredReason -> viewModel.setPinMode(false) // остаёмся вводить пароль
                     isManual -> onAuthSuccess(pinSetupAccount)
@@ -585,18 +637,32 @@ fun AuthScreen(
             onSave = {
                 viewModel.savePinCode(pinSetupAccount) {
                     Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
-                    if (isExpiredReason) {
-                        // Новый PIN задан — предлагаем продолжить вход по нему.
-                        viewModel.setPinMode(true)
-                    } else {
-                        onAuthSuccess(pinSetupAccount)
+                    when {
+                        isRequired -> {
+                            // PIN создан — сразу входим в приложение.
+                            showPasswordFallback = false
+                            onAuthSuccess(pinSetupAccount)
+                        }
+                        isExpiredReason -> {
+                            // Новый PIN задан — предлагаем продолжить вход по нему.
+                            viewModel.setPinMode(true)
+                        }
+                        else -> onAuthSuccess(pinSetupAccount)
                     }
                 }
             },
             dismissTextRes = if (isExpiredReason) R.string.pin_use_password else R.string.pin_skip,
-            titleRes = if (isManual) R.string.pin_create_title else R.string.pin_change_title,
-            subtitleRes = if (isManual) R.string.pin_create_subtitle else R.string.pin_change_subtitle,
-            dismissible = true
+            titleRes = when {
+                isRequired -> R.string.pin_create_required_title
+                isManual -> R.string.pin_create_title
+                else -> R.string.pin_change_title
+            },
+            subtitleRes = when {
+                isRequired -> R.string.pin_create_required_subtitle
+                isManual -> R.string.pin_create_subtitle
+                else -> R.string.pin_change_subtitle
+            },
+            dismissible = !isRequired
         )
     }
 }
