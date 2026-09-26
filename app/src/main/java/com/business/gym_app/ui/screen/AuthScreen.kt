@@ -217,7 +217,8 @@ fun AuthScreen(
                     }
                 }
 
-                // Пароль показываем либо новым пользователям, либо после неуспешной биометрии.
+                // Пароль всегда виден на экране входа; при включённой биометрии
+                // сверху показываем подсказку про автовход по отпечатку/лицу.
                 if (useBiometricFirst) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
@@ -227,7 +228,8 @@ fun AuthScreen(
                         textAlign = TextAlign.Center,
                         modifier = contentModifier
                     )
-                } else {
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
                 OutlinedTextField(
                     value = password,
                     onValueChange = { viewModel.onPasswordChange(it) },
@@ -249,7 +251,6 @@ fun AuthScreen(
                         focusedBorderColor = Color.Red
                     )
                 )
-                }
 
                 Spacer(modifier = Modifier.height(16.dp))
             } else {
